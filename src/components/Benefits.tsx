@@ -1,7 +1,7 @@
 import { Reveal } from "./Reveal";
 import { Icon } from "./Icons";
 import { BENEFITS } from "../data";
-import crowd from "../assets/crowd.jpg";
+import crowd from "../assets/crowd.webp";
 
 export function Benefits() {
   return (

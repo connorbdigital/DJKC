@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
+import { calendarDate } from "../utils/dates";
 import { Reveal } from "./Reveal";
 import { Icon } from "./Icons";
 import { BOOKING_EMAIL, SOCIALS, TIERS } from "../data";
@@ -17,7 +18,7 @@ interface FormState {
 export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) => void }) {
   const [form, setForm] = useState<FormState>({ name: "", email: "", venue: "", date: "", message: "" });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
-  const [status, setStatus] = useState<"idle" | "sending" | "sent">("idle");
+  const [draft, setDraft] = useState(false);
 
   const set = (k: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -30,18 +31,15 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
     if (!form.name.trim()) er.name = "Tell KC who's asking";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email)) er.email = "That email doesn't look right";
     if (!form.venue.trim()) er.venue = "Venue or event name, please";
+    if (form.date && form.date < calendarDate()) er.date = "Choose today or a future date";
     setErrors(er);
     if (Object.keys(er).length) return;
-    setStatus("sending");
-    window.setTimeout(() => setStatus("sent"), 1100);
+    setDraft(true);
   };
 
-  const reset = () => {
-    setForm({ name: "", email: "", venue: "", date: "", message: "" });
-    setStatus("idle");
-  };
-
-  const today = new Date().toISOString().split("T")[0];
+  const subject = `Booking enquiry: ${form.venue}`;
+  const body = [`Name: ${form.name}`, `Reply to: ${form.email}`, `Venue / event: ${form.venue}`,
+    `Date: ${form.date || "To be confirmed"}`, `Package: ${tier}`, "", form.message].join("\n");
 
   return (
     <section id="book" className="relative overflow-x-clip py-24 sm:py-32">
@@ -114,35 +112,22 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
 
         <Reveal delay={200} scale>
           <div className="ring-grad rounded-[2rem] p-6 sm:p-9">
-            {status === "sent" ? (
-              <div className="flex min-h-[480px] flex-col items-center justify-center text-center" aria-live="polite">
-                <span className="flex h-20 w-20 items-center justify-center rounded-full bg-mint/15 text-mint shadow-[0_0_50px_rgba(62,229,143,0.35)]">
-                  <Icon name="check" className="h-9 w-9" strokeWidth={2.4} />
-                </span>
-                <h3 className="mt-7 font-display text-2xl font-extrabold uppercase">You're on the list.</h3>
-                <p className="mt-3 max-w-sm text-sm leading-relaxed text-dim">
-                  Enquiry received for <strong className="text-ink">{form.venue}</strong>
-                  {form.date ? (
-                    <>
-                      {" "}on <strong className="text-ink">{form.date}</strong>
-                    </>
-                  ) : null}{" "}
-                  — <strong className="text-magenta">{tier}</strong>. KC will reply to{" "}
-                  <strong className="text-ink">{form.email}</strong> within 24 hours.
-                </p>
-                <button
-                  onClick={reset}
-                  className="mt-8 rounded-full border border-white/15 px-6 py-3 text-sm font-bold text-ink transition-all hover:border-magenta/60 hover:text-magenta"
-                >
-                  Send another enquiry
-                </button>
+            {draft ? (
+              <div className="space-y-5">
+                <h3 className="font-display text-xl font-bold">Your enquiry is ready to email.</h3>
+                <p className="text-sm text-dim">Nothing has been sent yet. Open your email app and press Send, or copy these details into a message to {BOOKING_EMAIL}.</p>
+                <textarea autoFocus readOnly aria-label="Enquiry draft" value={body} rows={8} className={inputCls} />
+                <div className="flex flex-wrap gap-4">
+                  <a className="btn-primary rounded-full px-5 py-3 font-bold" href={`mailto:${BOOKING_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}>Open email app</a>
+                  <button onClick={() => setDraft(false)} className="underline">Edit enquiry</button>
+                </div>
               </div>
             ) : (
               <form onSubmit={submit} noValidate>
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="font-display text-lg font-bold uppercase">Booking enquiry</h3>
                   <span className="rounded-full bg-mint/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-mint">
-                    ● 2026 dates open
+                    Email enquiry
                   </span>
                 </div>
 
@@ -157,9 +142,10 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                       onChange={set("name")}
                       placeholder="Alex Doyle"
                       aria-invalid={!!errors.name}
+                      aria-describedby={errors.name ? "bk-name-error" : undefined}
                       className={`${inputCls} ${errors.name ? "border-danger/70" : "border-white/10"}`}
                     />
-                    {errors.name && <p className="mt-1.5 text-xs text-danger">{errors.name}</p>}
+                    {errors.name && <p id="bk-name-error" role="alert" className="mt-1.5 text-xs text-danger">{errors.name}</p>}
                   </div>
                   <div>
                     <label htmlFor="bk-email" className="mb-2 block font-mono text-[10px] uppercase tracking-[0.25em] text-dim">
@@ -172,9 +158,10 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                       onChange={set("email")}
                       placeholder="you@yourvenue.com"
                       aria-invalid={!!errors.email}
+                      aria-describedby={errors.email ? "bk-email-error" : undefined}
                       className={`${inputCls} ${errors.email ? "border-danger/70" : "border-white/10"}`}
                     />
-                    {errors.email && <p className="mt-1.5 text-xs text-danger">{errors.email}</p>}
+                    {errors.email && <p id="bk-email-error" role="alert" className="mt-1.5 text-xs text-danger">{errors.email}</p>}
                   </div>
                   <div>
                     <label htmlFor="bk-venue" className="mb-2 block font-mono text-[10px] uppercase tracking-[0.25em] text-dim">
@@ -186,9 +173,10 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                       onChange={set("venue")}
                       placeholder="The Warehouse · Galway"
                       aria-invalid={!!errors.venue}
+                      aria-describedby={errors.venue ? "bk-venue-error" : undefined}
                       className={`${inputCls} ${errors.venue ? "border-danger/70" : "border-white/10"}`}
                     />
-                    {errors.venue && <p className="mt-1.5 text-xs text-danger">{errors.venue}</p>}
+                    {errors.venue && <p id="bk-venue-error" role="alert" className="mt-1.5 text-xs text-danger">{errors.venue}</p>}
                   </div>
                   <div>
                     <label htmlFor="bk-date" className="mb-2 block font-mono text-[10px] uppercase tracking-[0.25em] text-dim">
@@ -197,11 +185,14 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                     <input
                       id="bk-date"
                       type="date"
-                      min={today}
+                      min={calendarDate()}
+                      aria-invalid={!!errors.date}
+                      aria-describedby={errors.date ? "bk-date-error" : undefined}
                       value={form.date}
                       onChange={set("date")}
                       className={`${inputCls} border-white/10 [color-scheme:dark]`}
                     />
+                    {errors.date && <p id="bk-date-error" role="alert" className="mt-1.5 text-xs text-danger">{errors.date}</p>}
                   </div>
                   <div className="sm:col-span-2">
                     <label htmlFor="bk-tier" className="mb-2 block font-mono text-[10px] uppercase tracking-[0.25em] text-dim">
@@ -243,23 +234,12 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
 
                 <button
                   type="submit"
-                  disabled={status === "sending"}
-                  className="btn-primary mt-7 flex w-full items-center justify-center gap-2.5 rounded-full py-4 text-base font-bold text-white disabled:opacity-70"
+                  className="btn-primary mt-7 w-full rounded-full py-4 text-base font-bold text-white"
                 >
-                  {status === "sending" ? (
-                    <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
-                      Sending…
-                    </>
-                  ) : (
-                    <>
-                      Send enquiry
-                      <Icon name="send" className="h-4 w-4" />
-                    </>
-                  )}
+                  Prepare email enquiry →
                 </button>
                 <p className="mt-4 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
-                  No spam. No obligation. Just a fast, honest reply.
+                  Review your draft, then send it from your email app.
                 </p>
               </form>
             )}

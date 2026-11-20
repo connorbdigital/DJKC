@@ -104,10 +104,16 @@ export class HouseEngine {
     return Math.max(0, this.ctx.currentTime - this.startedAt);
   }
 
-  play(i: number) {
+  private generation = 0;
+
+  async play(i: number) {
+    this.stop();
+    const generation = this.generation;
     this.ensure();
     const ctx = this.ctx!;
-    if (ctx.state === "suspended") void ctx.resume();
+    if (ctx.state !== "running") await ctx.resume();
+    if (generation !== this.generation) return false;
+    if (ctx.state !== "running") throw new Error("Audio unavailable");
     this.setTrack(i);
     this.delay.delayTime.value = (60 / this.track.bpm) * 0.75;
     this.step = 0;
@@ -116,9 +122,11 @@ export class HouseEngine {
     this.playing = true;
     if (this.timer !== null) window.clearInterval(this.timer);
     this.timer = window.setInterval(() => this.tick(), 25);
+    return true;
   }
 
   stop() {
+    this.generation++;
     this.playing = false;
     if (this.timer !== null) {
       window.clearInterval(this.timer);
@@ -136,6 +144,11 @@ export class HouseEngine {
     const ctx = this.ctx;
     if (!ctx || !this.playing) return;
     const stepDur = 60 / this.track.bpm / 4;
+    if (this.nextTime < ctx.currentTime) {
+      const missed = Math.ceil((ctx.currentTime - this.nextTime) / stepDur);
+      this.nextTime += missed * stepDur;
+      this.step = (this.step + missed) % 32;
+    }
     while (this.nextTime < ctx.currentTime + 0.14) {
       this.schedule(this.step, this.nextTime, stepDur);
       this.nextTime += stepDur;

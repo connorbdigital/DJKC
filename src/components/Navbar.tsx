@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icons";
 import { Logo } from "./Logo";
 import { SOCIALS } from "../data";
@@ -23,6 +23,7 @@ export function Navbar({
   onSound: () => void;
 }) {
   const [scrolled, setScrolled] = useState(false);
+  const menu = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -33,12 +34,19 @@ export function Navbar({
   }, []);
 
   useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", esc);
+    const dialog = menu.current;
+    if (!open || !dialog) return;
+    const desktop = window.matchMedia("(min-width: 64rem)");
+    if (desktop.matches) { setOpen(false); return; }
+    dialog.showModal();
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const resize = () => { if (desktop.matches) setOpen(false); };
+    desktop.addEventListener("change", resize);
     return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", esc);
+      dialog.close();
+      document.body.style.overflow = previous;
+      desktop.removeEventListener("change", resize);
     };
   }, [open]);
 
@@ -112,14 +120,8 @@ export function Navbar({
       </header>
 
       {/* mobile menu */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Menu"
-        className={`fixed inset-0 z-[60] flex flex-col bg-night/95 backdrop-blur-2xl transition-all duration-500 lg:hidden ${
-          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-        }`}
-      >
+      <dialog ref={menu} aria-label="Menu" onCancel={() => setOpen(false)}
+        className="fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none flex-col overflow-auto bg-night/95 text-ink backdrop-blur-2xl open:flex">
         <div className="flex h-[76px] items-center justify-between px-5 sm:px-8">
           <Logo className="text-sm text-ink" />
           <button
@@ -163,7 +165,7 @@ export function Navbar({
             ))}
           </div>
         </div>
-      </div>
+      </dialog>
     </>
   );
 }

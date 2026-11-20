@@ -1,7 +1,8 @@
+import { TIERS } from "../data";
 import { Reveal } from "./Reveal";
 import { Icon } from "./Icons";
 import { Logo } from "./Logo";
-import kcDecks from "../assets/kc-decks.jpg";
+import kcDecks from "../assets/kc-decks.webp";
 
 export function Hero({
   onListen,
@@ -75,34 +76,15 @@ export function Hero({
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-magenta/15 text-magenta transition-all group-hover:bg-magenta group-hover:text-white">
                   <Icon name={playing ? "pause" : "play"} className="h-3.5 w-3.5" />
                 </span>
-                {playing ? "Pause the sound" : "Hear her sound"}
+                {playing ? "Pause the sound" : "Play demo loop"}
               </button>
             </div>
           </Reveal>
 
           <Reveal delay={440}>
             <div className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-3">
-              <div className="flex -space-x-2.5" aria-hidden="true">
-                {["from-magenta to-violet", "from-amber to-magenta", "from-cyan to-violet", "from-violet to-magenta"].map(
-                  (g, i) => (
-                    <span
-                      key={i}
-                      className={`flex h-9 w-9 items-center justify-center rounded-full border-2 border-night bg-gradient-to-br ${g} text-[10px] font-extrabold text-night`}
-                    >
-                      {["EM", "NS", "TA", "SF"][i]}
-                    </span>
-                  )
-                )}
-              </div>
-              <div>
-                <div className="flex items-center gap-1 text-amber" aria-label="5 star rating">
-                  {[...Array(5)].map((_, i) => (
-                    <Icon key={i} name="star" className="h-3.5 w-3.5" />
-                  ))}
-                  <span className="ml-1.5 font-mono text-xs text-ink">5.0</span>
-                </div>
-                <p className="mt-0.5 text-xs text-faint">from club managers &amp; promoters across Ireland</p>
-              </div>
+              <a href="#pricing" className="glass rounded-2xl px-5 py-3 text-sm text-ink hover:text-magenta">Club sets from <strong>{TIERS[0].price}</strong> · Compare packages →</a>
+              <a href="#shows" className="text-sm font-semibold text-cyan underline underline-offset-4">See live dates</a>
             </div>
           </Reveal>
         </div>
@@ -156,7 +138,7 @@ export function Hero({
                   )}
                 </div>
                 <span className="rounded-full bg-night/60 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.2em] text-mint backdrop-blur">
-                  ● Booking 2026
+                  Cork, Ireland
                 </span>
               </div>
             </div>

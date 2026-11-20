@@ -24,6 +24,8 @@ export default function App() {
   const [muted, setMuted] = useState(false);
   const [volume, setVolume] = useState(0.8);
   const [tier, setTier] = useState("Signature Live");
+  const playRequest = useRef(0);
+  const [audioError, setAudioError] = useState("");
   const [active, setActive] = useState("");
 
   const ensureEngine = () => (engineRef.current ??= new HouseEngine());
@@ -49,18 +51,28 @@ export default function App() {
     return () => io.disconnect();
   }, []);
 
-  const playTrack = (i: number) => {
+  const playTrack = async (i: number, mute = muted) => {
+    const request = ++playRequest.current;
+    setAudioError("");
     const e = ensureEngine();
     e.setVolume(volume);
-    e.setMuted(false);
-    setMuted(false);
-    e.play(i);
-    setTrackIndex(i);
-    setPlaying(true);
+    e.setMuted(mute);
+    try {
+      if (await e.play(i) && request === playRequest.current) {
+        setTrackIndex(i);
+        setPlaying(true);
+      }
+    } catch {
+      if (request === playRequest.current) {
+        setPlaying(false);
+        setAudioError("Audio could not start. Try Play again or listen on SoundCloud below.");
+      }
+    }
   };
 
   const togglePlay = () => {
     if (playing) {
+      playRequest.current++;
       engineRef.current?.stop();
       setPlaying(false);
     } else {
@@ -79,7 +91,8 @@ export default function App() {
 
   const navSound = () => {
     if (!playing) {
-      playTrack(trackIndex);
+      setMuted(false);
+      playTrack(trackIndex, false);
     } else {
       const m = !muted;
       setMuted(m);
@@ -104,13 +117,13 @@ export default function App() {
       togglePlay();
     } else {
       playTrack(trackIndex);
-      document.getElementById("music")?.scrollIntoView({ behavior: "smooth" });
+      document.getElementById("music")?.scrollIntoView();
     }
   };
 
   const chooseTier = (name: string) => {
     setTier(name);
-    document.getElementById("book")?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("book")?.scrollIntoView();
   };
 
   const track = TRACKS[trackIndex];
@@ -118,7 +131,7 @@ export default function App() {
   return (
     <div className="noise relative min-h-screen">
       <a
-        href="#music"
+        href="#content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-magenta focus:px-5 focus:py-2.5 focus:text-sm focus:font-bold focus:text-white"
       >
         Skip to content
@@ -126,7 +139,7 @@ export default function App() {
 
       <Navbar active={active} playing={playing} muted={muted} onSound={navSound} />
 
-      <main>
+      <main id="content" tabIndex={-1}>
         <Hero onListen={heroListen} playing={playing} trackTitle={`${track.title} — ${track.mix}`} bpm={track.bpm} />
         <SocialProof />
         <Marquee />
@@ -137,6 +150,8 @@ export default function App() {
           muted={muted}
           volume={volume}
           onSelect={selectTrack}
+          onPlay={playTrack}
+          audioError={audioError}
           onToggle={togglePlay}
           onVolume={changeVolume}
           getAnalyser={getAnalyser}

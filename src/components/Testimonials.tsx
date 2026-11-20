@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Reveal } from "./Reveal";
 import { Icon } from "./Icons";
 import { TESTIMONIALS } from "../data";
@@ -7,14 +7,7 @@ const AV = ["from-magenta to-violet", "from-amber to-magenta", "from-cyan to-vio
 
 export function Testimonials() {
   const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
   const n = TESTIMONIALS.length;
-
-  useEffect(() => {
-    if (paused) return;
-    const id = window.setInterval(() => setIndex((i) => (i + 1) % n), 6500);
-    return () => window.clearInterval(id);
-  }, [paused, index, n]);
 
   return (
     <section
@@ -39,13 +32,7 @@ export function Testimonials() {
         </div>
 
         <Reveal delay={200} scale>
-          <div
-            className="mt-12"
-            onMouseEnter={() => setPaused(true)}
-            onMouseLeave={() => setPaused(false)}
-            onFocus={() => setPaused(true)}
-            onBlur={() => setPaused(false)}
-          >
+          <div className="mt-12">
             <div className="overflow-hidden rounded-[2rem]" role="group" aria-roledescription="carousel" aria-label="Promoter testimonials">
               <div
                 className="flex transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]"
@@ -95,12 +82,11 @@ export function Testimonials() {
               >
                 <Icon name="chevronLeft" className="h-4 w-4" />
               </button>
-              <div className="flex items-center gap-2" role="tablist" aria-label="Choose testimonial">
+              <div className="flex items-center gap-2" role="group" aria-label="Choose testimonial">
                 {TESTIMONIALS.map((t, i) => (
                   <button
                     key={t.name}
-                    role="tab"
-                    aria-selected={i === index}
+                    aria-pressed={i === index}
                     aria-label={`Testimonial ${i + 1}`}
                     onClick={() => setIndex(i)}
                     className={`h-2 rounded-full transition-all duration-400 ${
