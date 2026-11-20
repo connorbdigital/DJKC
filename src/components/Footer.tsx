@@ -1,21 +1,8 @@
-import { useState, type FormEvent } from "react";
 import { Icon } from "./Icons";
 import { Logo } from "./Logo";
 import { BOOKING_EMAIL, SOCIALS } from "../data";
 
 export function Footer() {
-  const [email, setEmail] = useState("");
-  const [state, setState] = useState<"idle" | "error" | "done">("idle");
-
-  const join = (e: FormEvent) => {
-    e.preventDefault();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-      setState("error");
-      return;
-    }
-    setState("done");
-  };
-
   return (
     <footer className="relative overflow-hidden border-t border-white/5 bg-night-2/70">
       <p
@@ -72,7 +59,7 @@ export function Footer() {
             <h3 className="font-mono text-[10px] uppercase tracking-[0.3em] text-faint">Listen</h3>
             <ul className="mt-5 space-y-3 text-sm">
               {SOCIALS.filter((s) => s.name !== "Instagram" && s.name !== "TikTok")
-                .concat([{ name: "Press kit", icon: "download", href: "#music" }])
+                .concat([{ name: "Booking brief", icon: "download", href: "#booking-brief" }])
                 .map((s) => (
                   <li key={s.name}>
                     <a
@@ -95,52 +82,15 @@ export function Footer() {
           </nav>
 
           <div>
-            <h3 className="font-mono text-[10px] uppercase tracking-[0.3em] text-faint">The mixtape</h3>
-            <p className="mt-5 text-sm leading-relaxed text-dim">
-              One exclusive mix in your inbox, first Friday of every month. No noise.
-            </p>
-            {state === "done" ? (
-              <p className="mt-4 flex items-center gap-2 rounded-xl border border-mint/40 bg-mint/10 px-4 py-3.5 text-sm font-semibold text-mint" aria-live="polite">
-                <Icon name="check" className="h-4 w-4" strokeWidth={2.6} />
-                You're in. First mix lands Friday.
-              </p>
-            ) : (
-              <form onSubmit={join} className="mt-4" noValidate>
-                <div className="flex gap-2">
-                  <label htmlFor="nl-email" className="sr-only">
-                    Email address
-                  </label>
-                  <input
-                    id="nl-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setState("idle");
-                    }}
-                    placeholder="you@nightclub.com"
-                    aria-invalid={state === "error"}
-                    className={`w-full min-w-0 rounded-full border bg-night/70 px-5 py-3 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-magenta ${
-                      state === "error" ? "border-danger/70" : "border-white/10"
-                    }`}
-                  />
-                  <button
-                    type="submit"
-                    aria-label="Join the mixtape list"
-                    className="btn-primary flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full text-white"
-                  >
-                    <Icon name="send" className="h-4 w-4" />
-                  </button>
-                </div>
-                {state === "error" && <p className="mt-2 text-xs text-danger">Enter a valid email to join.</p>}
-              </form>
-            )}
+            <h3 className="font-mono text-[10px] uppercase tracking-[0.3em] text-faint">Stay in touch</h3>
+            <p className="mt-5 text-sm leading-relaxed text-dim">For clips from the booth and news of the next night, follow KC on Instagram.</p>
+            <a className="mt-4 inline-block font-semibold text-magenta underline" href={SOCIALS.find(s => s.name === "Instagram")?.href} target="_blank" rel="noreferrer">Follow DJ KC ↗</a>
           </div>
         </div>
 
         <div className="mt-16 flex flex-col items-center justify-between gap-5 border-t border-white/5 pt-8 sm:flex-row">
           <p className="text-center font-mono text-[10px] uppercase tracking-[0.2em] text-faint sm:text-left">
-            © 2026 DJ KC · Cork, Ireland · House that moves rooms
+            © {new Date().getFullYear()} DJ KC · Cork, Ireland · House that moves rooms
           </p>
           <a
             href="#top"

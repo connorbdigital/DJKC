@@ -3,7 +3,7 @@ import { Reveal } from "./Reveal";
 import { Icon } from "./Icons";
 import { Logo } from "./Logo";
 import { TRACKS, BOOKING_EMAIL } from "../data";
-import collage from "../assets/collage.jpg";
+import collage from "../assets/collage.webp";
 
 function Visualizer({
   playing,
@@ -21,6 +21,7 @@ function Visualizer({
     if (!ctx) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     let raf = 0;
+    let visible = false;
     let w = 0;
     let h = 0;
 
@@ -31,9 +32,7 @@ function Visualizer({
       canvas.height = h * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     };
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(canvas);
+
 
     const BARS = 48;
     const data = new Uint8Array(128);
@@ -65,10 +64,18 @@ function Visualizer({
         }
       }
       ctx.globalAlpha = 1;
-      raf = requestAnimationFrame(draw);
+      if (playing && visible) raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
+    const refresh = () => { cancelAnimationFrame(raf); resize(); draw(); };
+    const ro = new ResizeObserver(refresh);
+    ro.observe(canvas);
+    const io = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      refresh();
+    });
+    io.observe(canvas);
     return () => {
+      io.disconnect();
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
@@ -79,8 +86,8 @@ function Visualizer({
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 
-function downloadEpk() {
-  const text = `DJ KC — PRESS KIT / EPK
+function downloadBrief() {
+  const text = `DJ KC — BOOKING BRIEF
 ========================================
 House DJ · Live Vocalist · Producer — Cork, Ireland
 
@@ -113,7 +120,7 @@ Full-length mixes & live footage available on request.
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "DJ-KC-Press-Kit.txt";
+  a.download = "DJ-KC-Booking-Brief.txt";
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 }
@@ -124,6 +131,8 @@ export function Music({
   muted,
   volume,
   onSelect,
+  onPlay,
+  audioError,
   onToggle,
   onVolume,
   getAnalyser,
@@ -133,6 +142,8 @@ export function Music({
   playing: boolean;
   muted: boolean;
   volume: number;
+  onPlay: (i: number) => void;
+  audioError: string;
   onSelect: (i: number) => void;
   onToggle: () => void;
   onVolume: (v: number) => void;
@@ -185,6 +196,7 @@ export function Music({
                   alt={`${track.title} artwork — magenta collage`}
                   className="aspect-square w-full object-cover transition-[filter] duration-700"
                   style={{ filter: `hue-rotate(${track.hue}deg) saturate(1.15)` }}
+                  loading="lazy"
                   width={640}
                   height={640}
                 />
@@ -222,6 +234,7 @@ export function Music({
               </div>
 
               <div className="mt-4">
+                {audioError && <p role="alert" className="text-sm text-amber">{audioError}</p>}
                 <Visualizer playing={playing && !muted} getAnalyser={getAnalyser} />
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/5">
                   <div
@@ -276,7 +289,7 @@ export function Music({
             </div>
           </Reveal>
 
-          {/* tracklist + EPK */}
+          {/* tracklist + booking brief */}
           <div>
             <Reveal>
               <div className="flex items-center justify-between">
@@ -299,7 +312,7 @@ export function Music({
                 return (
                   <Reveal key={t.id} delay={i * 110}>
                     <button
-                      onClick={() => (current ? onToggle() : onSelect(i))}
+                      onClick={() => (current && playing ? onToggle() : onPlay(i))}
                       aria-label={current && playing ? `Pause ${t.title}` : `Play ${t.title}`}
                       className={`group flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all duration-300 sm:p-5 ${
                         current
@@ -342,19 +355,19 @@ export function Music({
             </div>
 
             <Reveal delay={200}>
-              <div className="glass mt-6 flex flex-col gap-5 rounded-2xl p-6 sm:flex-row sm:items-center">
+              <div id="booking-brief" className="glass mt-6 flex flex-col gap-5 rounded-2xl p-6 sm:flex-row sm:items-center">
                 <div className="flex-1">
-                  <p className="font-bold text-ink">Promoter? Get the full press kit.</p>
+                  <p className="font-bold text-ink">Promoter? Take the booking brief.</p>
                   <p className="mt-1 text-sm text-dim">
-                    Bio, tech rider, live footage links and mix archive — everything your booking meeting needs.
+                    Download a text summary with the bio, set formats, tech rider and booking contact.
                   </p>
                 </div>
                 <button
-                  onClick={downloadEpk}
+                  onClick={downloadBrief}
                   className="group inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-amber/50 bg-amber/10 px-6 py-3 text-sm font-bold text-amber transition-all hover:bg-amber hover:text-night"
                 >
                   <Icon name="download" className="h-4 w-4 transition-transform group-hover:translate-y-0.5" />
-                  Download EPK
+                  Download booking brief
                 </button>
               </div>
             </Reveal>

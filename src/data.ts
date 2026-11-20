@@ -143,6 +143,7 @@ export interface Show {
   day: string;
   date: string;
   iso: string;
+  startsAt?: string; // ISO instant with venue-local UTC offset when the time is known
   venue: string;
   city: string;
   event: string;
@@ -174,6 +175,7 @@ export const SHOWS: Show[] = [
     day: "SAT",
     date: "21 NOV 2026",
     iso: "20261121",
+    startsAt: "2026-11-21T20:00:00+00:00",
     venue: "Edison",
     city: "Cork, IE",
     event: "Playhouse — Guest Set",
@@ -292,7 +294,7 @@ export const FAQS = [
   },
   {
     q: "Can we hear a full mix before booking?",
-    a: "Press play on this page — the demo deck streams KC-style loops built from her productions. Full-length recorded mixes and live footage are in the press kit, sent instantly with any enquiry reply.",
+    a: "Press play on this page — the demo deck streams KC-style loops built from her productions. Ask for full-length recorded mixes and live footage in your booking email.",
   },
 ];
 
