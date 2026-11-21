@@ -289,11 +289,16 @@ input[type="range"].vol::-moz-range-thumb {
   position: fixed; right: var(--edge); bottom: var(--bottom);
 }
 .kc-chat-launch { z-index: 45; display: flex; align-items: flex-end; gap: .5rem; max-width: calc(100vw - 1.5rem); }
-.kc-chat-hint, .kc-chat-panel { background: #1b1029; color: white; border: 1px solid #88609a; border-radius: 1rem; box-shadow: 0 10px 40px #0009; }
+.kc-chat-hint, .kc-chat-panel { background: linear-gradient(var(--color-night-2), var(--color-night-2)) padding-box, linear-gradient(125deg, var(--color-magenta), var(--color-violet), var(--color-cyan)) border-box; color: var(--color-ink); border: 1px solid transparent; border-radius: 1rem; box-shadow: 0 10px 40px #0009; }
 .kc-chat-hint { display: flex; }
-.kc-chat-button { flex: none; display: grid; place-items: center; width: 3.25rem; height: 3.25rem; border-radius: 50%; background: #8524bd; color: white; border: 2px solid #ebbbff; box-shadow: 0 4px 24px #0008; }
+.kc-chat-button { flex: none; display: inline-flex; align-items: center; justify-content: center; gap: .4rem; padding: 0 .85rem; min-width: 3.25rem; height: 3.25rem; border-radius: 99px; color: var(--color-night); border: 1px solid var(--color-magenta); }
 .kc-chat-panel { left: auto; top: auto; margin: 0; width: min(26rem, calc(100vw - 1.5rem)); height: min(36rem, calc(100dvh - var(--bottom) - 1rem)); max-height: none; overflow-y: auto; }
 .kc-chat-panel[open] { display: flex; flex-direction: column; }
 .kc-chat-panel::backdrop { background: #09051099; }
-.kc-chat-message { white-space: pre-wrap; overflow-wrap: anywhere; background: #33263f; color: #fff; border-radius: .85rem; padding: .75rem 1rem; margin: 0 1.5rem .7rem 0; line-height: 1.55; }
-.kc-chat-guest { background: #59236b; margin-left: 1.5rem; margin-right: 0; }
+.kc-chat-message { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--color-panel-2); color: var(--color-ink); border-radius: .85rem; padding: .75rem 1rem; margin: 0 1.5rem .7rem 0; line-height: 1.55; }
+.kc-chat-guest { background: #47204f; margin-left: 1.5rem; margin-right: 0; }
+
+/* On phones the labelled launcher replaces the overlapping invitation card. */
+@media (max-width: 39.99rem) {
+  .kc-chat-hint { display: none; }
+}
