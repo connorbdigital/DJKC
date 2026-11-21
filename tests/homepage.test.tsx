@@ -15,6 +15,16 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
+it('shows sterling prices in the hero, packages and booking selector', () => {
+  render(<App />);
+  expect(screen.getByRole('link', { name: /Club sets from £650/ })).toBeTruthy();
+  const pricing = document.getElementById('pricing')!;
+  expect(pricing.textContent).toContain('£650');
+  expect(pricing.textContent).toContain('£1,100');
+  expect(screen.getByRole('option', { name: /Club Night — £650/ })).toBeTruthy();
+  expect(screen.getByRole('option', { name: /Signature Live — £1,100/ })).toBeTruthy();
+});
+
 it('rejects yesterday and prepares an editable email, not a delivery confirmation', () => {
   render(<Booking tier="Signature Live" onTier={() => {}} />);
   const submit = () => fireEvent.click(screen.getByText('Prepare email enquiry →'));
@@ -23,6 +33,7 @@ it('rejects yesterday and prepares an editable email, not a delivery confirmatio
   for (const [label, value] of [['Your name *','Alex'], ['Email *','alex@example.org'], ['Venue / event *','Hall & Bar']]) {
     fireEvent.change(screen.getByLabelText(label), {target: {value}});
   }
+  fireEvent.change(screen.getByLabelText('Booking area (optional)'), { target: { value: 'UK — North West' } });
   const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
   fireEvent.change(screen.getByLabelText('Date'), {target: {value: calendarDate(yesterday)}});
   submit();
@@ -30,6 +41,7 @@ it('rejects yesterday and prepares an editable email, not a delivery confirmatio
   fireEvent.change(screen.getByLabelText('Date'), {target: {value: calendarDate()}});
   submit();
   const url = new URL(screen.getByRole('link', {name: 'Open email app'}).getAttribute('href')!);
+  expect(url.searchParams.get('body')).toContain('Area: UK — North West');
   expect(url.protocol).toBe('mailto:');
   expect(url.searchParams.get('body')).toContain('Venue / event: Hall & Bar');
   expect(url.searchParams.get('body')).toContain('Package: Signature Live');
@@ -69,4 +81,17 @@ it('opens a native modal and releases the scroll lock on keyboard cancellation',
   fireEvent(dialog, new Event('cancel'));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(document.body.style.overflow).toBe('');
+});
+
+
+it('filters live dates to the North West', () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date('2026-11-20T12:00:00Z'));
+    render(<App />);
+    fireEvent.click(screen.getByRole('button', { name: 'North West' }));
+    expect(screen.getByText('House That Moves — UK Debut')).toBeTruthy();
+    expect(screen.getByText('North West Takeover — KC & Friends')).toBeTruthy();
+    expect(screen.queryByText('Playhouse — Guest Set')).toBeNull();
+  } finally { vi.useRealTimers(); }
 });

@@ -21,7 +21,7 @@ export function Pricing({ onChoose }: { onChoose: (tier: string) => void }) {
           </Reveal>
           <Reveal delay={200}>
             <p className="mt-5 leading-relaxed text-dim">
-              Transparent starting fees, no agency middle layer. Every package is confirmed with one call and one
+              Starting fees are in British pounds (GBP), with no agency fee. Every package is confirmed with one call and one
               contract — then KC handles the rest.
             </p>
           </Reveal>
