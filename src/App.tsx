@@ -1,3 +1,4 @@
+import { BookingChat } from "./components/BookingChat";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { HouseEngine } from "./audio";
 import { TRACKS } from "./data";
@@ -166,6 +167,7 @@ export default function App() {
       </main>
 
       <Footer />
+      <BookingChat />
     </div>
   );
 }

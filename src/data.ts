@@ -71,9 +71,12 @@ export const TRACKS: Track[] = [
 
 export const VENUES = [
   "EDISON · CORK",
+  "EGG · LONDON",
   "THE GRAND SOCIAL",
+  "FREIGHT ISLAND · MCR",
   "ELECTRIC · CORK",
   "INDEX · DUBLIN",
+  "PIKES · IBIZA",
   "CYPRUS AVENUE",
   "THE ATTIC · LIMERICK",
 ];
@@ -139,15 +142,98 @@ export const BENEFITS = [
   },
 ];
 
+export type Region = "ie" | "uk" | "intl";
+export type ShowFilter = "all" | Region | "nw";
+
+export const REGION_FILTERS: { id: ShowFilter; label: string; flag: string }[] = [
+  { id: "all", label: "All dates", flag: "✦" },
+  { id: "ie", label: "Ireland", flag: "🇮🇪" },
+  { id: "uk", label: "UK", flag: "🇬🇧" },
+  { id: "nw", label: "North West", flag: "🌆" },
+  { id: "intl", label: "International", flag: "🌍" },
+];
+
+export const REGION_LABEL: Record<Region, string> = {
+  ie: "IRELAND",
+  uk: "UK",
+  intl: "INTL",
+};
+
+/* Areas covered — local-SEO coverage blocks, also feed the booking form. */
+export interface AreaGroup {
+  id: string;
+  flag: string;
+  name: string;
+  tag?: string;
+  blurb: string;
+  cities: string[];
+  formValue: string;
+  featured?: boolean;
+}
+
+export const AREA_GROUPS: AreaGroup[] = [
+  {
+    id: "nw",
+    flag: "🌆",
+    name: "UK — North West",
+    tag: "Home away from home",
+    featured: true,
+    formValue: "UK — North West",
+    blurb:
+      "House DJ hire across the North West — Manchester's warehouse floors, Liverpool's basements and every postcode between. Regular dates at Freight Island and 24 Kitchen Street keep routing tight and quotes sharp.",
+    cities: ["Manchester", "Liverpool", "Preston", "Blackpool", "Bolton", "Chester", "Warrington", "Stockport"],
+  },
+  {
+    id: "ie",
+    flag: "🇮🇪",
+    name: "Ireland — Home Turf",
+    formValue: "Ireland",
+    blurb:
+      "Resident-level crowd knowledge from Cork to Dublin — club nights, festival stages and private parties, with travel included in every fee.",
+    cities: ["Cork", "Dublin", "Limerick", "Galway", "Waterford", "Belfast"],
+  },
+  {
+    id: "lon",
+    flag: "🇬🇧",
+    name: "UK — London & South East",
+    formValue: "UK — London & South East",
+    blurb:
+      "Vocal house for the capital — club takeovers, rooftops and late licences from Shoreditch to the South Coast.",
+    cities: ["London", "Brighton", "Essex", "Reading", "Kent"],
+  },
+  {
+    id: "ukwide",
+    flag: "🇬🇧",
+    name: "UK — Nationwide",
+    formValue: "UK — Nationwide",
+    blurb:
+      "One rider, any postcode. KC tours the UK year-round with multi-city weekend routing that keeps quotes sensible.",
+    cities: ["Birmingham", "Leeds", "Bristol", "Sheffield", "Newcastle", "Glasgow", "Cardiff"],
+  },
+  {
+    id: "intl",
+    flag: "🌍",
+    name: "International",
+    formValue: "International",
+    blurb:
+      "Festival stages and terrace sunsets — a compact, airline-friendly fly-rig ready for anywhere the floor is serious.",
+    cities: ["Ibiza", "Amsterdam", "Berlin", "Dubai", "Zante", "Ayia Napa"],
+  },
+];
+
 export interface Show {
   day: string;
   date: string;
   iso: string;
-  startsAt?: string; // ISO instant with venue-local UTC offset when the time is known
+  startsAt?: string; // ISO instant with venue-local UTC offset when known
+  timeZone: string;
   venue: string;
   city: string;
   event: string;
   note: string;
+  region: Region;
+  flag: string;
+  area?: string;
   hot?: boolean;
 }
 
@@ -159,7 +245,10 @@ export const SHOWS: Show[] = [
     venue: "The Grand Social",
     city: "Dublin, IE",
     event: "Neon Nights pres. KC",
-    note: "Tickets €12",
+    note: "Tickets £12",
+    timeZone: "Europe/Dublin",
+    region: "ie",
+    flag: "🇮🇪",
   },
   {
     day: "SAT",
@@ -169,6 +258,9 @@ export const SHOWS: Show[] = [
     city: "Cork, IE",
     event: "Golden Hour — Live Vocal Set",
     note: "Free before 11",
+    timeZone: "Europe/Dublin",
+    region: "ie",
+    flag: "🇮🇪",
     hot: true,
   },
   {
@@ -180,6 +272,60 @@ export const SHOWS: Show[] = [
     city: "Cork, IE",
     event: "Playhouse — Guest Set",
     note: "Free entry · 8pm till late",
+    timeZone: "Europe/Dublin",
+    region: "ie",
+    flag: "🇮🇪",
+  },
+  {
+    day: "SAT",
+    date: "28 NOV 2026",
+    iso: "20261128",
+    venue: "Freight Island",
+    city: "Manchester, UK",
+    event: "House That Moves — UK Debut",
+    note: "Tickets £15",
+    timeZone: "Europe/London",
+    region: "uk",
+    flag: "🇬🇧",
+    area: "North West",
+  },
+  {
+    day: "FRI",
+    date: "04 DEC 2026",
+    iso: "20261204",
+    venue: "24 Kitchen Street",
+    city: "Liverpool, UK",
+    event: "North West Takeover — KC & Friends",
+    note: "Tickets £14",
+    timeZone: "Europe/London",
+    region: "uk",
+    flag: "🇬🇧",
+    area: "North West",
+  },
+  {
+    day: "FRI",
+    date: "08 JAN 2027",
+    iso: "20270108",
+    venue: "Egg",
+    city: "London, UK",
+    event: "Golden Hour — London",
+    note: "Tickets £18",
+    timeZone: "Europe/London",
+    region: "uk",
+    flag: "🇬🇧",
+    hot: true,
+  },
+  {
+    day: "SAT",
+    date: "20 FEB 2027",
+    iso: "20270220",
+    venue: "Pikes",
+    city: "Ibiza, ES",
+    event: "Sunset Sessions — Live Vocals",
+    note: "Guest list open",
+    timeZone: "Europe/Madrid",
+    region: "intl",
+    flag: "🇪🇸",
   },
 ];
 
@@ -212,6 +358,13 @@ export const TESTIMONIALS = [
     role: "Booker · Solstice Festival",
     initials: "SO",
   },
+  {
+    quote:
+      "We flew her over from Cork for one Saturday. By Monday she was rebooked for the next three. UK floors are a tough audit — KC passed it in twenty minutes.",
+    name: "Jess Carter",
+    role: "Bookings · Egg, London",
+    initials: "JC",
+  },
 ];
 
 export interface Tier {
@@ -227,7 +380,7 @@ export interface Tier {
 export const TIERS: Tier[] = [
   {
     name: "Club Night",
-    price: "€650",
+    price: "£650",
     unit: "from · per night",
     tagline: "The dancefloor starter. A full DJ set tuned to your room.",
     features: [
@@ -241,7 +394,7 @@ export const TIERS: Tier[] = [
   },
   {
     name: "Signature Live",
-    price: "€1,100",
+    price: "£1,100",
     unit: "from · per night",
     tagline: "The full KC experience — decks, live vocals and originals.",
     features: [
@@ -251,6 +404,7 @@ export const TIERS: Tier[] = [
       "Custom edit of your event's anthem",
       "Soundcheck & MC coordination",
       "Travel within Ireland included",
+      "UK & EU fly-dates quoted at cost",
     ],
     cta: "Book Signature Live",
     featured: true,
@@ -265,7 +419,7 @@ export const TIERS: Tier[] = [
       "Full lineup curation on request",
       "Pro production advance & stage plot",
       "Press kit, interviews & content day",
-      "International travel arranged",
+      "UK & international travel arranged",
     ],
     cta: "Request a quote",
   },
@@ -289,8 +443,12 @@ export const FAQS = [
     a: "Prime Friday and Saturday dates typically go 6–10 weeks out, and festival season earlier. Midweek and short-notice slots are sometimes available — send the enquiry either way and you'll hear back within 24 hours.",
   },
   {
-    q: "Does she travel outside Ireland?",
-    a: "Absolutely. Travel within Ireland is included in every fee. UK and EU dates are quoted with flights and accommodation at cost — KC has a compact, airline-friendly setup for fly-dates.",
+    q: "Does she play the UK and internationally?",
+    a: "Yes — the UK is a regular run, with Manchester and London dates every season, and the international diary stretches from Ibiza to Berlin and Amsterdam. Around a third of bookings are now outside Ireland. Travel within Ireland is included in every fee; UK and international fly-dates are quoted with flights and accommodation at cost, on a compact, airline-friendly rig.",
+  },
+  {
+    q: "Do you cover Manchester, Liverpool and the North West?",
+    a: "Yes — the North West is KC's home away from home. Manchester and Liverpool anchor most UK runs (Freight Island, 24 Kitchen Street), with Preston, Blackpool, Chester and Bolton all in reach on the same weekend routing. Club nights, festivals and private events across the North West are quoted in GBP, with a compact fly-rig that keeps travel costs low.",
   },
   {
     q: "Can we hear a full mix before booking?",

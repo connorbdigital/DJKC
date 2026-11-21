@@ -2,7 +2,7 @@ import { useState, type ChangeEvent, type FormEvent } from "react";
 import { calendarDate } from "../utils/dates";
 import { Reveal } from "./Reveal";
 import { Icon } from "./Icons";
-import { BOOKING_EMAIL, SOCIALS, TIERS } from "../data";
+import { AREA_GROUPS, BOOKING_EMAIL, SOCIALS, TIERS } from "../data";
 
 const inputCls =
   "w-full rounded-xl border bg-night/70 px-4 py-3.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-magenta";
@@ -11,16 +11,17 @@ interface FormState {
   name: string;
   email: string;
   venue: string;
+  area: string;
   date: string;
   message: string;
 }
 
 export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) => void }) {
-  const [form, setForm] = useState<FormState>({ name: "", email: "", venue: "", date: "", message: "" });
+  const [form, setForm] = useState<FormState>({ name: "", email: "", venue: "", area: "", date: "", message: "" });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [draft, setDraft] = useState(false);
 
-  const set = (k: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const set = (k: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
     setErrors((er) => ({ ...er, [k]: undefined }));
   };
@@ -39,6 +40,7 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
 
   const subject = `Booking enquiry: ${form.venue}`;
   const body = [`Name: ${form.name}`, `Reply to: ${form.email}`, `Venue / event: ${form.venue}`,
+    ...(form.area ? [`Area: ${form.area}`] : []),
     `Date: ${form.date || "To be confirmed"}`, `Package: ${tier}`, "", form.message].join("\n");
 
   return (
@@ -193,6 +195,13 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                       className={`${inputCls} border-white/10 [color-scheme:dark]`}
                     />
                     {errors.date && <p id="bk-date-error" role="alert" className="mt-1.5 text-xs text-danger">{errors.date}</p>}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="bk-area" className="mb-2 block font-mono text-[10px] uppercase tracking-[0.25em] text-dim">Booking area (optional)</label>
+                    <select id="bk-area" value={form.area} onChange={set("area")} className={`${inputCls} border-white/10`}>
+                      <option value="">Select an area</option>
+                      {AREA_GROUPS.map(area => <option key={area.id} value={area.formValue}>{area.formValue}</option>)}
+                    </select>
                   </div>
                   <div className="sm:col-span-2">
                     <label htmlFor="bk-tier" className="mb-2 block font-mono text-[10px] uppercase tracking-[0.25em] text-dim">

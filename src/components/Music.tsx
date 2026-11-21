@@ -186,9 +186,9 @@ export function Music({
           </Reveal>
         </div>
 
-        <div className="mt-14 grid items-start gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:gap-12">
+        <div className="mt-14 grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-12">
           {/* player */}
-          <Reveal scale>
+          <Reveal scale className="min-w-0">
             <div className="ring-grad rounded-[2rem] p-5 sm:p-7">
               <div className="relative overflow-hidden rounded-2xl">
                 <img
@@ -249,7 +249,7 @@ export function Music({
                 </div>
               </div>
 
-              <div className="mt-5 flex items-center gap-4">
+              <div className="mt-5 grid grid-cols-[auto_auto_auto] items-center justify-center gap-3 sm:grid-cols-[auto_auto_auto_minmax(0,1fr)] sm:gap-4">
                 <button
                   onClick={() => onSelect((trackIndex + TRACKS.length - 1) % TRACKS.length)}
                   aria-label="Previous track"
@@ -272,7 +272,7 @@ export function Music({
                   <Icon name="next" className="h-4 w-4" />
                 </button>
 
-                <div className="ml-auto flex w-32 items-center gap-2.5 sm:w-40">
+                <div className="col-span-3 flex w-full min-w-0 items-center gap-2.5 sm:col-span-1 sm:ml-auto sm:max-w-40">
                   <Icon name={muted ? "volumeX" : "volume"} className="h-4 w-4 shrink-0 text-dim" />
                   <input
                     type="range"
@@ -280,7 +280,7 @@ export function Music({
                     max={100}
                     value={Math.round(volume * 100)}
                     onChange={(e) => onVolume(Number(e.target.value) / 100)}
-                    className="vol w-full"
+                    className="vol min-w-0 flex-1"
                     style={{ "--fill": `${volume * 100}%` } as CSSProperties}
                     aria-label="Volume"
                   />
@@ -290,7 +290,7 @@ export function Music({
           </Reveal>
 
           {/* tracklist + booking brief */}
-          <div>
+          <div className="min-w-0">
             <Reveal>
               <div className="flex items-center justify-between">
                 <h3 className="font-mono text-[11px] uppercase tracking-[0.3em] text-dim">Latest productions</h3>

@@ -2,9 +2,14 @@ import type { Show } from '../data';
 import { calendarDate } from './dates';
 
 export function partitionShows(shows: Show[], now = new Date()) {
-  const today = calendarDate(now, 'Europe/Dublin').replace(/-/g, '');
+  const upcoming: Show[] = [];
+  const past: Show[] = [];
   const ordered = [...shows].sort((a, b) => a.iso.localeCompare(b.iso));
-  return { upcoming: ordered.filter(s => s.iso >= today), past: ordered.filter(s => s.iso < today).reverse() };
+  for (const show of ordered) {
+    const today = calendarDate(now, show.timeZone).replace(/-/g, '');
+    (show.iso >= today ? upcoming : past).push(show);
+  }
+  return { upcoming, past: past.reverse() };
 }
 
 const escapeText = (s: string) => s.replace(/\\/g, '\\\\').replace(/\r\n|\r|\n/g, '\\n').replace(/[,;]/g, '\\$&');

@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { calendarEvent, partitionShows } from "../utils/shows";
 import { Reveal } from "./Reveal";
 import { Icon } from "./Icons";
-import { SHOWS, type Show } from "../data";
+import { AREA_GROUPS, REGION_FILTERS, SHOWS, type Show, type ShowFilter } from "../data";
 
 function downloadIcs(s: Show) {
   const ics = calendarEvent(s);
@@ -14,7 +15,10 @@ function downloadIcs(s: Show) {
 }
 
 export function Shows() {
-  const { upcoming, past } = partitionShows(SHOWS);
+  const [filter, setFilter] = useState<ShowFilter>("all");
+  const { upcoming, past } = partitionShows(SHOWS.filter(s =>
+    filter === "all" || (filter === "nw" ? s.region === "uk" && s.area === "North West" : s.region === filter)
+  ));
 
   return (
     <section id="shows" className="relative overflow-x-clip py-24 sm:py-32">
@@ -42,6 +46,12 @@ export function Shows() {
         </div>
 
         <div className="mt-12 space-y-4">
+          <div role="group" aria-label="Filter live dates by region" className="flex flex-wrap gap-2">
+            {REGION_FILTERS.map(f => <button key={f.id} aria-pressed={filter === f.id}
+              onClick={() => setFilter(f.id)} className="glass rounded-full px-4 py-2 text-sm aria-pressed:text-cyan">
+              <span aria-hidden="true">{f.flag} </span>{f.label}
+            </button>)}
+          </div>
           <h3 className="font-display text-lg font-bold">Upcoming dates</h3>
           {!upcoming.length && <p className="text-dim">No upcoming dates announced.</p>}
           {upcoming.map((s, i) => (
@@ -92,6 +102,16 @@ export function Shows() {
           </details>}
         </div>
 
+        <div className="mt-16">
+          <h3 className="font-display text-2xl font-bold">Booking areas</h3>
+          <div className="mt-4 grid items-start gap-3 sm:grid-cols-2">
+            {AREA_GROUPS.map(area => <details key={area.id} className="glass rounded-2xl p-5">
+              <summary className="cursor-pointer font-bold">{area.name}</summary>
+              <p className="mt-3 text-sm text-dim">{area.blurb}</p>
+              <p className="mt-2 text-sm">{area.cities.join(" · ")}</p>
+            </details>)}
+          </div>
+        </div>
         <Reveal delay={200}>
           <p className="mt-8 text-center text-sm text-dim">
             Want KC on your date instead?{" "}
