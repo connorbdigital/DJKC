@@ -15,10 +15,12 @@ import { Pricing } from "./components/Pricing";
 import { Faq } from "./components/Faq";
 import { Booking } from "./components/Booking";
 import { Footer } from "./components/Footer";
+import { useThemeColor } from "./utils/themeColor";
 
 const SPY_IDS = ["music", "experience", "shows", "pricing", "faq"];
 
 export default function App() {
+  useThemeColor();
   const engineRef = useRef<HouseEngine | null>(null);
   const [trackIndex, setTrackIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
