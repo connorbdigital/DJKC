@@ -33,18 +33,33 @@ it('stays gone once dismissed, and remembers for a month', async () => {
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 
-it('validates the address and opens a ready-to-send email rather than claiming a subscription', async () => {
+it('validates the address, then saves it to the list', async () => {
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ok: true, alreadyOnList: false }) });
+  vi.stubGlobal('fetch', fetch);
   render(<UpdatesSignup />);
   await act(async () => { await vi.advanceTimersByTimeAsync(UPDATES_DELAY_MS); });
+
   fireEvent.change(screen.getByLabelText('Your email address'), { target: { value: 'nope' } });
   fireEvent.click(screen.getByRole('button', { name: 'Join' }));
   expect(screen.getByRole('alert').textContent).toContain("doesn't look right");
+  expect(fetch).not.toHaveBeenCalled();
+
+  fireEvent.change(screen.getByLabelText('Your email address'), { target: { value: 'Alex@Example.org' } });
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Join' })); });
+  expect(fetch).toHaveBeenCalledWith('/api/subscribe', expect.objectContaining({ method: 'POST', body: JSON.stringify({ email: 'alex@example.org' }) }));
+  expect(screen.getByText(/You&rsquo;re on the list|You’re on the list/)).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Open email app' })).toBeNull();
+});
+
+it('falls back to a prepared email when the list cannot be reached', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({ error: 'List unavailable' }) }));
+  render(<UpdatesSignup />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(UPDATES_DELAY_MS); });
   fireEvent.change(screen.getByLabelText('Your email address'), { target: { value: 'alex@example.org' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Join' }));
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Join' })); });
   const link = screen.getByRole('link', { name: 'Open email app' }).getAttribute('href')!;
   expect(link.startsWith('mailto:booking@djkcmusic.com')).toBe(true);
-  expect(decodeURIComponent(link)).toContain('DJ KC updates list');
-  expect(screen.queryByText(/you are subscribed/i)).toBeNull();
+  expect(screen.getByText(/didn’t save just now/)).toBeTruthy();
 });
 
 it('withdraws the chat invitation so the two cards never stack', async () => {

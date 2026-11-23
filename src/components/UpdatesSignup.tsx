@@ -29,6 +29,7 @@ export function UpdatesSignup() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [draft, setDraft] = useState("");
+  const [state, setState] = useState<"idle" | "saving" | "subscribed" | "fallback">("idle");
 
   const close = () => {
     setOpen(false);
@@ -60,17 +61,32 @@ export function UpdatesSignup() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!EMAIL.test(email)) {
       setError("That email doesn't look right");
       return;
     }
     setError("");
-    remember();
-    const subject = "DJ KC updates list";
-    const body = "Please add me to the DJ KC updates list.";
-    setDraft(`mailto:${BOOKING_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+    setState("saving");
+    try {
+      const response = await fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) throw new Error("not stored");
+      remember();
+      setState("subscribed");
+    } catch {
+      /* No storage configured or the request failed: fall back to a prepared email. */
+      remember();
+      const subject = "DJ KC updates list";
+      const body = "Please add me to the DJ KC updates list.";
+      setDraft(`mailto:${BOOKING_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+      setState("fallback");
+    }
   };
 
   if (!open) return null;
@@ -85,10 +101,20 @@ export function UpdatesSignup() {
         Get the next dates first
       </h2>
 
-      {draft ? (
+      {state === "subscribed" ? (
         <>
           <p id="kc-updates-copy" className="mt-2 text-sm leading-relaxed text-dim">
-            Your email app should have opened with the message ready. Send it and KC will add you to the list.
+            You&rsquo;re on the list. You&rsquo;ll hear first when new North West dates, mixes or ticket links land — and you
+            can unsubscribe from any email.
+          </p>
+          <button className="btn-primary mt-4 rounded-full px-5 py-2.5 text-sm font-bold text-night" onClick={close}>
+            Done
+          </button>
+        </>
+      ) : draft ? (
+        <>
+          <p id="kc-updates-copy" className="mt-2 text-sm leading-relaxed text-dim">
+            That didn&rsquo;t save just now, so we&rsquo;ve opened an email instead. Send it and KC will add you by hand.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <a className="btn-primary rounded-full px-5 py-2.5 text-sm font-bold text-night" href={draft}>
@@ -125,8 +151,12 @@ export function UpdatesSignup() {
                 aria-describedby={error ? "kc-updates-error" : undefined}
                 className="min-w-0 flex-1 rounded-xl border border-white/25 bg-night px-3 py-2.5 text-base text-ink placeholder:text-dim focus:border-magenta"
               />
-              <button className="btn-primary shrink-0 rounded-xl px-4 text-sm font-bold text-night" type="submit">
-                Join
+              <button
+                className="btn-primary shrink-0 rounded-xl px-4 text-sm font-bold text-night disabled:opacity-60"
+                type="submit"
+                disabled={state === "saving"}
+              >
+                {state === "saving" ? "Joining…" : "Join"}
               </button>
             </div>
             {error && (
@@ -135,7 +165,7 @@ export function UpdatesSignup() {
               </p>
             )}
             <p className="mt-2 text-xs leading-relaxed text-faint">
-              This opens an email for you to send — nothing is stored on this site.
+              Kept only to send DJ KC updates. Unsubscribe any time.
             </p>
           </form>
         </>

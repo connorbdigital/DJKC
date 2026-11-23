@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { calendarDate } from "../utils/dates";
 import { Reveal } from "./Reveal";
 import { Icon } from "./Icons";
@@ -20,13 +20,40 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
   const [form, setForm] = useState<FormState>({ name: "", email: "", venue: "", area: "", date: "", message: "" });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [draft, setDraft] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState<{ id: string } | null>(null);
+  const [slot, setSlot] = useState<"idle" | "checking" | "open" | "requested" | "booked" | "unknown">("idle");
 
   const set = (k: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
     setErrors((er) => ({ ...er, [k]: undefined }));
   };
 
-  const submit = (e: FormEvent) => {
+  /* Ask the booking desk whether the chosen date already has an enquiry or a confirmed show. */
+  useEffect(() => {
+    if (!form.date || form.date < calendarDate()) {
+      setSlot("idle");
+      return;
+    }
+    const controller = new AbortController();
+    setSlot("checking");
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/availability?date=${form.date}`, { signal: controller.signal });
+        const data = response.ok ? await response.json() : null;
+        if (controller.signal.aborted) return;
+        setSlot(["open", "requested", "booked"].includes(data?.status) ? data.status : "unknown");
+      } catch {
+        if (!controller.signal.aborted) setSlot("unknown");
+      }
+    }, 350);
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [form.date]);
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     const er: typeof errors = {};
     if (!form.name.trim()) er.name = "Tell KC who's asking";
@@ -35,7 +62,33 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
     if (form.date && form.date < calendarDate()) er.date = "Choose today or a future date";
     setErrors(er);
     if (Object.keys(er).length) return;
-    setDraft(true);
+    setSending(true);
+    try {
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name, email: form.email, venue: form.venue,
+          area: form.area, date: form.date, package: tier, message: form.message,
+        }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) throw new Error("not stored");
+      setSent({ id: String(result.id) });
+      setSlot("requested");
+    } catch {
+      /* No booking store reachable: hand over the email draft instead of claiming success. */
+      setDraft(true);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const reset = () => {
+    setSent(null);
+    setDraft(false);
+    setForm({ name: "", email: "", venue: "", area: "", date: "", message: "" });
+    setSlot("idle");
   };
 
   const subject = `Booking enquiry: ${form.venue}`;
@@ -114,10 +167,30 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
 
         <Reveal delay={200} scale>
           <div className="ring-grad rounded-[2rem] p-6 sm:p-9">
-            {draft ? (
+            {sent ? (
               <div className="space-y-5">
-                <h3 className="font-display text-xl font-bold">Your enquiry is ready to email.</h3>
-                <p className="text-sm text-dim">Nothing has been sent yet. Open your email app and press Send, or copy these details into a message to {BOOKING_EMAIL}.</p>
+                <span className="inline-block rounded-full bg-mint/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-mint">
+                  Request received
+                </span>
+                <h3 className="font-display text-xl font-bold">Thanks — KC has your request.</h3>
+                <p className="text-sm leading-relaxed text-dim">
+                  Your reference is <strong className="text-ink">{sent.id}</strong>. KC replies within 24 hours to confirm
+                  the date, fee and travel. Nothing is booked until she confirms in writing.
+                </p>
+                <div className="flex flex-wrap items-center gap-4">
+                  <a
+                    className="btn-primary rounded-full px-5 py-3 font-bold text-white"
+                    href={`mailto:${BOOKING_EMAIL}?subject=${encodeURIComponent(`${subject} · ${sent.id}`)}&body=${encodeURIComponent(body)}`}
+                  >
+                    Email a copy
+                  </a>
+                  <button onClick={reset} className="underline">Make another enquiry</button>
+                </div>
+              </div>
+            ) : draft ? (
+              <div className="space-y-5">
+                <h3 className="font-display text-xl font-bold">The booking desk didn&rsquo;t answer.</h3>
+                <p className="text-sm text-dim">Your request wasn&rsquo;t sent, so nothing is saved yet. Open your email app and press Send, or copy these details into a message to {BOOKING_EMAIL}.</p>
                 <textarea autoFocus readOnly aria-label="Enquiry draft" value={body} rows={8} className={inputCls} />
                 <div className="flex flex-wrap gap-4">
                   <a className="btn-primary rounded-full px-5 py-3 font-bold" href={`mailto:${BOOKING_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`}>Open email app</a>
@@ -129,7 +202,7 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="font-display text-lg font-bold uppercase">Booking enquiry</h3>
                   <span className="rounded-full bg-mint/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-mint">
-                    Email enquiry
+                    Booking request
                   </span>
                 </div>
 
@@ -195,6 +268,17 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                       className={`${inputCls} border-white/10 [color-scheme:dark]`}
                     />
                     {errors.date && <p id="bk-date-error" role="alert" className="mt-1.5 text-xs text-danger">{errors.date}</p>}
+                    {!errors.date && slot !== "idle" && (
+                      <p
+                        className={`mt-1.5 text-xs ${slot === "booked" ? "text-amber" : slot === "open" ? "text-mint" : "text-dim"}`}
+                        role="status"
+                      >
+                        {slot === "checking" && "Checking that date…"}
+                        {slot === "open" && "That date looks open — KC confirms after your request."}
+                        {slot === "requested" && "Another enquiry is already in for this date; KC can still fit you in."}
+                        {slot === "booked" && "KC already has a confirmed show that day — send your enquiry for alternatives."}
+                      </p>
+                    )}
                   </div>
                   <div className="sm:col-span-2">
                     <label htmlFor="bk-area" className="mb-2 block font-mono text-[10px] uppercase tracking-[0.25em] text-dim">Booking area (optional)</label>
@@ -243,12 +327,13 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
 
                 <button
                   type="submit"
-                  className="btn-primary mt-7 w-full rounded-full py-4 text-base font-bold text-white"
+                  disabled={sending}
+                  className="btn-primary mt-7 w-full rounded-full py-4 text-base font-bold text-white disabled:opacity-70"
                 >
-                  Prepare email enquiry →
+                  {sending ? "Sending your request…" : "Send booking request →"}
                 </button>
                 <p className="mt-4 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
-                  Review your draft, then send it from your email app.
+                  KC replies within 24 hours · nothing is confirmed until she does
                 </p>
               </form>
             )}
