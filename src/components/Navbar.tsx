@@ -149,7 +149,7 @@ export function Navbar({
           ))}
         </nav>
         <div className="flex items-center justify-between px-8 pb-10">
-          <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-faint">Cork · Ireland</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.25em] text-faint">North West · UK</span>
           <div className="flex gap-3">
             {SOCIALS.map((s) => (
               <a

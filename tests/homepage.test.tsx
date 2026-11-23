@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import App from '../src/App';
 import { Booking } from '../src/components/Booking';
 import { Navbar } from '../src/components/Navbar';
+import { existsSync, readFileSync } from 'node:fs';
 import { calendarDate } from '../src/utils/dates';
 
 const engine = vi.hoisted(() => ({ play: vi.fn(), setMuted: vi.fn(), setVolume: vi.fn(), dispose: vi.fn(), getElapsed: () => 0 }));
@@ -21,6 +22,8 @@ it('shows sterling prices in the hero, packages and booking selector', () => {
   const pricing = document.getElementById('pricing')!;
   expect(pricing.textContent).toContain('£650');
   expect(pricing.textContent).toContain('£1,100');
+  expect(pricing.textContent).toContain('Travel included across the North West');
+  expect(pricing.textContent).not.toContain('Travel within Ireland');
   expect(screen.getByRole('option', { name: /Club Night — £650/ })).toBeTruthy();
   expect(screen.getByRole('option', { name: /Signature Live — £1,100/ })).toBeTruthy();
 });
@@ -94,4 +97,27 @@ it('filters live dates to the North West', () => {
     expect(screen.getByText('North West Takeover — KC & Friends')).toBeTruthy();
     expect(screen.queryByText('Playhouse — Guest Set')).toBeNull();
   } finally { vi.useRealTimers(); }
+});
+
+it('leads with the North West home turf in coverage and testimonials', () => {
+  render(<App />);
+  const areaNames = [...document.querySelectorAll('#shows summary')].map(n => n.textContent).filter(t => t?.includes('—') || t === 'Ireland');
+  expect(areaNames[0]).toBe('UK — North West — Home Turf');
+  expect(areaNames).toContain('Ireland');
+  expect(screen.getByRole('option', { name: 'UK — North West' })).toBeTruthy();
+  const voices = document.getElementById('voices')!;
+  expect(voices.textContent).toContain('Freight Island, Manchester');
+  expect(voices.textContent).toContain('Callum Webb');
+});
+
+it('describes the North West base in metadata for search and link previews', () => {
+  const html = readFileSync('index.html', 'utf8');
+  const meta = (name: string) => html.match(new RegExp(`<meta (?:name|property)="${name}" content="([^"]*)"`))?.[1] ?? '';
+  expect(meta('description')).toContain('North West, UK');
+  expect(meta('og:title')).toContain('North West');
+  expect(html).not.toMatch(/Cork, Ireland/);
+  expect(html).toContain('"homeLocation"');
+  expect(html).toContain('North West England');
+  expect(html).toContain('content="https://kaysie.sitebuildup.co.uk/og.jpg"');
+  expect(existsSync('public/og.jpg')).toBe(true);
 });

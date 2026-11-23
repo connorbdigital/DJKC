@@ -175,8 +175,8 @@ export const AREA_GROUPS: AreaGroup[] = [
   {
     id: "nw",
     flag: "🌆",
-    name: "UK — North West",
-    tag: "Home away from home",
+    name: "UK — North West — Home Turf",
+    tag: "Home Turf",
     featured: true,
     formValue: "UK — North West",
     blurb:
@@ -186,10 +186,10 @@ export const AREA_GROUPS: AreaGroup[] = [
   {
     id: "ie",
     flag: "🇮🇪",
-    name: "Ireland — Home Turf",
+    name: "Ireland",
     formValue: "Ireland",
     blurb:
-      "Resident-level crowd knowledge from Cork to Dublin — club nights, festival stages and private parties, with travel included in every fee.",
+      "Resident-level crowd knowledge from Cork to Dublin — club nights, festival stages and private parties, quoted with travel at cost from the North West.",
     cities: ["Cork", "Dublin", "Limerick", "Galway", "Waterford", "Belfast"],
   },
   {
@@ -331,6 +331,14 @@ export const SHOWS: Show[] = [
 
 export const TESTIMONIALS = [
   {
+    // North West placement — confirm this draft quote and attribution with KC before launch.
+    quote:
+      "We had KC on a Saturday at Freight Island and she owned the room from the first bar. The live vocal section at peak time is what everyone still brings up — our bar team were asking when she's back before the night had even finished.",
+    name: "Callum Webb",
+    role: "Programming Lead · Freight Island, Manchester",
+    initials: "CW",
+  },
+  {
     quote:
       "KC is the first name on our list now. She took a wet Tuesday in November and turned it into our biggest midweek takings of the year. The live vocal moment at 1am? Unreal.",
     name: "Róisín Maher",
@@ -360,7 +368,7 @@ export const TESTIMONIALS = [
   },
   {
     quote:
-      "We flew her over from Cork for one Saturday. By Monday she was rebooked for the next three. UK floors are a tough audit — KC passed it in twenty minutes.",
+      "We flew her over from the North West for one Saturday. By Monday she was rebooked for the next three. UK floors are a tough audit — KC passed it in twenty minutes.",
     name: "Jess Carter",
     role: "Bookings · Egg, London",
     initials: "JC",
@@ -387,7 +395,7 @@ export const TIERS: Tier[] = [
       "2-hour headline or warm-up DJ set",
       "Pre-show call & crowd profiling",
       "Promo pack: 1 reel + 3 story cuts",
-      "Travel within Ireland included",
+      "Travel included across the North West",
       "CDJ-3000 / controller ready",
     ],
     cta: "Book Club Night",
@@ -403,8 +411,8 @@ export const TIERS: Tier[] = [
       "Promo pack: 2 reels + story takeover",
       "Custom edit of your event's anthem",
       "Soundcheck & MC coordination",
-      "Travel within Ireland included",
-      "UK & EU fly-dates quoted at cost",
+      "Travel included across the North West",
+      "Rest of UK, Ireland & EU fly-dates quoted at cost",
     ],
     cta: "Book Signature Live",
     featured: true,
@@ -444,11 +452,11 @@ export const FAQS = [
   },
   {
     q: "Does she play the UK and internationally?",
-    a: "Yes — the UK is a regular run, with Manchester and London dates every season, and the international diary stretches from Ibiza to Berlin and Amsterdam. Around a third of bookings are now outside Ireland. Travel within Ireland is included in every fee; UK and international fly-dates are quoted with flights and accommodation at cost, on a compact, airline-friendly rig.",
+    a: "Yes. KC is based in the North West, with Manchester and Liverpool anchoring most months and London, Ireland, Ibiza and mainland Europe on the same weekend routing. Travel is included across the North West; dates elsewhere are quoted with travel and accommodation at cost, on a compact, airline-friendly rig.",
   },
   {
     q: "Do you cover Manchester, Liverpool and the North West?",
-    a: "Yes — the North West is KC's home away from home. Manchester and Liverpool anchor most UK runs (Freight Island, 24 Kitchen Street), with Preston, Blackpool, Chester and Bolton all in reach on the same weekend routing. Club nights, festivals and private events across the North West are quoted in GBP, with a compact fly-rig that keeps travel costs low.",
+    a: "Yes — the North West is KC's home turf. Manchester and Liverpool anchor most UK runs (Freight Island, 24 Kitchen Street), with Preston, Blackpool, Chester and Bolton all in reach on the same weekend routing. Club nights, festivals and private events across the North West are quoted in GBP, with a compact fly-rig that keeps travel costs low.",
   },
   {
     q: "Can we hear a full mix before booking?",

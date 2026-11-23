@@ -77,7 +77,7 @@ export function Pricing({ onChoose }: { onChoose: (tier: string) => void }) {
 
         <Reveal delay={200}>
           <p className="mt-12 text-center text-sm text-dim">
-            Travel within Ireland included · 50% deposit secures your date · balance on the night.{" "}
+            Travel included across the North West · rest of the UK, Ireland and overseas quoted at cost · 50% deposit secures your date.{" "}
             <a href="#book" className="font-bold text-magenta underline-offset-4 hover:text-ink hover:underline">
               Something custom? Talk to KC →
             </a>

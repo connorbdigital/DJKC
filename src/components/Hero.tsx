@@ -40,7 +40,7 @@ export function Hero({
             <p className="inline-flex items-center gap-2.5 rounded-full glass px-4 py-2 font-mono text-[10px] uppercase tracking-[0.28em] text-dim sm:text-[11px]">
               <span className="h-2 w-2 shrink-0 rounded-full bg-magenta" style={{ animation: "pulse-dot 2s infinite" }} />
               <span className="whitespace-nowrap">
-                DJ · Vocalist · Producer<span className="hidden sm:inline"> — Cork, IE</span>
+                DJ · Vocalist · Producer<span className="hidden sm:inline"> — North West, UK</span>
               </span>
             </p>
           </Reveal>
@@ -138,7 +138,7 @@ export function Hero({
                   )}
                 </div>
                 <span className="rounded-full bg-night/60 px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.2em] text-mint backdrop-blur">
-                  Cork, Ireland
+                  North West, UK
                 </span>
               </div>
             </div>
