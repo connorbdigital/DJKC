@@ -32,4 +32,6 @@ To enable model replies, set **`OPENAI_API_KEY`** as a server-only environment v
 
 ## Browser colour
 
-The tab icon and the mobile browser toolbar follow the section in view. `src/utils/themeColor.ts` maps each section to a toolbar colour and a favicon accent; a scroll listener updates `<meta name="theme-color">` and the SVG favicon. The static `theme-color` in `index.html` provides the first paint before React mounts. Desktop tab-strip colour is controlled by the browser and operating system, so the favicon is what changes there.
+The tab icon and the mobile browser toolbar follow the section in view. `src/utils/themeColor.ts` maps each section to a toolbar colour and a favicon accent; a scroll listener updates `<meta name="theme-color">` and the SVG favicon. The static `theme-color` in `index.html` provides the first paint before React mounts.
+
+On a fine pointer (desktop, mouse or trackpad) the tab icon instead cycles smoothly through the brand stops every six seconds, at about 12 frames per second. The colour animation pauses while the tab is hidden and is skipped entirely for `prefers-reduced-motion: reduce`, touch-only devices and browsers without `matchMedia`, which keep the per-section colour. Desktop tab-strip colour is controlled by the browser and operating system, so the animated icon is what changes there.
