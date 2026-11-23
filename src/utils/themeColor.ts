@@ -1,28 +1,28 @@
 import { useEffect } from "react";
 
-/* Colours follow the section in view: `bar` tints the mobile browser toolbar,
-   `accent` recolours the tab icon so desktop tabs shift too. */
+/* `bar` tints the mobile browser toolbar. The logo stays brand pink everywhere. */
 export interface SectionTheme {
   id: string;
   bar: string;
-  accent: string;
 }
 
+export const BRAND_ACCENT = "#ff2bd6";
+
 export const SECTION_THEMES: SectionTheme[] = [
-  { id: "top", bar: "#2b0b3d", accent: "#ff2bd6" },
-  { id: "why", bar: "#171034", accent: "#8b5cf6" },
-  { id: "music", bar: "#062637", accent: "#2bd9ff" },
-  { id: "shows", bar: "#1b1338", accent: "#8b5cf6" },
-  { id: "voices", bar: "#2a0a33", accent: "#ff2bd6" },
-  { id: "pricing", bar: "#3a2408", accent: "#ffb224" },
-  { id: "faq", bar: "#0f2a24", accent: "#3ee58f" },
-  { id: "book", bar: "#3b0a30", accent: "#ff2bd6" },
+  { id: "top", bar: "#2b0b3d" },
+  { id: "why", bar: "#171034" },
+  { id: "music", bar: "#062637" },
+  { id: "shows", bar: "#1b1338" },
+  { id: "voices", bar: "#2a0a33" },
+  { id: "pricing", bar: "#3a2408" },
+  { id: "faq", bar: "#0f2a24" },
+  { id: "book", bar: "#3b0a30" },
 ];
 
-export const DEFAULT_THEME: SectionTheme = { id: "", bar: "#0a0512", accent: "#ff2bd6" };
+export const DEFAULT_THEME: SectionTheme = { id: "", bar: "#0a0512" };
 
-/** Brand colours the desktop tab icon cycles through. */
-export const TAB_STOPS = ["#ff2bd6", "#8b5cf6", "#2bd9ff", "#3ee58f", "#ffb224"];
+/** Pink shades the desktop tab icon pulses between, so the mark never leaves the brand. */
+export const TAB_STOPS = ["#ff2bd6", "#ff9df0", "#e015a6"];
 
 const TICK_MS = 80;
 const LOOP_MS = 6000;
@@ -60,7 +60,7 @@ export function canAnimateTab(win: Window = window): boolean {
   return win.matchMedia("(hover: hover) and (pointer: fine)").matches && !win.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function faviconFor(accent: string): string {
+export function faviconFor(accent: string = BRAND_ACCENT): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="#0A0512"/><rect x="8" y="18" width="48" height="28" fill="none" stroke="${accent}" stroke-width="4"/><text x="32" y="39" font-family="Arial Black,Arial" font-size="17" font-weight="900" fill="#F5EFFA" text-anchor="middle">KC</text></svg>`;
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
@@ -75,7 +75,6 @@ export function useThemeColor({ animateTab = true }: { animateTab?: boolean } = 
     let progress = 0;
     let timer = 0;
 
-    /* With a fine pointer the icon animates, so scrolling only moves the toolbar tint. */
     const apply = () => {
       const probe = window.scrollY + window.innerHeight * 0.4;
       let theme = DEFAULT_THEME;
@@ -85,7 +84,6 @@ export function useThemeColor({ animateTab = true }: { animateTab?: boolean } = 
       if (theme.id === last) return;
       last = theme.id;
       if (meta && meta.content !== theme.bar) meta.content = theme.bar;
-      if (icon && !animate) icon.href = faviconFor(theme.accent);
     };
 
     const tick = () => {
@@ -103,6 +101,7 @@ export function useThemeColor({ animateTab = true }: { animateTab?: boolean } = 
     const onVisibility = () => (document.hidden ? stop() : start());
 
     apply();
+    if (icon) icon.href = faviconFor();
     if (animate) tick();
     start();
     window.addEventListener("scroll", apply, { passive: true });
