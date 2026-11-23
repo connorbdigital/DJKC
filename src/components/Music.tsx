@@ -89,7 +89,7 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).p
 function downloadBrief() {
   const text = `DJ KC — BOOKING BRIEF
 ========================================
-House DJ · Live Vocalist · Producer — Cork, Ireland
+House DJ · Live Vocalist · Producer — North West, UK
 
 BIO
 DJ KC blends live vocals, original productions and razor-sharp
@@ -110,7 +110,8 @@ TECH RIDER (SUMMARY)
 
 BOOKINGS
 ${BOOKING_EMAIL} · response within 24 hours
-Travel within Ireland included. UK/EU fly-dates on request.
+Travel included across the North West. Rest of the UK, Ireland
+and international dates are quoted at cost.
 
 LINKS
 instagram.com/djkcmusic · soundcloud.com/djkcmusic

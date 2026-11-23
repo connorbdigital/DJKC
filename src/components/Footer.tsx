@@ -17,7 +17,7 @@ export function Footer() {
           <div>
             <Logo className="text-base text-ink" />
             <p className="mt-5 max-w-xs text-sm leading-relaxed text-dim">
-              House DJ, live vocalist and producer from Cork, Ireland. Filling floors across Ireland, the UK and beyond.
+              House DJ, live vocalist and producer from the North West, UK. Filling floors across the UK, Ireland and beyond.
             </p>
             <div className="mt-6 flex gap-2.5">
               {SOCIALS.map((s) => (
@@ -90,7 +90,7 @@ export function Footer() {
 
         <div className="mt-16 flex flex-col items-center justify-between gap-5 border-t border-white/5 pt-8 sm:flex-row">
           <p className="text-center font-mono text-[10px] uppercase tracking-[0.2em] text-faint sm:text-left">
-            © {new Date().getFullYear()} DJ KC · Cork, Ireland · House that moves rooms
+            © {new Date().getFullYear()} DJ KC · North West, UK · House that moves rooms
           </p>
           <a
             href="#top"

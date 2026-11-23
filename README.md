@@ -1,6 +1,6 @@
 # DJ KC — homepage and booking enquiries
 
-A static React, TypeScript and Tailwind site for a Cork-based house DJ and live vocalist. The demo deck synthesises loops locally with Web Audio; they are not recordings of performances.
+A static React, TypeScript and Tailwind site for a North West-based house DJ and live vocalist. The demo deck synthesises loops locally with Web Audio; they are not recordings of performances.
 
 ## Develop and check
 
