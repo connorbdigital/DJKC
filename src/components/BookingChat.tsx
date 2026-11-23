@@ -18,6 +18,12 @@ export function BookingChat() {
   const append = (...next: Line[]) => setLines(prev => [...prev, ...next].slice(-40));
   useEffect(() => { if (log.current) log.current.scrollTop = log.current.scrollHeight; }, [lines, busy]);
   useEffect(() => () => request.current?.abort(), []);
+  /* Make room for the updates card: withdraw the invitation while it is on screen. */
+  useEffect(() => {
+    const hide = () => setHint(false);
+    window.addEventListener('kc:updates-open', hide);
+    return () => window.removeEventListener('kc:updates-open', hide);
+  }, []);
   const open = () => { setHint(false); dialog.current?.showModal(); };
   const ask = async (e: FormEvent) => {
     e.preventDefault();
