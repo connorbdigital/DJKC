@@ -298,7 +298,30 @@ input[type="range"].vol::-moz-range-thumb {
 .kc-chat-message { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--color-panel-2); color: var(--color-ink); border-radius: .85rem; padding: .75rem 1rem; margin: 0 1.5rem .7rem 0; line-height: 1.55; }
 .kc-chat-guest { background: #47204f; margin-left: 1.5rem; margin-right: 0; }
 
-/* On phones the labelled launcher replaces the overlapping invitation card. */
+/* Updates sign-up: delayed, dismissible, styled like the booking desk. */
+.kc-updates {
+  position: fixed; z-index: 44;
+  left: max(0.75rem, env(safe-area-inset-left));
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  width: min(21rem, calc(100vw - 1.5rem));
+  padding: 1.15rem 2.6rem 1.15rem 1.15rem;
+  background: linear-gradient(var(--color-night-2), var(--color-night-2)) padding-box, linear-gradient(125deg, var(--color-magenta), var(--color-violet), var(--color-cyan)) border-box;
+  color: var(--color-ink);
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  box-shadow: 0 10px 40px #0009;
+}
+.kc-updates-close {
+  position: absolute; top: .5rem; right: .5rem;
+  display: grid; place-items: center; width: 2rem; height: 2rem;
+  border-radius: 999px; color: var(--color-ink);
+}
+.kc-updates-close:hover { background: #ffffff14; }
+
+/* Phones: the chat invitation returns as a compact card above the launcher,
+   clear of the sign-up card that may appear later. */
 @media (max-width: 39.99rem) {
-  .kc-chat-hint { display: none; }
+  .kc-chat-launch { flex-direction: column; align-items: flex-end; }
+  .kc-chat-hint { display: flex; max-width: min(17rem, calc(100vw - 1.5rem)); }
+  .kc-updates { bottom: calc(5.75rem + env(safe-area-inset-bottom)); width: calc(100vw - 1.5rem); }
 }
