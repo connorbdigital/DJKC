@@ -57,6 +57,8 @@ export function Hero({
             <p className="mt-6 max-w-xl text-base leading-relaxed text-dim sm:text-lg">
               DJ KC blends <strong className="font-semibold text-ink">live vocals</strong>, original productions and
               razor-sharp club instinct into house sets that keep your floor locked — from first drink to last light.
+              Available for <strong className="font-semibold text-ink">club nights, weddings and parties</strong> across
+              Manchester, Liverpool and the UK.
             </p>
           </Reveal>
 

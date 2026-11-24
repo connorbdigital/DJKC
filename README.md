@@ -80,6 +80,8 @@ There is no Stripe webhook yet, so a payment is only recorded when the buyer ret
 The homepage is a React app, so its words only exist after JavaScript runs. Most answer engines (and some crawlers) never run it. `scripts/build-static-pages.mts` runs automatically after `vite build` and writes real HTML into `dist/`:
 
 - `/prices.html`, `/shows.html`, `/faq.html`, `/coverage.html`, `/about.html` — the facts, in text, each with its own structured data (`OfferCatalog`, `MusicEvent`, `FAQPage`, `PerformingGroup`).
+- Three pages built around what buyers actually search: `/how-much-does-a-dj-cost.html` (the UK price question, with market ranges for party, wedding and singer-DJ bookings), `/wedding-dj.html` (wedding DJ with live vocals in the North West) and `/dj-hire-manchester.html` (local hire for club nights, parties, corporate and Christmas events). Each carries `Service` + `FAQPage` schema and links to the booking form.
+- Tables stack with visible labels below 600px so prices stay readable on a phone.
 - `sitemap.xml` listing every page, and `llms.txt` — a plain-text fact sheet for AI tools.
 - `index.html` carries a `<noscript>` summary plus `PerformingGroup` + `WebSite` JSON-LD, and `robots.txt` names the major answer-engine crawlers and points at the sitemap.
 

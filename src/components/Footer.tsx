@@ -94,6 +94,9 @@ export function Footer() {
         >
           {[
             ["Prices", "/prices.html"],
+            ["What a DJ costs", "/how-much-does-a-dj-cost.html"],
+            ["Weddings", "/wedding-dj.html"],
+            ["DJ hire Manchester", "/dj-hire-manchester.html"],
             ["Live dates", "/shows.html"],
             ["Questions", "/faq.html"],
             ["Where KC plays", "/coverage.html"],

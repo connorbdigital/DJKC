@@ -57,7 +57,7 @@ it('generates crawlable pages and machine-readable summaries after a build', () 
   const pkg = JSON.parse(read('package.json'));
   expect(pkg.scripts.postbuild).toContain('scripts/build-static-pages.mts');
   const script = read('scripts/build-static-pages.mts');
-  for (const page of ['prices', 'faq', 'shows', 'coverage', 'about']) {
+  for (const page of ['prices', 'faq', 'shows', 'coverage', 'about', 'how-much-does-a-dj-cost', 'wedding-dj', 'dj-hire-manchester']) {
     expect(script).toContain(`${page}.html`);
   }
   expect(script).toContain('sitemap.xml');
@@ -65,4 +65,29 @@ it('generates crawlable pages and machine-readable summaries after a build', () 
   expect(script).toContain('FAQPage');
   expect(script).toContain('OfferCatalog');
   expect(script).toContain('MusicEvent');
+  expect(script).toContain('how-much-does-a-dj-cost.html');
+  expect(script).toContain('wedding-dj.html');
+  expect(script).toContain('dj-hire-manchester.html');
+});
+
+it('targets the phrases buyers actually search for', () => {
+  const index = read('index.html');
+  expect(index).toContain('DJ Hire Manchester');
+  expect(index).toContain('Hire DJ KC');
+  expect(index).toContain('weddings and parties');
+
+  const data = read('src/data.ts');
+  for (const question of [
+    'How much does a DJ cost in the UK?',
+    'Do you play weddings?',
+    'Can you play a corporate party or Christmas do?',
+    "What's the difference between a DJ and a singer-DJ?",
+  ]) {
+    expect(data).toContain(question);
+  }
+
+  const footer = read('src/components/Footer.tsx');
+  expect(footer).toContain('/how-much-does-a-dj-cost.html');
+  expect(footer).toContain('/wedding-dj.html');
+  expect(footer).toContain('/dj-hire-manchester.html');
 });
