@@ -8,10 +8,11 @@ import { Features } from "./components/Features";
 import { Packs } from "./components/Packs";
 import { Search } from "./components/Search";
 import { Draft } from "./components/Draft";
+import { Resources } from "./components/Resources";
 /* three.js is ~700kB; nobody pays for it until they ask for the space. */
 const Atlas = lazy(() => import("./components/Atlas").then((module) => ({ default: module.Atlas })));
 
-type Tab = "projects" | "packs" | "features" | "search" | "draft" | "atlas";
+type Tab = "projects" | "packs" | "features" | "search" | "draft" | "resources" | "atlas";
 
 const TABS: { id: Tab; label: string; blurb: string }[] = [
   { id: "projects", label: "Projects", blurb: "Everything on the account, newest first, with its history." },
@@ -19,6 +20,11 @@ const TABS: { id: Tab; label: string; blurb: string }[] = [
   { id: "features", label: "Feature library", blurb: "What already ships, ready to copy into another project." },
   { id: "search", label: "Search", blurb: "Look inside every project, and at one public page outside them." },
   { id: "draft", label: "Agent", blurb: "Describe the change; the agent drafts files; you review and open the pull request." },
+  {
+    id: "resources",
+    label: "Shelf",
+    blurb: "The todo, the sourcing links, and every key the two deployed projects read.",
+  },
   {
     id: "atlas",
     label: "Atlas (3D)",
@@ -115,6 +121,8 @@ export function App() {
       {repos && tab === "features" && <Features token={token} repos={repos} />}
       {repos && tab === "search" && <Search token={token} repos={repos} login={login} />}
       {repos && tab === "draft" && <Draft token={token} repos={repos} />}
+      {/* The shelf needs no token and no network: it is the same on a bad day. */}
+      {tab === "resources" && <Resources />}
       {tab === "atlas" && (
         <Suspense fallback={<p className="atlas-boot">Loading the space…</p>}>
           <Atlas onClose={() => setTab("projects")} />
