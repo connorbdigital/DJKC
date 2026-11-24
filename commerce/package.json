@@ -1,0 +1,17 @@
+{
+  "name": "kc-commerce",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A storefront framework built around the failures the big shops still have: checkout friction, mobile speed, accessibility, search and structured data.",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.17",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  },
+  "engines": { "node": ">=22.12.0" }
+}

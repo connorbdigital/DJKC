@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { CAPABILITIES, capabilityById } from "../features";
+import { useCallback, useMemo, useState } from "react";
+import { CAPABILITIES, CATEGORIES, capabilityById, categoryCounts, categoryInfo } from "../features";
+import type { Category } from "../types";
 import { installFeature, preflight, type InstallResult, type Preflight } from "../installer";
 import type { Repo } from "../types";
 import { Checks } from "./Checks";
@@ -14,14 +15,20 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
   const [busy, setBusy] = useState(false);
   const [check, setCheck] = useState<Preflight | null>(null);
   const [query, setQuery] = useState("");
+  const [shelf, setShelf] = useState<Category | "all">("all");
 
   const capability = capabilityById(openId);
-  const shown = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    return term
-      ? CAPABILITIES.filter((entry) => `${entry.name} ${entry.summary}`.toLowerCase().includes(term))
-      : CAPABILITIES;
-  }, [query]);
+  const counts = useMemo(categoryCounts, []);
+  const term = query.trim().toLowerCase();
+  const matches = useCallback(
+    (entry: (typeof CAPABILITIES)[number]) =>
+      (shelf === "all" || entry.category === shelf) &&
+      (!term || `${entry.name} ${entry.summary} ${entry.id}`.toLowerCase().includes(term)),
+    [shelf, term]
+  );
+  const shown = CAPABILITIES.filter(matches);
+  /* Grouped only when browsing the whole shelf; a search or a filter is already a list. */
+  const grouped = shelf === "all" && !term;
 
   const runCheck = async () => {
     if (!capability || !target) return;
@@ -72,17 +79,68 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
-        <ul className="list">
-          {shown.map((entry) => (
-            <li key={entry.id}>
-              <button className={`list-item${entry.id === openId ? " is-on" : ""}`} onClick={() => setOpenId(entry.id)}>
-                <span className="list-title">{entry.name}</span>
-                <span className="muted small">{entry.files.length} file{entry.files.length === 1 ? "" : "s"} · {entry.source}</span>
-              </button>
-            </li>
+        <div className="chips" role="group" aria-label="Filter by category">
+          <button
+            className={`chip${shelf === "all" ? " is-on" : ""}`}
+            aria-pressed={shelf === "all"}
+            onClick={() => setShelf("all")}
+          >
+            All <span className="muted small">{CAPABILITIES.length}</span>
+          </button>
+          {CATEGORIES.map((entry) => (
+            <button
+              key={entry.id}
+              className={`chip${shelf === entry.id ? " is-on" : ""}`}
+              aria-pressed={shelf === entry.id}
+              title={entry.blurb}
+              onClick={() => setShelf(entry.id)}
+            >
+              {entry.label} <span className="muted small">{counts[entry.id]}</span>
+            </button>
           ))}
-          {!shown.length && <li className="muted">Nothing matches that yet.</li>}
-        </ul>
+        </div>
+
+        {grouped ? (
+          CATEGORIES.map((group) => {
+            const entries = CAPABILITIES.filter((entry) => entry.category === group.id);
+            if (!entries.length) return null;
+            return (
+              <section key={group.id} className="shelf">
+                <h3 className="shelf-title">{group.label}</h3>
+                <p className="muted small shelf-blurb">{group.blurb}</p>
+                <ul className="list">
+                  {entries.map((entry) => (
+                    <li key={entry.id}>
+                      <button
+                        className={`list-item${entry.id === openId ? " is-on" : ""}`}
+                        onClick={() => setOpenId(entry.id)}
+                      >
+                        <span className="list-title">{entry.name}</span>
+                        <span className="muted small">
+                          {entry.files.length} file{entry.files.length === 1 ? "" : "s"} · v{entry.version}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })
+        ) : (
+          <ul className="list">
+            {shown.map((entry) => (
+              <li key={entry.id}>
+                <button className={`list-item${entry.id === openId ? " is-on" : ""}`} onClick={() => setOpenId(entry.id)}>
+                  <span className="list-title">{entry.name}</span>
+                  <span className="muted small">
+                    {categoryInfo(entry.category)?.label} · {entry.files.length} file{entry.files.length === 1 ? "" : "s"}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {!shown.length && <li className="muted">Nothing matches that yet.</li>}
+          </ul>
+        )}
       </div>
 
       <div className="col">

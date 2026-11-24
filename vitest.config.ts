@@ -1,8 +1,8 @@
 import { defineConfig } from "vitest/config";
 
-/* The studio package has its own vitest run — keep it out of the site's suite. */
+/* The studio and commerce packages have their own vitest runs — keep them out of the site's suite. */
 export default defineConfig({
   test: {
-    exclude: ["**/node_modules/**", "**/dist/**", "studio/**"],
+    exclude: ["**/node_modules/**", "**/dist/**", "studio/**", "commerce/**"],
   },
 });

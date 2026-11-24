@@ -100,6 +100,8 @@ The desk shows awaiting/confirmed/declined counts, searchable bookings with a da
 
 ## Studio (separate product)
 
+`commerce/` is a storefront framework — pricing, catalogue validation, search, checkout policy, structured data and build budgets, each written against a published failure in mainstream ecommerce. It is its own package with its own tests and CI job, and is not imported by this site. See [commerce/README.md](commerce/README.md), which begins with the market research it is built from.
+
 `studio/` is a private workspace — every project's history from GitHub, a reusable feature library, and an agent that drafts changes as pull requests. It has its own package, build and Vercel project (Root Directory `studio`) and is not imported by this site. See [studio/README.md](studio/README.md).
 
 Why it lives here: this session can only push to its own branch, so the Studio is built in-tree as a self-contained package and deployed separately. Moving it to its own repository later is a copy of one directory.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CAPABILITIES, capabilityById } from "./features";
+import { CAPABILITIES, CATEGORIES, capabilityById, categoryCounts, inCategory } from "./features";
 import { extractImports, resolveImport } from "./installer";
 
 describe("feature library", () => {
@@ -11,6 +11,28 @@ describe("feature library", () => {
       expect(capability.files.length).toBeGreaterThan(0);
       expect(capability.manual.length).toBeGreaterThan(0);
       expect(capability.version).toMatch(/^\d+\.\d+\.\d+$/);
+    }
+  });
+
+  it("puts every capability on exactly one shelf, and every shelf is used", () => {
+    const shelves = new Set(CATEGORIES.map((entry) => entry.id));
+    for (const capability of CAPABILITIES) {
+      expect(shelves.has(capability.category), `${capability.id} → ${capability.category}`).toBe(true);
+    }
+    const counts = categoryCounts();
+    const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+    expect(total).toBe(CAPABILITIES.length);
+    for (const category of CATEGORIES) {
+      expect(counts[category.id], `${category.id} is empty`).toBeGreaterThan(0);
+      expect(inCategory(category.id).every((entry) => entry.category === category.id)).toBe(true);
+    }
+  });
+
+  it("names its themes in words, not slugs", () => {
+    for (const category of CATEGORIES) {
+      expect(category.label).not.toBe(category.id);
+      expect(category.label.split(" ").length).toBeGreaterThan(0);
+      expect(category.blurb.length).toBeGreaterThan(30);
     }
   });
 
