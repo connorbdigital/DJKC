@@ -35,3 +35,40 @@ To enable model replies, set **`OPENAI_API_KEY`** as a server-only environment v
 The mobile browser toolbar follows the section in view: `src/utils/themeColor.ts` maps each section to a toolbar colour, and a scroll listener updates `<meta name="theme-color">`. The static `theme-color` in `index.html` provides the first paint before React mounts. The logo itself stays brand pink everywhere so the mark and the favicon that search engines crawl never drift off-brand.
 
 On a fine pointer (desktop, mouse or trackpad) the tab icon gently pulses between pink shades on a six-second loop at about 12 frames per second. The pulse pauses while the tab is hidden and is skipped entirely for `prefers-reduced-motion: reduce`, touch-only devices and browsers without `matchMedia`, which keep the static pink icon. Desktop tab-strip colour is controlled by the browser and operating system, so the icon is the only part the site can change there.
+
+## Mailing list storage
+
+`POST /api/subscribe` validates an address and stores it; `GET /api/subscribers` exports the list. Storage talks to Upstash's REST API directly, so there is no database dependency in `package.json`.
+
+1. Create a Redis store (Vercel dashboard → Storage → KV/Upstash, or upstash.com) and connect it to the `djkc` project. Connection provides `KV_REST_API_URL` and `KV_REST_API_TOKEN`; the handler also accepts `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` if you set them yourself.
+2. Redeploy. Addresses are kept in the Redis hash `kc:mailing-list` as `email → ISO opt-in timestamp`. `HSETNX` means a repeat sign-up never overwrites the original date.
+3. Add a long random `SUBSCRIBERS_TOKEN` to download the list:
+   `curl -H "Authorization: Bearer $SUBSCRIBERS_TOKEN" https://kaysie.sitebuildup.co.uk/api/subscribers > list.csv`
+   (`?format=json` returns JSON instead.) Keep this token private; without it the export returns 503.
+
+Without storage configured, `/api/subscribe` answers 503 and the pop-up falls back to a prepared email, so the visitor is never told they joined when they did not. Even so, run one real sign-up after setup and check it appears in the export, because a missing KV variable looks identical to a store outage from the browser.
+
+Only the address and opt-in time are stored. Use them solely for DJ KC updates, include an unsubscribe reply route in every send, and delete on request — UK GDPR applies to this list.
+
+## Booking requests
+
+The enquiry form now files a real request instead of only drafting an email.
+
+- `POST /api/bookings` validates the fields (name, email, venue, optional area, optional date within two years, package from the published tiers, message) and stores a record in the Redis hash `kc:bookings` with a reference such as `BK-4F2A9C`, status `requested` and a creation time.
+- `GET /api/availability?date=YYYY-MM-DD` answers `open`, `requested` or `booked` for that date, based on stored records. It is aggregate only and never returns names or contact details. The form shows this beside the date field.
+- `PATCH /api/bookings` with `{ "id": "BK-…", "status": "confirmed" }` marks a date as booked; `requested` and `declined` are the other states.
+- Both management calls need `BOOKINGS_TOKEN`:
+  `curl -H "Authorization: Bearer $BOOKINGS_TOKEN" https://kaysie.sitebuildup.co.uk/api/bookings > bookings.csv`
+  `curl -X PATCH -H "Authorization: Bearer $BOOKINGS_TOKEN" -H 'content-type: application/json' -d '{"id":"BK-4F2A9C","status":"confirmed"}' https://kaysie.sitebuildup.co.uk/api/bookings`
+
+Confirming a request here does **not** email the guest — reply to them yourself, then mark the record. The site also never takes a deposit; the 50% deposit in the copy is still arranged between KC and the promoter. Availability reflects only what is stored, so keep statuses current or the calendar will drift. Without storage configured the endpoint returns 503 and the form falls back to the prepared email, saying plainly that nothing was sent.
+
+## Booking desk (admin)
+
+`/admin.html` is a private, token-gated page for the booking requests and mailing list. It is not linked from the site and is disallowed in `robots.txt`, but anyone can open the URL — the data needs the token.
+
+Set **`ADMIN_TOKEN`** in Vercel to a long random string. It is accepted by `/api/bookings` and `/api/subscribers` alongside the specific `BOOKINGS_TOKEN` / `SUBSCRIBERS_TOKEN`, so the desk can use one token for both. The page keeps the token in `sessionStorage` only, so closing the tab locks it again.
+
+The desk shows awaiting/confirmed/declined counts, searchable bookings with a date, reference, venue, package, area, contact and message, and buttons to confirm, decline or reopen a request. Confirming updates the stored status (which feeds the public availability check) but **sends no email** — reply to the promoter yourself. CSV downloads for bookings and sign-ups use the same token.
+
+`/share-preview.html` shows the Open Graph cards as WhatsApp/iMessage, LinkedIn/Facebook and X/Bluesky would render them, plus the gaps worth fixing. Both internal pages are static files in `public/`, so they need no build step and are excluded from the single-page bundle.

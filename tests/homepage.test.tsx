@@ -28,9 +28,10 @@ it('shows sterling prices in the hero, packages and booking selector', () => {
   expect(screen.getByRole('option', { name: /Signature Live — £1,100/ })).toBeTruthy();
 });
 
-it('rejects yesterday and prepares an editable email, not a delivery confirmation', () => {
+it('rejects missing details and past dates before sending anything', async () => {
+  const fetch = vi.fn(); vi.stubGlobal('fetch', fetch);
   render(<Booking tier="Signature Live" onTier={() => {}} />);
-  const submit = () => fireEvent.click(screen.getByText('Prepare email enquiry →'));
+  const submit = () => fireEvent.click(screen.getByText('Send booking request →'));
   submit();
   expect(screen.getAllByRole('alert')).toHaveLength(3);
   for (const [label, value] of [['Your name *','Alex'], ['Email *','alex@example.org'], ['Venue / event *','Hall & Bar']]) {
@@ -41,12 +42,47 @@ it('rejects yesterday and prepares an editable email, not a delivery confirmatio
   fireEvent.change(screen.getByLabelText('Date'), {target: {value: calendarDate(yesterday)}});
   submit();
   expect(screen.getByText('Choose today or a future date')).toBeTruthy();
+  expect(fetch.mock.calls.some(([url]) => String(url).includes('/api/bookings'))).toBe(false);
+});
+
+it('sends a stored booking request and shows the reference without claiming a confirmed date', async () => {
+  const fetch = vi.fn((url: string, _init?: RequestInit) => Promise.resolve(
+    String(url).startsWith('/api/availability')
+      ? { ok: true, json: async () => ({ status: 'open' }) }
+      : { ok: true, json: async () => ({ ok: true, id: 'BK-ABC123', status: 'requested' }) }
+  ) as unknown as Promise<Response>);
+  vi.stubGlobal('fetch', fetch);
+  render(<Booking tier="Signature Live" onTier={() => {}} />);
+  fireEvent.change(screen.getByLabelText('Your name *'), {target: {value: 'Alex'}});
+  fireEvent.change(screen.getByLabelText('Email *'), {target: {value: 'alex@example.org'}});
+  fireEvent.change(screen.getByLabelText('Venue / event *'), {target: {value: 'Hall & Bar'}});
+  fireEvent.change(screen.getByLabelText('Booking area (optional)'), {target: {value: 'UK — North West'}});
   fireEvent.change(screen.getByLabelText('Date'), {target: {value: calendarDate()}});
-  submit();
-  const url = new URL(screen.getByRole('link', {name: 'Open email app'}).getAttribute('href')!);
-  expect(url.searchParams.get('body')).toContain('Area: UK — North West');
+  fireEvent.click(screen.getByText('Send booking request →'));
+  expect(await screen.findByText('Request received')).toBeTruthy();
+  expect(screen.getByText('BK-ABC123')).toBeTruthy();
+  expect(screen.getByText(/Nothing is booked until she confirms/)).toBeTruthy();
+  const [, init] = fetch.mock.calls.find(([u]) => String(u) === '/api/bookings')!;
+  expect(JSON.parse(String(init?.body))).toMatchObject({
+    name: 'Alex', email: 'alex@example.org', venue: 'Hall & Bar',
+    area: 'UK — North West', package: 'Signature Live',
+  });
+  expect(screen.queryByLabelText('Enquiry draft')).toBeNull();
+});
+
+it('falls back to an editable email when the booking desk cannot be reached', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+  render(<Booking tier="Signature Live" onTier={() => {}} />);
+  for (const [label, value] of [['Your name *','Alex'], ['Email *','alex@example.org'], ['Venue / event *','Hall & Bar']]) {
+    fireEvent.change(screen.getByLabelText(label), {target: {value}});
+  }
+  fireEvent.change(screen.getByLabelText('Booking area (optional)'), { target: { value: 'UK — North West' } });
+  fireEvent.change(screen.getByLabelText('Date'), {target: {value: calendarDate()}});
+  fireEvent.click(screen.getByText('Send booking request →'));
+  const link = (await screen.findByRole('link', {name: 'Open email app'})).getAttribute('href')!;
+  const url = new URL(link);
   expect(url.protocol).toBe('mailto:');
-  expect(url.searchParams.get('body')).toContain('Venue / event: Hall & Bar');
+  expect(url.searchParams.get('body')).toContain('Area: UK — North West');
   expect(url.searchParams.get('body')).toContain('Package: Signature Live');
   fireEvent.click(screen.getByText('Edit enquiry'));
   expect(screen.getByDisplayValue('alex@example.org')).toBeTruthy();

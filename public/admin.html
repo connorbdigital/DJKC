@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Booking desk — DJ KC</title>
+    <style>
+      :root { color-scheme: dark; --night:#0a0512; --panel:#120a1e; --panel-2:#1b1029; --ink:#f5effa; --dim:#a99cc0; --faint:#8b7f9d; --magenta:#ff2bd6; --violet:#8b5cf6; --mint:#3ee58f; --amber:#ffb224; --danger:#ff4d6d; --line:#2a1c3d; }
+      * { box-sizing: border-box; }
+      body { margin:0; background:var(--night); color:var(--ink); font-family: Manrope, system-ui, -apple-system, "Segoe UI", sans-serif; line-height:1.5; }
+      a { color:var(--magenta); }
+      .wrap { max-width: 1120px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+      header.bar { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; padding-bottom:1rem; border-bottom:1px solid var(--line); }
+      .mark { display:flex; align-items:center; gap:.75rem; }
+      .logo { font-weight:900; letter-spacing:.14em; border:2px solid currentColor; padding:.35rem .55rem; font-size:13px; }
+      .eyebrow { font:600 10px/1.4 ui-monospace, monospace; letter-spacing:.22em; text-transform:uppercase; color:var(--dim); }
+      .pill { font:600 10px/1 ui-monospace, monospace; letter-spacing:.12em; text-transform:uppercase; padding:.45rem .7rem; border-radius:999px; border:1px solid var(--line); color:var(--dim); }
+      .pill.ok { color:var(--mint); border-color:#1f4a36; }
+      .btn { border:1px solid var(--line); background:var(--panel-2); color:var(--ink); border-radius:10px; padding:.55rem .9rem; font:inherit; font-size:.85rem; font-weight:700; cursor:pointer; }
+      .btn:hover { border-color:var(--magenta); }
+      .btn.primary { background:linear-gradient(94deg,var(--magenta),var(--violet)); border-color:transparent; color:#fff; }
+      .btn.ghost { background:transparent; }
+      .btn.small { padding:.35rem .6rem; font-size:.75rem; border-radius:8px; }
+      .btn:disabled { opacity:.55; cursor:not-allowed; }
+      .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:1.25rem; }
+      .gate { max-width: 430px; margin: 12vh auto 0; }
+      .gate h1 { font-size:1.35rem; margin:.4rem 0 .5rem; }
+      .gate p { color:var(--dim); font-size:.9rem; margin:0 0 1rem; }
+      label { display:block; font:600 10px/1.4 ui-monospace, monospace; letter-spacing:.18em; text-transform:uppercase; color:var(--dim); margin-bottom:.45rem; }
+      input[type=password], input[type=search] { width:100%; background:#0f0818; border:1px solid var(--line); border-radius:10px; padding:.7rem .8rem; color:var(--ink); font:inherit; }
+      input:focus { outline:2px solid var(--magenta); outline-offset:1px; }
+      .row { display:flex; gap:.6rem; }
+      .row input { flex:1; min-width:0; }
+      .msg { font-size:.85rem; margin-top:.8rem; }
+      .msg.error { color:var(--danger); }
+      .msg.ok { color:var(--mint); }
+      .stats { display:grid; gap:.75rem; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); margin:1.25rem 0; }
+      .stat { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:.9rem 1rem; }
+      .stat b { display:block; font-size:1.6rem; line-height:1.1; }
+      .stat span { font:600 10px/1.4 ui-monospace, monospace; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); }
+      .tabs { display:flex; gap:.4rem; margin:0 0 1rem; }
+      .tab { border-radius:999px; }
+      .tab[aria-selected=true] { background:#2a1633; border-color:var(--magenta); color:#fff; }
+      .toolbar { display:flex; gap:.6rem; flex-wrap:wrap; align-items:center; margin-bottom:.9rem; }
+      .toolbar input, .toolbar select { max-width:260px; }
+      select { background:#0f0818; border:1px solid var(--line); border-radius:10px; padding:.55rem .7rem; color:var(--ink); font:inherit; font-size:.85rem; }
+      table { width:100%; border-collapse:collapse; font-size:.86rem; }
+      th { text-align:left; font:600 10px/1.4 ui-monospace, monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); padding:.5rem .6rem; border-bottom:1px solid var(--line); white-space:nowrap; }
+      td { padding:.65rem .6rem; border-bottom:1px solid #1e1430; vertical-align:top; }
+      tr:hover td { background:#150d22; }
+      .ref { font:600 .78rem/1.4 ui-monospace, monospace; color:var(--dim); }
+      .status { font:700 9px/1 ui-monospace, monospace; letter-spacing:.12em; text-transform:uppercase; padding:.35rem .5rem; border-radius:999px; border:1px solid; display:inline-block; }
+      .status.requested { color:var(--amber); border-color:#4a3a12; background:#2a2109; }
+      .status.confirmed { color:var(--mint); border-color:#1f4a36; background:#0e2419; }
+      .status.declined { color:var(--danger); border-color:#4a1b25; background:#2a0f16; }
+      .actions { display:flex; gap:.35rem; flex-wrap:wrap; }
+      .muted { color:var(--dim); }
+      .empty { padding:2rem 1rem; text-align:center; color:var(--dim); }
+      .note { margin-top:1.25rem; font-size:.82rem; color:var(--faint); }
+      .toast { position:fixed; left:50%; bottom:1.25rem; transform:translateX(-50%); background:#241536; border:1px solid var(--line); padding:.7rem 1rem; border-radius:12px; font-size:.85rem; box-shadow:0 12px 40px #0009; }
+      .toast[hidden] { display:none; }
+      @media (max-width: 720px) {
+        table, thead, tbody, th, td, tr { display:block; }
+        thead { display:none; }
+        tr { border:1px solid var(--line); border-radius:12px; margin-bottom:.7rem; padding:.4rem .2rem; }
+        td { border:0; padding:.35rem .7rem; }
+        td::before { content:attr(data-label) " · "; color:var(--faint); font:600 10px/1.4 ui-monospace, monospace; letter-spacing:.1em; text-transform:uppercase; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="bar">
+        <div class="mark">
+          <span class="logo">DJ KC</span>
+          <div>
+            <p class="eyebrow">Booking desk</p>
+            <strong>Requests &amp; mailing list</strong>
+          </div>
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+          <span id="status-pill" class="pill">Locked</span>
+          <button id="lock" class="btn ghost small" hidden>Lock</button>
+          <a class="btn ghost small" href="/">View site</a>
+        </div>
+      </header>
+
+      <section id="gate" class="card gate">
+        <p class="eyebrow">Private</p>
+        <h1>Enter the desk token</h1>
+        <p>
+          This page reads booking requests and mailing-list sign-ups. Paste the <code>ADMIN_TOKEN</code> (or the
+          <code>BOOKINGS_TOKEN</code>) you set in Vercel. It is kept in this tab only and never saved to disk.
+        </p>
+        <form id="gate-form">
+          <label for="token">Desk token</label>
+          <div class="row">
+            <input id="token" type="password" autocomplete="current-password" spellcheck="false" placeholder="Paste token" required />
+            <button class="btn primary" type="submit">Unlock</button>
+          </div>
+        </form>
+        <p id="gate-msg" class="msg" role="status" aria-live="polite"></p>
+      </section>
+
+      <main id="desk" hidden>
+        <div class="stats">
+          <div class="stat"><b id="count-requested">0</b><span>Awaiting reply</span></div>
+          <div class="stat"><b id="count-confirmed">0</b><span>Confirmed</span></div>
+          <div class="stat"><b id="count-declined">0</b><span>Declined</span></div>
+          <div class="stat"><b id="count-subscribers">–</b><span>On the list</span></div>
+        </div>
+
+        <div class="tabs" role="tablist">
+          <button class="btn tab" role="tab" id="tab-bookings" aria-selected="true" aria-controls="panel-bookings">Bookings</button>
+          <button class="btn tab" role="tab" id="tab-list" aria-selected="false" aria-controls="panel-list">Mailing list</button>
+        </div>
+
+        <section id="panel-bookings" role="tabpanel" aria-labelledby="tab-bookings">
+          <div class="toolbar">
+            <input id="search" type="search" placeholder="Search venue, name or reference" aria-label="Search bookings" />
+            <select id="filter" aria-label="Filter by status">
+              <option value="all">All statuses</option>
+              <option value="requested">Awaiting reply</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="declined">Declined</option>
+            </select>
+            <button id="export-bookings" class="btn small">Download CSV</button>
+            <button id="refresh" class="btn small ghost">Refresh</button>
+          </div>
+          <div class="card" style="padding:0">
+            <table>
+              <thead>
+                <tr><th>Date</th><th>Reference</th><th>Event</th><th>Contact</th><th>Status</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+            <div id="bookings-empty" class="empty" hidden>No bookings yet. Requests appear here as soon as someone sends one.</div>
+          </div>
+          <p class="note">Confirming here only marks the date in this desk. Reply to the promoter yourself — nothing is emailed automatically.</p>
+        </section>
+
+        <section id="panel-list" role="tabpanel" aria-labelledby="tab-list" hidden>
+          <div class="toolbar">
+            <input id="list-search" type="search" placeholder="Search addresses" aria-label="Search mailing list" />
+            <button id="export-list" class="btn small">Download CSV</button>
+          </div>
+          <div class="card" style="padding:0">
+            <table>
+              <thead><tr><th>Email</th><th>Joined</th></tr></thead>
+              <tbody id="list-rows"></tbody>
+            </table>
+            <div id="list-empty" class="empty" hidden>No sign-ups yet.</div>
+          </div>
+          <p class="note" id="list-note"></p>
+        </section>
+      </main>
+
+      <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+    </div>
+
+    <script>
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const tokenKey = "kc-desk-token";
+      const state = { token: sessionStorage.getItem(tokenKey) || "", bookings: [], subscribers: null, filter: "all", search: "", listSearch: "" };
+
+      const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      const prettyDate = (iso) => {
+        if (!iso) return "Date to confirm";
+        const date = new Date(iso + "T12:00:00");
+        return Number.isNaN(date.valueOf()) ? iso : date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+      };
+      const toast = (message) => {
+        const el = $("#toast");
+        el.textContent = message;
+        el.hidden = false;
+        clearTimeout(toast.timer);
+        toast.timer = setTimeout(() => { el.hidden = true; }, 3200);
+      };
+
+      async function api(path, init = {}) {
+        const response = await fetch(path, {
+          ...init,
+          headers: { ...(init.headers || {}), Authorization: `Bearer ${state.token}` },
+        });
+        if (!response.ok) {
+          const error = new Error(response.status === 401 ? "That token was rejected." : `Request failed (${response.status}).`);
+          error.status = response.status;
+          throw error;
+        }
+        return response;
+      }
+
+      async function load() {
+        const bookings = await (await api("/api/bookings?format=json")).json();
+        state.bookings = bookings.bookings || [];
+        render();
+        try {
+          const list = await (await api("/api/subscribers?format=json")).json();
+          state.subscribers = list.subscribers || [];
+        } catch (error) {
+          state.subscribers = null;
+          $("#list-note").textContent = error.status === 401 || error.status === 503
+            ? "This token cannot read the mailing list. Add ADMIN_TOKEN to Vercel (or allow SUBSCRIBERS_TOKEN) to see sign-ups here."
+            : "The mailing list could not be loaded.";
+        }
+        renderList();
+        renderStats();
+      }
+
+      function renderStats() {
+        const counts = state.bookings.reduce((acc, b) => ({ ...acc, [b.status]: (acc[b.status] || 0) + 1 }), {});
+        $("#count-requested").textContent = counts.requested || 0;
+        $("#count-confirmed").textContent = counts.confirmed || 0;
+        $("#count-declined").textContent = counts.declined || 0;
+        $("#count-subscribers").textContent = state.subscribers ? state.subscribers.length : "–";
+      }
+
+      function render() {
+        const term = state.search.trim().toLowerCase();
+        const rows = state.bookings
+          .filter((b) => state.filter === "all" || b.status === state.filter)
+          .filter((b) => !term || [b.venue, b.name, b.id, b.email, b.date].join(" ").toLowerCase().includes(term))
+          .sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
+
+        $("#bookings-empty").hidden = rows.length > 0;
+        $("#rows").innerHTML = rows.map((b) => `
+          <tr>
+            <td data-label="Date">${escapeHtml(prettyDate(b.date))}</td>
+            <td data-label="Reference"><span class="ref">${escapeHtml(b.id)}</span></td>
+            <td data-label="Event">
+              <strong>${escapeHtml(b.venue)}</strong>
+              <div class="muted">${escapeHtml(b.package)}${b.area ? " · " + escapeHtml(b.area) : ""}</div>
+              ${b.message ? `<div class="muted" style="margin-top:.3rem">${escapeHtml(b.message)}</div>` : ""}
+            </td>
+            <td data-label="Contact">
+              <a href="mailto:${encodeURIComponent(b.email)}">${escapeHtml(b.email)}</a>
+              <div class="muted">${escapeHtml(b.name)}</div>
+            </td>
+            <td data-label="Status"><span class="status ${escapeHtml(b.status)}">${escapeHtml(b.status === "requested" ? "awaiting reply" : b.status)}</span></td>
+            <td data-label="Actions">
+              <div class="actions">
+                ${b.status !== "confirmed" ? `<button class="btn small" data-id="${escapeHtml(b.id)}" data-status="confirmed">Confirm</button>` : ""}
+                ${b.status !== "declined" ? `<button class="btn small ghost" data-id="${escapeHtml(b.id)}" data-status="declined">Decline</button>` : ""}
+                ${b.status !== "requested" ? `<button class="btn small ghost" data-id="${escapeHtml(b.id)}" data-status="requested">Reopen</button>` : ""}
+              </div>
+            </td>
+          </tr>`).join("");
+      }
+
+      function renderList() {
+        const term = state.listSearch.trim().toLowerCase();
+        const rows = (state.subscribers || []).filter((s) => !term || s.email.toLowerCase().includes(term));
+        $("#list-empty").hidden = rows.length > 0 || !state.subscribers;
+        $("#list-rows").innerHTML = rows.map((s) => `
+          <tr>
+            <td data-label="Email"><a href="mailto:${encodeURIComponent(s.email)}">${escapeHtml(s.email)}</a></td>
+            <td data-label="Joined" class="muted">${escapeHtml(new Date(s.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }))}</td>
+          </tr>`).join("");
+      }
+
+      async function download(path, filename) {
+        try {
+          const response = await api(path);
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement("a");
+          anchor.href = url;
+          anchor.download = filename;
+          document.body.append(anchor);
+          anchor.click();
+          anchor.remove();
+          URL.revokeObjectURL(url);
+          toast("Downloaded " + filename);
+        } catch (error) {
+          toast(error.message);
+        }
+      }
+
+      async function unlock(token) {
+        state.token = token;
+        try {
+          await load();
+          sessionStorage.setItem(tokenKey, token);
+          $("#gate").hidden = true;
+          $("#desk").hidden = false;
+          $("#lock").hidden = false;
+          $("#status-pill").textContent = "Unlocked";
+          $("#status-pill").classList.add("ok");
+          return true;
+        } catch (error) {
+          state.token = "";
+          sessionStorage.removeItem(tokenKey);
+          $("#gate-msg").className = "msg error";
+          $("#gate-msg").textContent = error.status === 401
+            ? error.message
+            : "Could not reach the booking desk. Check that the KV store is connected and the token is correct.";
+          return false;
+        }
+      }
+
+      $("#gate-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const value = $("#token").value.trim();
+        if (!value) return;
+        $("#gate-msg").textContent = "Checking…";
+        $("#gate-msg").className = "msg";
+        await unlock(value);
+      });
+
+      $("#lock").addEventListener("click", () => {
+        sessionStorage.removeItem(tokenKey);
+        location.reload();
+      });
+
+      $("#rows").addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-id]");
+        if (!button) return;
+        button.disabled = true;
+        try {
+          const response = await api("/api/bookings", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: button.dataset.id, status: button.dataset.status }),
+          });
+          const { booking } = await response.json();
+          state.bookings = state.bookings.map((b) => (b.id === booking.id ? booking : b));
+          render();
+          renderStats();
+          toast(`Booking ${booking.id} marked ${booking.status}. Reply to the promoter to confirm in writing.`);
+        } catch (error) {
+          toast(error.message);
+          button.disabled = false;
+        }
+      });
+
+      $("#search").addEventListener("input", (event) => { state.search = event.target.value; render(); });
+      $("#filter").addEventListener("change", (event) => { state.filter = event.target.value; render(); });
+      $("#list-search").addEventListener("input", (event) => { state.listSearch = event.target.value; renderList(); });
+      $("#refresh").addEventListener("click", async () => { await load(); toast("Refreshed"); });
+      $("#export-bookings").addEventListener("click", () => download("/api/bookings", "dj-kc-bookings.csv"));
+      $("#export-list").addEventListener("click", () => download("/api/subscribers", "dj-kc-mailing-list.csv"));
+
+      const tabs = [["tab-bookings", "panel-bookings"], ["tab-list", "panel-list"]];
+      tabs.forEach(([tab, panel]) => {
+        $("#" + tab).addEventListener("click", () => {
+          tabs.forEach(([t, p]) => {
+            $("#" + t).setAttribute("aria-selected", String(t === tab));
+            $("#" + p).hidden = t !== tab;
+          });
+        });
+      });
+
+      if (state.token) unlock(state.token);
+    </script>
+  </body>
+</html>
