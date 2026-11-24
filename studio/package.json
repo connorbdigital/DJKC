@@ -1,0 +1,27 @@
+{
+  "name": "kc-studio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Studio: every project, every shipped feature, and an agent that drafts the next one.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.17",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "typescript": "5.9.3",
+    "vite": "7.3.8",
+    "vitest": "4.1.12"
+  },
+  "engines": { "node": ">=22.12.0" }
+}

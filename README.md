@@ -97,3 +97,9 @@ Set **`ADMIN_TOKEN`** in Vercel to a long random string. It is accepted by `/api
 The desk shows awaiting/confirmed/declined counts, searchable bookings with a date, reference, venue, package, area, contact and message, and buttons to confirm, decline or reopen a request. Confirming updates the stored status (which feeds the public availability check) but **sends no email** — reply to the promoter yourself. CSV downloads for bookings and sign-ups use the same token.
 
 `/share-preview.html` shows the Open Graph cards as WhatsApp/iMessage, LinkedIn/Facebook and X/Bluesky would render them, plus the gaps worth fixing. Both internal pages are static files in `public/`, so they need no build step and are excluded from the single-page bundle.
+
+## Studio (separate product)
+
+`studio/` is a private workspace — every project's history from GitHub, a reusable feature library, and an agent that drafts changes as pull requests. It has its own package, build and Vercel project (Root Directory `studio`) and is not imported by this site. See [studio/README.md](studio/README.md).
+
+Why it lives here: this session can only push to its own branch, so the Studio is built in-tree as a self-contained package and deployed separately. Moving it to its own repository later is a copy of one directory.
