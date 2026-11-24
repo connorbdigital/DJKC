@@ -72,6 +72,13 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
     };
   }, [form.date]);
 
+  /* Book now (bottom bar) lands here: put the holding deposit in front of them. */
+  useEffect(() => {
+    const preferDeposit = () => setForm((f) => (f.pay === "none" ? { ...f, pay: "deposit" } : f));
+    window.addEventListener("kc:pay-on-book", preferDeposit);
+    return () => window.removeEventListener("kc:pay-on-book", preferDeposit);
+  }, []);
+
   /* Returning from Stripe: ask the server to verify the session before claiming a payment. */
   useEffect(() => {
     const session = new URLSearchParams(window.location.search).get("deposit");
