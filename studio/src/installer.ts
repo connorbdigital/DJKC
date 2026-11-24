@@ -1,6 +1,9 @@
-import type { Capability, InstalledFeature, StudioManifest } from "./types";
+import type { Capability, FileRef, InstalledFeature, StudioManifest } from "./types";
 import { CAPABILITIES } from "./features";
 import { createBranch, defaultBranch, headCommit, openPull, readFile, writeFile } from "./github";
+import { branchName, packBranchName, targetPath } from "./paths";
+import type { Pack, PlannedFile } from "./packs";
+import { packEnv, packExpects, packManual, packSources, planFiles, resolvePack, sharedFiles } from "./packs";
 
 export const MANIFEST_PATH = "studio/features.json";
 
@@ -16,26 +19,22 @@ export function parseManifest(text: string | null): StudioManifest {
   }
 }
 
-/** Adds or replaces one feature in the manifest and returns the file to write. */
-export function mergeManifest(existing: string | null, entry: InstalledFeature): string {
+/** Adds or replaces features in the manifest in one write, sorted for a clean diff. */
+export function mergeManifestMany(existing: string | null, entries: InstalledFeature[]): string {
   const manifest = parseManifest(existing);
-  const features = [...manifest.features.filter((feature) => feature.id !== entry.id), entry].sort((a, b) =>
+  const latest = new Map(entries.map((entry) => [entry.id, entry]));
+  const replaced = new Set(latest.keys());
+  const features = [...manifest.features.filter((feature) => !replaced.has(feature.id)), ...latest.values()].sort((a, b) =>
     a.id.localeCompare(b.id)
   );
   return `${JSON.stringify({ version: 1, features }, null, 2)}\n`;
 }
 
-/** Where a capability's file lands in the target repo. */
-export function targetPath(prefix: string, sourcePath: string): string {
-  const clean = prefix.trim().replace(/^\/+|\/+$/g, "");
-  return clean ? `${clean}/${sourcePath}` : sourcePath;
-}
+/** Adds or replaces one feature in the manifest and returns the file to write. */
+export const mergeManifest = (existing: string | null, entry: InstalledFeature): string =>
+  mergeManifestMany(existing, [entry]);
 
-/** studio/feature-booking-form-deposits-2026-11-24-0530 */
-export function branchName(capabilityId: string, at: Date): string {
-  const stamp = at.toISOString().slice(0, 16).replace(/[:T]/g, "-");
-  return `studio/feature-${capabilityId}-${stamp}`;
-}
+export { branchName, targetPath } from "./paths";
 
 /** Relative import specifiers in a source file — what will break if it is copied alone. */
 export function extractImports(content: string): string[] {
@@ -71,23 +70,43 @@ export interface Preflight {
   collisions: string[];
   unresolved: { file: string; specifier: string }[];
   missingDependencies: string[];
+  /** Files the feature reads but does not write, and the target does not have. */
+  missingExpectations: string[];
 }
 
-/** Reads the target before writing anything: is this going to land cleanly? */
-export async function preflight(opts: {
+export interface BundleFile {
+  /** Project the file is read from, as owner/name. */
+  source: string;
+  path: string;
+}
+
+/**
+ * Reads the target before writing anything: is this going to land cleanly?
+ * Works for one capability or a whole pack — `bundled` names the capabilities
+ * whose files are already inside this write, so their needs are satisfied.
+ */
+export async function preflightBundle(opts: {
   token: string;
-  capability: Capability;
+  files: BundleFile[];
+  requires: string[];
   target: string;
   prefix: string;
+  /** Capabilities whose files are part of this write. */
+  bundled?: string[];
+  /** Files this feature reads but never writes. */
+  expects?: FileRef[];
+  /** Destinations this write creates, so an expectation met here is not missing. */
+  provided?: string[];
 }): Promise<Preflight> {
-  const { token, capability, target, prefix } = opts;
+  const { token, target, prefix } = opts;
   const files: Preflight["files"] = [];
   const contents = new Map<string, string>();
   const collisions: string[] = [];
 
-  for (const file of capability.files) {
-    const content = await readFile(token, capability.source, file.path);
+  for (const file of opts.files) {
+    const content = await readFile(token, file.source, file.path);
     if (content === null) continue;
+    if (contents.has(file.path)) continue;
     contents.set(file.path, content);
     const destination = targetPath(prefix, file.path);
     const existing = await readFile(token, target, destination);
@@ -95,12 +114,14 @@ export async function preflight(opts: {
     files.push({ source: file.path, destination, bytes: content.length, exists: existing !== null });
   }
 
-  const bundled = new Set([...contents.keys()].map((path) => path.replace(/\.(tsx|ts|jsx|js|mts|css)$/, "")));
+  const normalise = (path: string) => path.replace(/\.(tsx|ts|jsx|js|mts|css)$/, "");
+  const bundled = new Set([...contents.keys()].map(normalise));
   const unresolved: Preflight["unresolved"] = [];
   for (const [path, content] of contents) {
     for (const specifier of extractImports(content)) {
       const candidates = resolveImport(path, specifier);
-      const insideBundle = candidates.some((candidate) => bundled.has(candidate));
+      /* `./store.js` and `./store.ts` are the same file to a bundler. */
+      const insideBundle = candidates.some((candidate) => bundled.has(normalise(candidate)));
       if (insideBundle) continue;
       let found = false;
       for (const candidate of candidates) {
@@ -111,9 +132,19 @@ export async function preflight(opts: {
     }
   }
 
+  const provided = new Set([...(opts.provided ?? []), ...files.map((file) => file.destination)]);
+  const missingExpectations: string[] = [];
+  for (const expectation of opts.expects ?? []) {
+    const destination = targetPath(prefix, expectation.path);
+    if (provided.has(destination)) continue;
+    if ((await readFile(token, target, destination)) !== null) continue;
+    missingExpectations.push(`${destination} — ${expectation.role}`);
+  }
+
+  const inside = new Set(opts.bundled ?? []);
   const missingDependencies: string[] = [];
-  for (const id of capability.requires) {
-    if (id === "storage") continue;
+  for (const id of opts.requires) {
+    if (id === "storage" || inside.has(id)) continue;
     const dependency = CAPABILITIES.find((entry) => entry.id === id);
     if (!dependency) continue;
     let present = false;
@@ -123,7 +154,44 @@ export async function preflight(opts: {
     if (!present) missingDependencies.push(id);
   }
 
-  return { files, collisions, unresolved, missingDependencies };
+  return { files, collisions, unresolved, missingDependencies, missingExpectations };
+}
+
+/** Reads the target before writing anything: is this going to land cleanly? */
+export const preflight = (opts: {
+  token: string;
+  capability: Capability;
+  target: string;
+  prefix: string;
+}): Promise<Preflight> =>
+  preflightBundle({
+    token: opts.token,
+    files: opts.capability.files.map((file) => ({ source: opts.capability.source, path: file.path })),
+    requires: opts.capability.requires,
+    target: opts.target,
+    prefix: opts.prefix,
+    expects: opts.capability.expects,
+  });
+
+/** The same check for a whole pack: internal dependencies count as satisfied. */
+export function preflightPack(opts: {
+  token: string;
+  pack: Pack;
+  target: string;
+  prefix: string;
+}): Promise<Preflight> {
+  const capabilities = resolvePack(opts.pack);
+  const requires = [...new Set(capabilities.flatMap((capability) => capability.requires))];
+  return preflightBundle({
+    token: opts.token,
+    files: planFiles(capabilities, opts.prefix).map((file) => ({ source: file.source, path: file.path })),
+    requires,
+    target: opts.target,
+    prefix: opts.prefix,
+    bundled: capabilities.map((capability) => capability.id),
+    expects: capabilities.flatMap((capability) => capability.expects),
+    provided: planFiles(capabilities, opts.prefix).map((file) => file.destination),
+  });
 }
 
 export function installBody(
@@ -145,8 +213,8 @@ export function installBody(
   ];
 
   if (opts.preflight) {
-    const { collisions, unresolved, missingDependencies } = opts.preflight;
-    if (collisions.length || unresolved.length || missingDependencies.length) {
+    const { collisions, unresolved, missingDependencies, missingExpectations } = opts.preflight;
+    if (collisions.length || unresolved.length || missingDependencies.length || missingExpectations.length) {
       lines.push("## Checked before writing", "");
       if (collisions.length) lines.push(...collisions.map((path) => `- Overwrote an existing file: \`${path}\``));
       if (unresolved.length) {
@@ -155,8 +223,19 @@ export function installBody(
       if (missingDependencies.length) {
         lines.push(...missingDependencies.map((id) => `- Depends on the \`${id}\` capability, which is not in this project`));
       }
+      if (missingExpectations.length) {
+        lines.push(...missingExpectations.map((line) => `- Expects \`${line}\`, which this project does not have yet`));
+      }
       lines.push("");
     }
+  }
+
+  if (capability.expects.length) {
+    lines.push(
+      "## Reads from your project",
+      ...capability.expects.map((file) => `- \`${targetPath(opts.prefix, file.path)}\` — ${file.role}`),
+      ""
+    );
   }
 
   const adapt = capability.files.filter((f) => f.adapt);
@@ -248,4 +327,192 @@ export async function installFeature(opts: {
   });
   step(`Opened #${pull.number}`);
   return { branch, pullUrl: pull.url, pullNumber: pull.number, paths, skipped };
+}
+
+export function packBody(
+  pack: Pack,
+  opts: {
+    capabilities: Capability[];
+    files: PlannedFile[];
+    sources: Record<string, string>;
+    paths: string[];
+    omitted: string[];
+    preflight?: Preflight;
+  }
+): string {
+  const { capabilities, files, sources } = opts;
+  const pinned = Object.entries(sources)
+    .map(([source, commit]) => `\`${source}\`@\`${commit.slice(0, 7)}\``)
+    .join(", ");
+
+  const lines = [
+    `Sets up **${pack.name}** in one pull request.`,
+    "",
+    pack.summary,
+    "",
+    `Copied from ${pinned}. Files are byte-for-byte what already ships in the source project — nothing was modified in transit.`,
+    "",
+    "## What lands",
+    ...capabilities
+      .filter((capability) => !opts.omitted.includes(capability.id))
+      .map(
+        (capability) =>
+          `- **${capability.name}** \`${capability.version}\` — ${capability.files.length} file${capability.files.length === 1 ? "" : "s"}`
+      ),
+    "",
+  ];
+
+  if (opts.omitted.length) {
+    lines.push(...opts.omitted.map((id) => `- Could not be read from the source, so it was left out: \`${id}\``), "");
+  }
+
+  const shared = sharedFiles(files);
+  if (shared.length) {
+    lines.push(
+      "## Files several features share",
+      ...shared.map((file) => `- \`${file.destination}\` — used by ${file.from.join(", ")}`),
+      ""
+    );
+  }
+
+  lines.push("## Files", ...opts.paths.map((path) => `- \`${path}\``), "");
+
+  if (pack.before.length) lines.push("## Before you start", ...pack.before.map((line) => `- ${line}`), "");
+
+  if (opts.preflight) {
+    const { collisions, unresolved, missingDependencies, missingExpectations } = opts.preflight;
+    if (collisions.length || unresolved.length || missingDependencies.length || missingExpectations.length) {
+      lines.push("## Checked before writing", "");
+      if (collisions.length) lines.push(...collisions.map((path) => `- Overwrote an existing file: \`${path}\``));
+      if (unresolved.length) {
+        lines.push(...unresolved.map((entry) => `- \`${entry.file}\` imports \`${entry.specifier}\` — not present in the target yet`));
+      }
+      if (missingDependencies.length) {
+        lines.push(...missingDependencies.map((id) => `- Depends on the \`${id}\` capability, which is not in this project`));
+      }
+      if (missingExpectations.length) {
+        lines.push(...missingExpectations.map((line) => `- Expects \`${line}\`, which this project does not have yet`));
+      }
+      lines.push("");
+    }
+  }
+
+  const expected = packExpects(capabilities);
+  if (expected.length) {
+    lines.push(
+      "## Reads from your project",
+      ...expected.map(
+        (entry) =>
+          `- \`${entry.path}\` — ${entry.role}${entry.internal ? " (provided by this pack)" : ""}`
+      ),
+      ""
+    );
+  }
+
+  const env = packEnv(capabilities);
+  if (env.length) lines.push("## Environment variables", ...env.map((name) => `- \`${name}\``), "");
+
+  const adapt = capabilities.flatMap((capability) =>
+    capability.files.filter((file) => file.adapt).map((file) => `- \`${targetPath("", file.path)}\` — ${file.role}`)
+  );
+  if (adapt.length) lines.push("## Needs editing after merge", ...adapt, "");
+
+  const manual = packManual(capabilities);
+  if (manual.length) lines.push("## Still to do by hand", ...manual.map((line) => `- ${line}`), "");
+
+  lines.push(
+    "## Recorded in the manifest",
+    "",
+    `Each feature above is added to \`${MANIFEST_PATH}\` with its version, source and the commit it was read from — so this project knows what it has and what it can be compared against later.`,
+    "",
+    "---",
+    "Opened by Studio from a setup pack. Files were copied as-is; tests in the source project passed before this was shipped there.",
+    "Do not merge until the edits above are done and this project's build is green."
+  );
+  return lines.join("\n");
+}
+
+export interface PackInstallResult {
+  branch: string;
+  pullUrl: string;
+  pullNumber: number;
+  paths: string[];
+  skipped: string[];
+  features: string[];
+}
+
+/** One branch, one pull request, every file the pack needs. Never a merge. */
+export async function installPack(opts: {
+  token: string;
+  pack: Pack;
+  target: string;
+  prefix: string;
+  preflight?: Preflight;
+  onStep?: (message: string) => void;
+}): Promise<PackInstallResult> {
+  const { token, pack, target, prefix } = opts;
+  const step = opts.onStep ?? (() => {});
+  const capabilities = resolvePack(pack);
+  const files = planFiles(capabilities, prefix);
+
+  const base = await defaultBranch(token, target);
+  const sources: Record<string, string> = {};
+  for (const source of packSources(capabilities)) {
+    const sourceBranch = await defaultBranch(token, source);
+    sources[source] = await headCommit(token, source, sourceBranch);
+  }
+  step(`Pinning to ${Object.entries(sources).map(([source, commit]) => `${source}@${commit.slice(0, 7)}`).join(", ")}`);
+
+  const branch = packBranchName(pack.id, new Date());
+  step(`Creating ${branch} from ${base}`);
+  await createBranch(token, target, branch, base);
+
+  const written = new Map<string, string[]>();
+  const paths: string[] = [];
+  const skipped: string[] = [];
+  const omitted: string[] = [];
+
+  for (const file of files) {
+    const content = await readFile(token, file.source, file.path);
+    if (content === null) {
+      skipped.push(file.path);
+      continue;
+    }
+    step(`Writing ${file.destination}`);
+    await writeFile(token, target, file.destination, content, branch, `Add ${file.path} from the ${pack.id} pack`);
+    paths.push(file.destination);
+    for (const id of file.from) written.set(id, [...(written.get(id) ?? []), file.destination]);
+  }
+
+  for (const capability of capabilities) {
+    if (!written.has(capability.id)) omitted.push(capability.id);
+  }
+  if (!paths.length) throw new Error(`None of the ${pack.id} pack's files could be read from its sources.`);
+
+  const installedAt = new Date().toISOString();
+  const entries = capabilities
+    .filter((capability) => written.has(capability.id))
+    .map((capability) => ({
+      id: capability.id,
+      name: capability.name,
+      version: capability.version,
+      source: capability.source,
+      sourceCommit: sources[capability.source] ?? "",
+      installedAt,
+      files: written.get(capability.id) ?? [],
+    }));
+
+  step(`Recording ${entries.length} feature${entries.length === 1 ? "" : "s"} in ${MANIFEST_PATH}`);
+  const manifest = mergeManifestMany(await readFile(token, target, MANIFEST_PATH, branch), entries);
+  await writeFile(token, target, MANIFEST_PATH, manifest, branch, `Record the ${pack.id} pack in the studio manifest`);
+
+  step("Opening the pull request");
+  const pull = await openPull(token, target, {
+    title: `Studio: ${pack.name}`,
+    head: branch,
+    base,
+    body: packBody(pack, { capabilities, files, sources, paths, omitted, preflight: opts.preflight }),
+  });
+  step(`Opened #${pull.number}`);
+  return { branch, pullUrl: pull.url, pullNumber: pull.number, paths, skipped, features: entries.map((entry) => entry.id) };
 }

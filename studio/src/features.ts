@@ -8,7 +8,7 @@ import type { Capability } from "./types";
 export const CAPABILITIES: Capability[] = [
   {
     id: "booking-form-deposits",
-    version: "1.0.0",
+    version: "1.0.1",
     name: "Booking form with Stripe deposits",
     summary:
       "A priced enquiry form: package selection, suggested budget, deposit or pay-in-full choice, Stripe Checkout, and a verified confirmation on return.",
@@ -17,10 +17,16 @@ export const CAPABILITIES: Capability[] = [
       { path: "api/bookings.ts", role: "Stores the request, validates fields, mints the payment link", adapt: true },
       { path: "api/deposit.ts", role: "Creates and verifies Stripe Checkout sessions" },
       { path: "src/components/Booking.tsx", role: "The form, pricing panel and confirmation cards", adapt: true },
+      { path: "src/components/Reveal.tsx", role: "The scroll-in wrapper the form's sections use" },
+      { path: "src/components/Icons.tsx", role: "The icon set those sections use" },
+      { path: "src/utils/dates.ts", role: "Date formatting and the minimum lead time" },
       { path: "src/data.ts", role: "Tiers, prices, deposit helpers — copy the pricing constants only", adapt: true },
     ],
+    expects: [
+      { path: "api/notify.ts", role: "emails the desk when an enquiry lands — the notifications feature carries it" },
+    ],
     env: ["STRIPE_SECRET_KEY", "STRIPE_DEPOSIT_PERCENT", "SITE_URL"],
-    requires: ["storage"],
+    requires: ["storage-kv"],
     manual: [
       "Replace the tiers and prices in the copied data file with this project's own",
       "Point the copy at your booking address and social links",
@@ -35,6 +41,7 @@ export const CAPABILITIES: Capability[] = [
       "Thin wrapper over the KV REST API used by every other data feature: command(), hash pairing and constant-time token comparison. Each storage feature needs this first.",
     source: "connorbdigital/DJKC",
     files: [{ path: "api/store.ts", role: "command(), store(), pairsFromHash(), sameToken()" }],
+    expects: [],
     env: ["KV_REST_API_URL", "KV_REST_API_TOKEN"],
     requires: [],
     manual: ["Create a KV store in Vercel and connect it to the project"],
@@ -50,6 +57,7 @@ export const CAPABILITIES: Capability[] = [
       { path: "public/admin.html", role: "The whole desk — no build step", adapt: true },
       { path: "api/store.ts", role: "Token comparison and storage helpers" },
     ],
+    expects: [],
     env: ["ADMIN_TOKEN"],
     requires: ["storage-kv"],
     manual: [
@@ -59,7 +67,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "mailing-list",
-    version: "1.0.0",
+    version: "1.0.1",
     name: "Database-backed mailing list",
     summary:
       "Subscribe endpoint with validation and rate limiting, a read/export/delete endpoint for the desk, and a delayed sign-up card for the site.",
@@ -68,7 +76,9 @@ export const CAPABILITIES: Capability[] = [
       { path: "api/subscribe.ts", role: "POST a sign-up, rate limited" },
       { path: "api/subscribers.ts", role: "GET/CSV/DELETE for GDPR removals" },
       { path: "src/components/UpdatesSignup.tsx", role: "Delayed, dismissible sign-up card", adapt: true },
+      { path: "src/components/Icons.tsx", role: "The close and mail icons the card uses" },
     ],
+    expects: [{ path: "src/data.ts", role: "the sign-up copy — your own content" }],
     env: ["SUBSCRIBERS_TOKEN"],
     requires: ["storage-kv"],
     manual: [
@@ -78,7 +88,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "booking-chat",
-    version: "1.0.0",
+    version: "1.0.1",
     name: "Booking chat",
     summary:
       "A themed chat panel that answers booking questions and hands off to the enquiry form, with a serverless endpoint that rates-limits and fails safe.",
@@ -86,7 +96,11 @@ export const CAPABILITIES: Capability[] = [
     files: [
       { path: "api/chat.ts", role: "Serverless reply endpoint" },
       { path: "src/components/BookingChat.tsx", role: "The panel, launcher and invitation card", adapt: true },
+      { path: "src/bookingGuide.ts", role: "The answer set — rewrite these for this business", adapt: true },
+      { path: "src/components/Logo.tsx", role: "The mark in the header — swap in your own", adapt: true },
+      { path: "src/components/Icons.tsx", role: "The icon set the panel uses" },
     ],
+    expects: [{ path: "src/data.ts", role: "tiers and copy the guide answers with — your own content" }],
     env: ["CHAT_TOKEN", "OPENAI_API_KEY"],
     requires: [],
     manual: ["Rewrite the answer set for this project", "Add a real rate limiter before it faces the public"],
@@ -101,6 +115,7 @@ export const CAPABILITIES: Capability[] = [
       { path: "api/blocked.ts", role: "GET/POST/DELETE for blocked dates" },
       { path: "api/availability.ts", role: "Reports blocked before aggregating enquiries", adapt: true },
     ],
+    expects: [],
     env: [],
     requires: ["storage-kv", "booking-form-deposits"],
     manual: ["Add the Blocked dates tab to your desk"],
@@ -112,24 +127,26 @@ export const CAPABILITIES: Capability[] = [
     summary: "Emails the desk when an enquiry lands, with reply-to set to the enquirer. Never blocks storage if mail fails.",
     source: "connorbdigital/DJKC",
     files: [{ path: "api/notify.ts", role: "Resend call with a short timeout" }],
+    expects: [],
     env: ["RESEND_API_KEY", "NOTIFY_EMAIL", "NOTIFY_FROM"],
     requires: ["booking-form-deposits"],
     manual: ["Verify the sending domain in Resend"],
   },
   {
     id: "calendar-feed",
-    version: "1.0.0",
+    version: "1.0.1",
     name: "Public calendar feed",
     summary: "A read-only iCalendar feed of upcoming dates, so the owner can subscribe to their own gig list.",
     source: "connorbdigital/DJKC",
     files: [{ path: "api/calendar.ts", role: "text/calendar response, escaped, no contact details", adapt: true }],
+    expects: [{ path: "src/data.ts", role: "the dates the feed publishes — your own content" }],
     env: [],
     requires: [],
     manual: ["Point it at your own dates source"],
   },
   {
     id: "static-seo-pages",
-    version: "1.0.0",
+    version: "1.0.1",
     name: "Crawlable static pages",
     summary:
       "Builds real HTML pages — prices, FAQs, dates, coverage — plus sitemap.xml and llms.txt from your data file, so search engines and answer bots can read the site without running JavaScript.",
@@ -139,6 +156,7 @@ export const CAPABILITIES: Capability[] = [
       { path: "index.html", role: "noscript facts, JSON-LD, meta — copy the shape, not the content", adapt: true },
       { path: "public/robots.txt", role: "Sitemap line and answer-engine access", adapt: true },
     ],
+    expects: [{ path: "src/data.ts", role: "the facts the generated pages are built from — your own content" }],
     env: ["SITE_URL"],
     requires: [],
     manual: [
@@ -148,14 +166,16 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "sticky-cta-bar",
-    version: "1.0.0",
+    version: "1.0.1",
     name: "Sticky booking bar",
     summary: "Phone-only bottom bar that appears past the hero, steps aside at the form, and preselects the deposit on tap.",
     source: "connorbdigital/DJKC",
     files: [
       { path: "src/components/BookBar.tsx", role: "The bar, its scroll logic and the pay-on-book event", adapt: true },
       { path: "src/index.css", role: "Styles plus the chat/sign-up offsets — copy the .kc-bookbar block", adapt: true },
+      { path: "src/components/Icons.tsx", role: "The phone and calendar icons in the bar" },
     ],
+    expects: [{ path: "src/data.ts", role: "DEPOSIT_PERCENT and chargeFor, used by the pay-on-book tap" }],
     env: [],
     requires: [],
     manual: ["Check nothing else floats where the bar now sits"],
@@ -167,6 +187,7 @@ export const CAPABILITIES: Capability[] = [
     summary: "Updates the address-bar colour to the section in view, without touching the logo or favicon.",
     source: "connorbdigital/DJKC",
     files: [{ path: "src/utils/themeColor.ts", role: "Observer that writes theme-color", adapt: true }],
+    expects: [],
     env: [],
     requires: [],
     manual: ["Register your own section colours"],

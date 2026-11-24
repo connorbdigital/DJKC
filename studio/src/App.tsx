@@ -5,12 +5,14 @@ import type { Repo } from "./types";
 import { Gate } from "./components/Gate";
 import { Projects } from "./components/Projects";
 import { Features } from "./components/Features";
+import { Packs } from "./components/Packs";
 import { Draft } from "./components/Draft";
 
-type Tab = "projects" | "features" | "draft";
+type Tab = "projects" | "packs" | "features" | "draft";
 
 const TABS: { id: Tab; label: string; blurb: string }[] = [
   { id: "projects", label: "Projects", blurb: "Everything on the account, newest first, with its history." },
+  { id: "packs", label: "Packs", blurb: "Whole setups — a working site in one pull request, dependencies included." },
   { id: "features", label: "Feature library", blurb: "What already ships, ready to copy into another project." },
   { id: "draft", label: "Agent", blurb: "Describe the change; the agent drafts files; you review and open the pull request." },
 ];
@@ -92,6 +94,7 @@ export function App() {
       {error && <p className="error" role="alert">{error}</p>}
 
       {repos && tab === "projects" && <Projects token={token} repos={repos} />}
+      {repos && tab === "packs" && <Packs token={token} repos={repos} />}
       {repos && tab === "features" && <Features token={token} repos={repos} />}
       {repos && tab === "draft" && <Draft token={token} repos={repos} />}
 

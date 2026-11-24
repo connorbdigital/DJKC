@@ -10,8 +10,10 @@ studio/
 ├── src/github.ts         GitHub REST client: repos, activity, files, branches, pull requests
 ├── src/installer.ts      copies a capability's files into another repo and opens a PR
 ├── src/features.ts       the feature library, copied from code that already ships
+├── src/packs.ts          whole setups: several capabilities, one pull request
+├── src/paths.ts          prefix and branch naming shared by both
 ├── src/agent.ts          browser → /api/draft
-└── src/components/       Gate, Projects, Features, Draft
+└── src/components/       Gate, Projects, Packs, Features, Draft, Checks
 ```
 
 ## Run it
@@ -39,9 +41,18 @@ which broke the Vercel build until it was pinned — leave the file and the lock
 
 The Studio has **no database**. Your GitHub token is typed in and kept in that tab's `sessionStorage`; closing the tab locks it. Reads and writes go straight from the browser to `api.github.com`. The only server-side secret is the model key.
 
-## The three tabs
+## The four tabs
 
 **Projects** — every repository the token can see, newest first, with commits and pull requests merged into one history. This is the answer to "what's been on this project", without needing anything from Arena: Arena's work arrives here as branches and pull requests.
+
+**Packs** — the same files, bundled into a setup you can do in one sitting. A pack names its features, and the installer resolves the dependency order itself (storage first, then whatever writes to it), so you cannot install the cart before the horse.
+
+- Selecting a pack reads the target's `studio/features.json` and marks each feature **already here** or **new here**, so a second install is a deliberate act rather than an accident.
+- Files that several features carry — `src/components/Icons.tsx`, `api/store.ts` — are written **once**, and the panel says who shares them.
+- One branch (`studio/pack-new-site-…`), one pull request, one `studio/features.json` write listing every feature with its version and the source commit. Still no merge.
+- A pack is only allowed to exist if every dependency it needs is inside it. The test suite fails if a pack lists something unknown, something missing, or a loop.
+
+Three packs ship today: **Start a new site** (storage, priced booking form with deposits, email alerts, booking chat, sticky bar, static pages), **Take bookings and run them** (adds the desk, blocked dates and the calendar feed), and **Mailing list and a desk**.
 
 **Feature library** — each entry is a real capability lifted from shipped code: what it does, its files, the env vars it needs, what it depends on, and what a human still has to change.
 
@@ -75,6 +86,14 @@ The Agent tab loads it and sends it with every brief, so proposals respect decis
 - **Talk to Arena.** Arena has no public API for starting sessions or reading its internals. The Studio reads the GitHub output instead, and you take briefs back into Arena by hand.
 - **Store secrets.** No token database, no cookies.
 
+### `files` versus `expects`
+
+`files` are copied. `expects` are read but never written — your own content (`src/data.ts` with your prices), or another feature's file (`api/notify.ts`). Both are printed in the pull request under **Reads from your project**, with "(provided by this pack)" where the pack brings the file after all. The preflight lists expectations the target does not have yet, so a missing file is a warning before the PR, not a broken build after it.
+
+The suite enforces a stronger promise than "the listed files exist": every relative import in a capability must resolve inside that capability's own files, the files of the capabilities it `requires`, or one of its declared `expects`. If a component grows a new import, `npm run test` fails until the library tells the truth about what the feature needs.
+
 ## Adding a capability to the library
 
-Append to `src/features.ts`: `id`, `name`, `summary`, `source` (owner/name), `files` with a `role` and `adapt: true` where the file needs editing at the destination, `env`, `requires`, `manual`. Then `npm run test` — the suite fails if a listed file does not exist in the source project or a dependency is misspelled.
+Append to `src/features.ts`: `id`, `name`, `summary`, `source` (owner/name), `files` with a `role` and `adapt: true` where the file needs editing at the destination, `expects`, `env`, `requires`, `manual`. Then `npm run test` — the suite fails if a listed file does not exist in the source project, a dependency is misspelled, or an import is neither carried nor declared.
+
+To add a pack, append to `src/packs.ts` with the feature ids and the honest `before` list. Keep it self-contained: the suite rejects a pack whose member needs something the pack does not carry.

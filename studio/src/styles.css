@@ -112,4 +112,4 @@ button.btn, a.btn {
 .checks ul { list-style: none; padding: 0; margin: .3rem 0 0; display: grid; gap: .3rem; font-size: .84rem; }
 .checks a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .checks a:hover { color: var(--pink); }
-.badge.good { color: var(--ok); border-color: #6ee7b755; }
+.badge.good { color: var(--ok); border-color: #6ee7b755; margin-left: .35rem; }
