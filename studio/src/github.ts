@@ -1,5 +1,7 @@
 import type { ActivityEvent, CheckRun, CommitEvent, PullEvent, Repo } from "./types";
 import { buildCodeQuery, explainCodeError, parseCodeSearch, type CodeSearchResult, type QueryContext } from "./codeSearch";
+import { READ_ONLY_MESSAGE } from "./githubProxy";
+import { PROXY_TOKEN } from "./proxy";
 
 const API = "https://api.github.com";
 
@@ -9,7 +11,26 @@ export class GithubError extends Error {
   }
 }
 
+/**
+ * Reads go through the deployment's proxy when one is available — see
+ * `src/proxy.ts`. The sentinel is passed as the token so every call site keeps
+ * its signature; a write in that mode is refused with the reason, not retried.
+ */
+async function ghThroughProxy<T>(path: string, init: RequestInit): Promise<T> {
+  const method = (init.method ?? "GET").toUpperCase();
+  if (method !== "GET") throw new GithubError(READ_ONLY_MESSAGE, 403);
+  const response = await fetch("/api/github", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
+  const body = (await response.json().catch(() => null)) as { message?: string; error?: string } | null;
+  if (!response.ok) throw new GithubError(body?.message ?? body?.error ?? `${response.status} ${response.statusText}`, response.status);
+  return body as T;
+}
+
 async function gh<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
+  if (token === PROXY_TOKEN) return ghThroughProxy<T>(path, init);
   const response = await fetch(`${API}${path}`, {
     ...init,
     headers: {
