@@ -1,6 +1,6 @@
 # The process catalogue
 
-11 processes on 6 shelves, and 8 steps the builder itself runs. Each entry says what it does, why the site needs it, and what specifically breaks without it.
+13 processes on 7 shelves, and 8 steps the builder itself runs. Each entry says what it does, why the site needs it, and what specifically breaks without it.
 
 Generated from `studio/src/features.ts` — run `npm run processes` after changing the library.
 
@@ -9,11 +9,13 @@ Generated from `studio/src/features.ts` — run `npm run processes` after changi
 - [Bookings & enquiries](#bookings-enquiries) — 2 processes
 - [Running the desk](#running-the-desk) — 4 processes
 - [Marketing](#marketing) — 1 process
+- [Store & catalogue](#store-catalogue) — 2 processes
 - [Design & conversion](#design-conversion) — 2 processes
 - [Search & AI answers](#search-ai-answers) — 1 process
 - [Data & storage](#data-storage) — 1 process
 - [How the builder works](#how-the-builder-works) — 8 steps
 - [Dependencies](#dependencies)
+
 ## Bookings & enquiries
 
 _This is the shelf that makes money: the form, the deposit, the answers that stop people leaving. Everything else exists to feed it or to run what it produces._
@@ -119,6 +121,35 @@ _Getting one booking is expensive; getting the second from the same person is ne
 - Environment: `SUBSCRIBERS_TOKEN`
 - Install after: storage-kv
 - By hand: Choose where the list should live long-term — a provider with unsubscribe links is the honest answer; Update the copy in the sign-up card
+
+## Store & catalogue
+
+_A shop is a catalogue plus arithmetic plus a payment. This shelf is the first two: pricing that is exact, products a search engine and an AI agent can read, and a supplier spreadsheet that becomes a store instead of a spreadsheet._
+
+### Storefront core: prices, catalogue, cart, checkout audit
+
+**What it does.** Integer-penny money, a product and variant model with a completeness validator, typo-tolerant search that never dead-ends, a cart that prices discounts and delivery deterministically, a guest-first checkout audit, and performance and accessibility budgets that fail a build.
+
+**Why the site needs it.** Every shop rebuilds the same four mistakes: prices in floating point, a cart nobody can explain, a checkout with twenty fields, and a product page that search engines and shopping agents cannot read. This is that layer, written once, with the argument for each decision attached.
+
+**What breaks without it.** Totals drift by a penny between components, delivery and discount maths is duplicated in the UI, and there is no way to say why checkout converts badly because nothing measures it.
+
+- Version: 1.0.0 · source: `connorbdigital/DJKC`
+- Files: `commerce/src/money.ts`, `commerce/src/catalog.ts` (needs editing), `commerce/src/search.ts`, `commerce/src/cart.ts`, `commerce/src/checkout.ts` (needs editing), `commerce/src/seo.ts`, `commerce/src/budget.ts`, `commerce/src/fixtures.ts`, `commerce/src/index.ts`, `commerce/GAPS.md`
+- By hand: Add vitest and run the tests before wiring it into a UI — they are the point; Replace fixtures.ts with your own products, or import them from a supplier CSV; Decide who takes payment: the framework prices an order, it does not charge one; Read GAPS.md and pick the first gap deliberately rather than discovering it in production
+
+### Product catalogue from a supplier CSV
+
+**What it does.** A supplier CSV parser, column maps for four real feed shapes, per-row repair reporting, a Google Merchant feed exporter, and a build that turns the file into static product pages with structured data, llms.txt and a sitemap.
+
+**Why the site needs it.** Products arrive as a spreadsheet from a wholesaler, and the shop has to become real pages search engines and agents can read. Importing it by hand is a week; importing it by script is a minute, and the issues report tells you which rows will fail before a customer finds them.
+
+**What breaks without it.** Someone retypes fifty products into a CMS, the descriptions stay supplier boilerplate, the Merchant feed gets rejected for missing images, and the pages do not exist until a front end is built.
+
+- Version: 1.0.0 · source: `connorbdigital/DJKC`
+- Files: `commerce/src/csv.ts`, `commerce/src/importProducts.ts` (needs editing), `commerce/src/exportFeed.ts`, `commerce/scripts/build-catalogue.mts` (needs editing), `commerce/catalogue/products.csv` (needs editing), `commerce/catalogue/scripts/serve.mjs`, `commerce/SUPPLIERS.md`
+- Install after: store-core
+- By hand: Run npm run catalogue against your own supplier file and read the issues list; Rewrite every supplier description — duplicate copy is the fastest way to be invisible; Replace the generated placeholder images with photography you have the rights to use; Add the build to CI so the catalogue cannot drift from the feed; Confirm VAT treatment and stock freshness for the supplier you chose
 
 ## Design & conversion
 
@@ -236,12 +267,13 @@ The steps above install a process. These are the steps the builder runs on itsel
 
 ## Dependencies
 
-Nothing has to be installed before: `storage-kv`, `booking-chat`, `calendar-feed`, `static-seo-pages`, `sticky-cta-bar`, `theme-colour`.
+Nothing has to be installed before: `storage-kv`, `booking-chat`, `calendar-feed`, `static-seo-pages`, `sticky-cta-bar`, `theme-colour`, `store-core`.
 
 - `booking-form-deposits` needs `storage-kv` first
 - `booking-desk` needs `storage-kv` first
 - `mailing-list` needs `storage-kv` first
 - `blocked-dates` needs `storage-kv`, `booking-form-deposits` first
 - `notifications` needs `booking-form-deposits` first
+- `supplier-catalogue` needs `store-core` first
 
 Every dependency is checked in preflight, so a missing one stops the install instead of producing a half-working copy.
