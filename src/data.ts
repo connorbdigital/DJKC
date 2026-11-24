@@ -375,6 +375,31 @@ export const TESTIMONIALS = [
   },
 ];
 
+/**
+ * Share of the fee taken as a holding deposit, in percent. The server can
+ * override this with STRIPE_DEPOSIT_PERCENT — keep the two in step so the
+ * form's estimate matches what Stripe actually charges.
+ */
+export const DEPOSIT_PERCENT = 50;
+
+/** Smallest budget a custom enquiry may suggest, in pounds. */
+export const MIN_OFFER = 100;
+/** Largest budget accepted without a phone call, in pounds. */
+export const MAX_OFFER = 50_000;
+
+/** Parses a display price ("£1,100", "£650") into pounds; null for "Custom". */
+export function priceValue(price: string): number | null {
+  const match = price.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+  return match ? Number(match[1]) : null;
+}
+
+/** Money the client is asked for now, in pounds, for a quote and a mode. */
+export function chargeFor(pounds: number, mode: "deposit" | "full", percent = DEPOSIT_PERCENT): number {
+  const pence = Math.round(pounds * 100);
+  if (mode === "full") return Math.max(1, pence) / 100;
+  return Math.max(1, Math.round((pence * percent) / 100)) / 100;
+}
+
 export interface Tier {
   name: string;
   price: string;

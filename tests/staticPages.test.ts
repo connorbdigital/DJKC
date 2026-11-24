@@ -33,3 +33,36 @@ it('keeps the internal pages out of search results', () => {
   expect(robots).toContain('Disallow: /admin.html');
   expect(robots).toContain('Disallow: /share-preview.html');
 });
+
+it('opens the site to search and answer engines and points them at a sitemap', () => {
+  const robots = read('public/robots.txt');
+  expect(robots).toContain('Sitemap: https://kaysie.sitebuildup.co.uk/sitemap.xml');
+  for (const bot of ['GPTBot', 'ClaudeBot', 'PerplexityBot', 'OAI-SearchBot', 'Google-Extended']) {
+    expect(robots).toContain(`User-agent: ${bot}`);
+  }
+  expect(robots).toContain('Disallow: /admin.html');
+});
+
+it('publishes facts without JavaScript and describes the act, not just a person', () => {
+  const index = read('index.html');
+  expect(index).toContain('<noscript>');
+  expect(index).toContain('Club sets from £650');
+  expect(index).toContain('href="/prices.html"');
+  expect(index).toContain('"@type": "PerformingGroup"');
+  expect(index).toContain('"priceCurrency": "GBP"');
+  expect(index).toContain('booking@djkcmusic.com');
+});
+
+it('generates crawlable pages and machine-readable summaries after a build', () => {
+  const pkg = JSON.parse(read('package.json'));
+  expect(pkg.scripts.postbuild).toContain('scripts/build-static-pages.mts');
+  const script = read('scripts/build-static-pages.mts');
+  for (const page of ['prices', 'faq', 'shows', 'coverage', 'about']) {
+    expect(script).toContain(`${page}.html`);
+  }
+  expect(script).toContain('sitemap.xml');
+  expect(script).toContain('llms.txt');
+  expect(script).toContain('FAQPage');
+  expect(script).toContain('OfferCatalog');
+  expect(script).toContain('MusicEvent');
+});

@@ -56,12 +56,34 @@ The enquiry form now files a real request instead of only drafting an email.
 
 - `POST /api/bookings` validates the fields (name, email, venue, optional area, optional date within two years, package from the published tiers, message) and stores a record in the Redis hash `kc:bookings` with a reference such as `BK-4F2A9C`, status `requested` and a creation time.
 - `GET /api/availability?date=YYYY-MM-DD` answers `open`, `requested` or `booked` for that date, based on stored records. It is aggregate only and never returns names or contact details. The form shows this beside the date field.
+- The form prices the job before it is sent. It shows the package's list price and a payment choice — no payment, the 50% holding deposit, or the full fee — and accepts a **suggested budget** from the enquirer (from £100 to £50,000), which overrides the list price for the quote.
+- The payload carries `offer` (their budget) and `pay` (`none` / `deposit` / `full`). The response returns `paymentUrl`, `amount`, `mode` and `quotedAmount`. Payment without a number to charge is refused, so a custom enquiry must name a budget before it can pay.
 - `PATCH /api/bookings` with `{ "id": "BK-…", "status": "confirmed" }` marks a date as booked; `requested` and `declined` are the other states.
 - Both management calls need `BOOKINGS_TOKEN`:
   `curl -H "Authorization: Bearer $BOOKINGS_TOKEN" https://kaysie.sitebuildup.co.uk/api/bookings > bookings.csv`
   `curl -X PATCH -H "Authorization: Bearer $BOOKINGS_TOKEN" -H 'content-type: application/json' -d '{"id":"BK-4F2A9C","status":"confirmed"}' https://kaysie.sitebuildup.co.uk/api/bookings`
 
-Confirming a request here does **not** email the guest — reply to them yourself, then mark the record. The site also never takes a deposit; the 50% deposit in the copy is still arranged between KC and the promoter. Availability reflects only what is stored, so keep statuses current or the calendar will drift. Without storage configured the endpoint returns 503 and the form falls back to the prepared email, saying plainly that nothing was sent.
+Confirming a request here does **not** email the guest — reply to them yourself, then mark the record. Availability reflects only what is stored, so keep statuses current or the calendar will drift. Without storage configured the endpoint returns 503 and the form falls back to the prepared email, saying plainly that nothing was sent.
+
+## Payments, notifications and blocked dates
+
+- **`POST /api/bookings` emails the desk** through Resend when `RESEND_API_KEY` and `NOTIFY_EMAIL` are set, with `reply_to` set to the enquirer so a reply goes straight back. Mail never blocks storage: the booking is saved first and `notified` reports whether the email left.
+- **Deposits and full payments** run through Stripe Checkout (`api/deposit.ts`). The deposit defaults to 50% (`STRIPE_DEPOSIT_PERCENT`) and never goes below £1. `GET /api/deposit?session_id=cs_…` verifies the session with Stripe before writing `depositPaid`, `depositAmount`, `paymentMode` (`deposit` / `full`) and `paidAt` to the record. Verification is idempotent.
+- **Blocked dates** live in `kc:blocked-dates` via `GET|POST|DELETE /api/blocked` (`{ "date": "YYYY-MM-DD", "reason": "…" }`), managed from the admin's Blocked dates tab. `/api/availability` reports `blocked` before it looks at bookings, and the form steers people to another date.
+- **Mailing-list removal** is `DELETE /api/subscribers` with `{ "email": "…" }`, exposed as the Remove button on the admin's Mailing list tab, for GDPR erasure requests.
+- **`/api/calendar`** serves a public read-only iCalendar feed of future shows — no contact details, no admin token.
+
+There is no Stripe webhook yet, so a payment is only recorded when the buyer returns to the site. Anyone who pays and closes the tab leaves no record: reconcile in the Stripe dashboard until a webhook is added.
+
+## Search and AI visibility
+
+The homepage is a React app, so its words only exist after JavaScript runs. Most answer engines (and some crawlers) never run it. `scripts/build-static-pages.mts` runs automatically after `vite build` and writes real HTML into `dist/`:
+
+- `/prices.html`, `/shows.html`, `/faq.html`, `/coverage.html`, `/about.html` — the facts, in text, each with its own structured data (`OfferCatalog`, `MusicEvent`, `FAQPage`, `PerformingGroup`).
+- `sitemap.xml` listing every page, and `llms.txt` — a plain-text fact sheet for AI tools.
+- `index.html` carries a `<noscript>` summary plus `PerformingGroup` + `WebSite` JSON-LD, and `robots.txt` names the major answer-engine crawlers and points at the sitemap.
+
+The footer links every static page so nothing is orphaned. Edit `src/data.ts` (prices, shows, FAQs, areas) and rebuild — the pages follow automatically.
 
 ## Booking desk (admin)
 

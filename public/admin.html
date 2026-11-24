@@ -261,7 +261,10 @@
             <td data-label="Event">
               <strong>${escapeHtml(b.venue)}</strong>
               <div class="muted">${escapeHtml(b.package)}${b.area ? " · " + escapeHtml(b.area) : ""}</div>
-              ${b.depositPaid ? `<div class="pill ok" style="margin-top:.35rem;display:inline-block">Deposit paid${b.depositAmount ? " · £" + b.depositAmount.toLocaleString("en-GB") : ""}</div>` : ""}
+              ${b.quotedAmount ? `<div class="muted">Quote £${b.quotedAmount.toLocaleString("en-GB")}${b.offer ? " · their suggested budget" : " · list price"}</div>` : ""}
+              ${b.depositPaid
+                ? `<div class="pill ok" style="margin-top:.35rem;display:inline-block">${b.paymentMode === "full" ? "Paid in full" : "Deposit paid"}${b.depositAmount ? " · £" + b.depositAmount.toLocaleString("en-GB") : ""}</div>`
+                : b.paymentMode ? `<div class="pill" style="margin-top:.35rem;display:inline-block">Asked to ${b.paymentMode === "full" ? "pay in full" : "pay a deposit"} — nothing taken yet</div>` : ""}
               ${b.message ? `<div class="muted" style="margin-top:.3rem">${escapeHtml(b.message)}</div>` : ""}
             </td>
             <td data-label="Contact">

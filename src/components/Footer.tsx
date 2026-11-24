@@ -88,7 +88,27 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-16 flex flex-col items-center justify-between gap-5 border-t border-white/5 pt-8 sm:flex-row">
+        <nav
+          aria-label="More about DJ KC"
+          className="mt-14 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-white/5 pt-8 font-mono text-[10px] uppercase tracking-[0.22em] text-faint"
+        >
+          {[
+            ["Prices", "/prices.html"],
+            ["Live dates", "/shows.html"],
+            ["Questions", "/faq.html"],
+            ["Where KC plays", "/coverage.html"],
+            ["About KC", "/about.html"],
+          ].map(([label, href]) => (
+            <a key={href} href={href} className="transition-colors hover:text-magenta">
+              {label}
+            </a>
+          ))}
+          <a href="/api/calendar" className="transition-colors hover:text-cyan">
+            Calendar feed
+          </a>
+        </nav>
+
+        <div className="mt-8 flex flex-col items-center justify-between gap-5 sm:flex-row">
           <p className="text-center font-mono text-[10px] uppercase tracking-[0.2em] text-faint sm:text-left">
             © {new Date().getFullYear()} DJ KC · North West, UK · House that moves rooms
           </p>

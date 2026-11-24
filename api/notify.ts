@@ -15,6 +15,8 @@ export async function notifyDesk(booking: Booking): Promise<boolean> {
     `Package: ${booking.package}`,
     `Area: ${booking.area || 'not given'}`,
     `Venue / event: ${booking.venue}`,
+    ...(booking.quotedAmount ? [`Quote worked from: \u00a3${booking.quotedAmount.toLocaleString('en-GB')}${booking.offer ? ' (their suggested budget)' : ' (list price)'}`] : []),
+    ...(booking.paymentMode ? [`Payment: asked to ${booking.paymentMode === 'full' ? 'pay in full' : 'pay a deposit'}`] : ['Payment: none taken up front']),
     `Name: ${booking.name}`,
     `Reply to: ${booking.email}`,
     '',

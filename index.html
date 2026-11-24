@@ -18,23 +18,76 @@
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "Person",
-        "name": "DJ KC",
-        "jobTitle": "House DJ, live vocalist and producer",
-        "description": "House DJ and live vocalist based in the North West of England, playing club nights, festivals and private events across the UK, Ireland and internationally.",
-        "url": "https://kaysie.sitebuildup.co.uk/",
-        "homeLocation": { "@type": "Place", "name": "North West England, UK" },
-        "areaServed": [
-          { "@type": "AdministrativeArea", "name": "North West England" },
-          { "@type": "Country", "name": "United Kingdom" },
-          { "@type": "Country", "name": "Ireland" },
-          { "@type": "Place", "name": "Ibiza, Spain" }
-        ],
-        "sameAs": [
-          "https://instagram.com/djkcmusic",
-          "https://soundcloud.com/djkcmusic",
-          "https://open.spotify.com/search/DJ%20KC",
-          "https://tiktok.com/@djkcmusic"
+        "@graph": [
+          {
+            "@type": "PerformingGroup",
+            "@id": "https://kaysie.sitebuildup.co.uk/#artist",
+            "name": "DJ KC",
+            "url": "https://kaysie.sitebuildup.co.uk/",
+            "image": "https://kaysie.sitebuildup.co.uk/og.jpg",
+            "description": "House DJ, live vocalist and producer based in the North West of England, playing club nights, festivals and private events across the UK, Ireland and internationally.",
+            "email": "booking@djkcmusic.com",
+            "genre": [
+              "House",
+              "Vocal house",
+              "Tech house",
+              "Afro house"
+            ],
+            "homeLocation": {
+              "@type": "Place",
+              "name": "North West England, UK"
+            },
+            "areaServed": [
+              {
+                "@type": "AdministrativeArea",
+                "name": "North West England"
+              },
+              {
+                "@type": "Country",
+                "name": "United Kingdom"
+              },
+              {
+                "@type": "Country",
+                "name": "Ireland"
+              },
+              {
+                "@type": "Place",
+                "name": "Ibiza, Spain"
+              }
+            ],
+            "makesOffer": [
+              {
+                "@type": "Offer",
+                "name": "Club Night",
+                "price": "650",
+                "priceCurrency": "GBP",
+                "url": "https://kaysie.sitebuildup.co.uk/prices.html"
+              },
+              {
+                "@type": "Offer",
+                "name": "Signature Live",
+                "price": "1100",
+                "priceCurrency": "GBP",
+                "url": "https://kaysie.sitebuildup.co.uk/prices.html"
+              }
+            ],
+            "sameAs": [
+              "https://instagram.com/djkcmusic",
+              "https://soundcloud.com/djkcmusic",
+              "https://open.spotify.com/search/DJ%20KC",
+              "https://tiktok.com/@djkcmusic"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://kaysie.sitebuildup.co.uk/#site",
+            "url": "https://kaysie.sitebuildup.co.uk/",
+            "name": "DJ KC",
+            "inLanguage": "en-GB",
+            "publisher": {
+              "@id": "https://kaysie.sitebuildup.co.uk/#artist"
+            }
+          }
         ]
       }
     </script>
@@ -47,6 +100,22 @@
     <title>DJ KC — House DJ &amp; Live Vocalist · North West, UK Bookings</title>
   </head>
   <body>
+    <noscript>
+      <div style="max-width:46rem;margin:0 auto;padding:2rem 1.25rem;font-family:system-ui,sans-serif;color:#F5EFFA;background:#0A0512">
+        <h1>DJ KC — house DJ, live vocalist and producer · North West, UK</h1>
+        <p style="line-height:1.6">
+          Based in the North West of England and playing across the UK, Ireland and internationally.
+          Club sets from £650; the DJ plus live vocal show from £1,100. Travel is included across the
+          North West and quoted at cost elsewhere. KC replies to enquiries within 24 hours.
+        </p>
+        <p><a href="/prices.html" style="color:#FF2BD6">Prices</a> ·
+           <a href="/shows.html" style="color:#FF2BD6">Live dates</a> ·
+           <a href="/faq.html" style="color:#FF2BD6">Questions</a> ·
+           <a href="/coverage.html" style="color:#FF2BD6">Where KC plays</a> ·
+           <a href="/about.html" style="color:#FF2BD6">About</a></p>
+        <p>Bookings: <a href="mailto:booking@djkcmusic.com" style="color:#FF2BD6">booking@djkcmusic.com</a></p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
