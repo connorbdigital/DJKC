@@ -14,6 +14,8 @@ studio/
 ├── src/packs.ts          whole setups: several capabilities, one pull request
 ├── src/paths.ts          prefix and branch naming shared by both
 ├── src/codeSearch.ts     GitHub code search: query building, result flattening
+├── src/inventory.ts      what is actually in a repo: stack, counts, features with evidence
+├── src/processDoc.ts     the why-layer: reasons, consequences, the builder's own steps
 ├── src/sitecheck.ts      URL guard and the HTML audit behind the site check
 ├── src/agent.ts          browser → /api/draft
 └── src/components/       Gate, Projects, Packs, Features, Search, Draft, Checks
@@ -46,7 +48,7 @@ The Studio has **no database**. Your GitHub token is typed in and kept in that t
 
 ## The five tabs
 
-**Projects** — every repository the token can see, newest first, with commits and pull requests merged into one history. This is the answer to "what's been on this project", without needing anything from Arena: Arena's work arrives here as branches and pull requests.
+**Projects** — every repository the token can see, newest first, with commits and pull requests merged into one history, and a **What is in it** panel that reads the repo itself: detected stack, file/route/page/component/test counts, which library features have evidence in the code and which of those are unrecorded in `studio/features.json`, the routes and pages it serves, the env vars it expects, and the notes worth knowing (no CI, no tests, no docs, truncated tree). "Copy a summary for a brief" turns it into a paragraph. This is the answer to "what's been on this project", without needing anything from Arena: Arena's work arrives here as branches and pull requests.
 
 **Packs** — the same files, bundled into a setup you can do in one sitting. A pack names its features, and the installer resolves the dependency order itself (storage first, then whatever writes to it), so you cannot install the cart before the horse.
 
@@ -58,6 +60,10 @@ The Studio has **no database**. Your GitHub token is typed in and kept in that t
 Three packs ship today: **Start a new site** (storage, priced booking form with deposits, email alerts, booking chat, sticky bar, static pages), **Take bookings and run them** (adds the desk, blocked dates and the calendar feed), and **Mailing list and a desk**.
 
 **Feature library** — each entry is a real capability lifted from shipped code: what it does, its files, the env vars it needs, what it depends on, and what a human still has to change.
+
+Every entry now also carries **why it is here** and **what breaks without it**, and every shelf carries a reason of its own. Two buttons copy the whole catalogue or just the arguments as Markdown. The same text is checked into [`PROCESSES.md`](PROCESSES.md), generated from the library by `npm run processes` — a test fails if the file and the library disagree, so the document cannot rot.
+
+The document covers all 11 processes on the 6 shelves plus the eight steps the builder itself runs (inventory, preflight, draft, pull request, checks, gate, site check, code search), each with the reason it exists.
 
 - **Check against target** reads the destination before anything is written: files it would overwrite, relative imports that will not resolve there, and capabilities that must be installed first.
 - **Copy files and open a pull request** pins the read to the source repo's current HEAD, writes the files on a `studio/feature-…` branch, records the install in `studio/features.json` inside the target (id, version, source commit, files), and opens a PR describing both.

@@ -55,6 +55,10 @@ export interface Capability {
   /** Bumped by hand when the files change; recorded in the target's manifest. */
   version: string;
   summary: string;
+  /** Why the site needs this at all — the argument, not the description. */
+  why: string;
+  /** What specifically goes wrong without it. */
+  without: string;
   /** Which shelf it belongs on. */
   category: Category;
   /** Source project the files are copied from, as owner/name. */

@@ -135,3 +135,13 @@ button.btn, a.btn {
 .dot.warn { background: #ffd166; }
 .dot.fail { background: #ff6b6b; }
 .because { flex-basis: 100%; color: var(--dim); opacity: .85; }
+
+.inventory h4 { margin: .9rem 0 .35rem; font-size: .72rem; letter-spacing: .09em; text-transform: uppercase; color: var(--dim); }
+.notes { margin: .6rem 0 .8rem; padding-left: 1.1rem; display: grid; gap: .2rem; }
+
+/* Why-layer: the argument for a process, kept next to the process itself. */
+.doc-actions { display: flex; gap: .4rem; flex-wrap: wrap; margin: .3rem 0 .5rem; }
+.doc-actions .btn { margin-top: 0; padding: .42rem .75rem; font-size: .78rem; font-weight: 700; }
+.why { border-left: 2px solid var(--pink); padding: .1rem 0 .1rem .8rem; margin: .9rem 0 1rem; }
+.why h3 { margin: .2rem 0 .35rem; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.why p { margin: 0 0 .45rem; }

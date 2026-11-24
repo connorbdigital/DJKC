@@ -13,10 +13,28 @@ commerce/
 ├── src/checkout.ts   guest-first flow as a spec, plus an audit that fails loudly
 ├── src/seo.ts        Product/Offer/ReturnPolicy JSON-LD, breadcrumbs, FAQ, llms.txt
 ├── src/budget.ts     performance and accessibility budgets that fail a build
+├── src/csv.ts        supplier CSV in, CSV out: quotes, BOMs, ragged rows, odd headers
+├── src/importProducts.ts  four supplier column maps, price/stock coercion, per-row issues
+├── src/exportFeed.ts Google Merchant feed, products.json, sitemap
 └── src/fixtures.ts   two example products: one complete, one deliberately thin
+
+catalogue/
+├── products.csv          twelve demo products in a trade-feed shape
+├── scripts/build-catalogue.mts  CSV → static pages, JSON-LD, feed, llms.txt
+└── dist/                 generated: 1 index + 1 page per product + assets
 ```
 
-Pure TypeScript, no runtime dependencies, no React. `npm test` runs 52 tests; `npm run typecheck` is clean.
+Pure TypeScript, no runtime dependencies, no React. `npm test` runs 81 tests; `npm run typecheck` is clean.
+
+**Sourcing and the catalogue:** [`SUPPLIERS.md`](SUPPLIERS.md) lists the supplier feeds worth having (Aosom, BigBuy, Avasam, Matterhorn and the rest), what each sends you, and what it costs. `npm run catalogue` builds a working store catalogue from any of those files:
+
+```bash
+cd commerce
+npm run catalogue                # catalogue/dist from catalogue/products.csv
+npm run serve:catalogue          # http://localhost:4300
+```
+
+The demo images are generated placeholders; the products are invented. The importer, the feed exporter and the pages are not.
 
 ---
 
