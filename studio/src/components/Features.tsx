@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CAPABILITIES, capabilityById } from "../features";
 import { installFeature, preflight, type InstallResult, type Preflight } from "../installer";
+import { checksFor } from "../github";
+import type { CheckRun } from "../types";
 import type { Repo } from "../types";
 
 export function Features({ token, repos }: { token: string; repos: Repo[] }) {
@@ -12,6 +14,7 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [check, setCheck] = useState<Preflight | null>(null);
+  const [runs, setRuns] = useState<CheckRun[] | null>(null);
   const [query, setQuery] = useState("");
 
   const capability = capabilityById(openId);
@@ -21,6 +24,28 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
       ? CAPABILITIES.filter((entry) => `${entry.name} ${entry.summary}`.toLowerCase().includes(term))
       : CAPABILITIES;
   }, [query]);
+
+  /* Once the PR exists, ask the target repo how it went. */
+  useEffect(() => {
+    if (!result) { setRuns(null); return; }
+    let cancelled = false;
+    let attempts = 0;
+    const poll = async () => {
+      if (cancelled) return;
+      attempts += 1;
+      try {
+        const list = await checksFor(token, target, result.branch);
+        if (cancelled) return;
+        setRuns(list);
+        const pending = list.some((run) => run.status !== "completed");
+        if (pending && attempts < 8) window.setTimeout(poll, 15_000);
+      } catch {
+        if (!cancelled) setRuns([]);
+      }
+    };
+    void poll();
+    return () => { cancelled = true; };
+  }, [result, token, target]);
 
   const runCheck = async () => {
     if (!capability || !target) return;
@@ -185,11 +210,34 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
               )}
               {error && <p className="error" role="alert">{error}</p>}
               {result && (
-                <p className="ok">
-                  Opened <a href={result.pullUrl} target="_blank" rel="noreferrer">#{result.pullNumber}</a> on {target} —
-                  {" "}{result.paths.length} file{result.paths.length === 1 ? "" : "s"} written
-                  {result.skipped.length ? `, ${result.skipped.length} skipped as missing in the source` : ""}.
-                </p>
+                <>
+                  <p className="ok">
+                    Opened <a href={result.pullUrl} target="_blank" rel="noreferrer">#{result.pullNumber}</a> on {target} —
+                    {" "}{result.paths.length} file{result.paths.length === 1 ? "" : "s"} written
+                    {result.skipped.length ? `, ${result.skipped.length} skipped as missing in the source` : ""}.
+                  </p>
+                  <div className="checks">
+                    <h3 style={{ marginTop: 0 }}>Checks on {result.branch}</h3>
+                    {runs === null && <p className="muted small">Asking the target repo…</p>}
+                    {runs?.length === 0 && (
+                      <p className="muted small">
+                        No checks reported. That usually means the project has no CI yet — the PR still needs a human read.
+                      </p>
+                    )}
+                    {!!runs?.length && (
+                      <ul>
+                        {runs.map((run) => (
+                          <li key={run.name}>
+                            <a href={run.url} target="_blank" rel="noreferrer">{run.name}</a>{" "}
+                            <span className={`badge ${run.conclusion === "success" ? "good" : run.status !== "completed" ? "" : "warn"}`}>
+                              {run.conclusion ?? run.status}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </div>

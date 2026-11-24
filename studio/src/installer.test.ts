@@ -25,6 +25,7 @@ describe("installer", () => {
     expect(body).toContain("Needs editing after merge");
     expect(body).toContain("STRIPE_SECRET_KEY");
     expect(body).toContain("Do not merge until");
+    expect(body).toContain("studio/features.json");
     expect(body).toContain("Copied from `connorbdigital/DJKC`");
   });
 });

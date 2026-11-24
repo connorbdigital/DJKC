@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { requestDraft } from "../agent";
 import { CAPABILITIES } from "../features";
 import { createBranch, defaultBranch, openPull, readFile, writeFile } from "../github";
 import { branchName, targetPath } from "../installer";
+import { defaultRules, rulesBrief, serialiseRules } from "../project";
 import type { DraftPlan, Repo } from "../types";
 
 export function Draft({ token, repos }: { token: string; repos: Repo[] }) {
@@ -15,8 +16,48 @@ export function Draft({ token, repos }: { token: string; repos: Repo[] }) {
   const [error, setError] = useState("");
   const [prUrl, setPrUrl] = useState("");
   const [context, setContext] = useState<{ path: string; excerpt: string }[]>([]);
+  const [rules, setRules] = useState<{ text: string | null; checked: boolean }>({ text: null, checked: false });
   const [pathToAttach, setPathToAttach] = useState("");
   const [log, setLog] = useState<string[]>([]);
+
+  /* Project rules live in studio.json at the repo root. */
+  useEffect(() => {
+    let cancelled = false;
+    setRules({ text: null, checked: false });
+    if (!target) return;
+    readFile(token, target, "studio.json")
+      .then((text) => { if (!cancelled) setRules({ text, checked: true }); })
+      .catch(() => { if (!cancelled) setRules({ text: null, checked: true }); });
+    return () => { cancelled = true; };
+  }, [token, target]);
+
+  const createRules = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const base = await defaultBranch(token, target);
+      const branch = branchName("studio-json", new Date());
+      const text = serialiseRules(defaultRules(target));
+      await createBranch(token, target, branch, base);
+      await writeFile(token, target, "studio.json", text, branch, "Add studio.json project rules");
+      const pull = await openPull(token, target, {
+        title: "Studio: add studio.json",
+        head: branch,
+        base,
+        body: [
+          "Adds `studio.json`: this project's stack, its hard rules and its design notes.",
+          "",
+          "The Studio's agent reads this before drafting, so proposals respect the decisions this project has already made. Fill in the empty fields — the more specific the rules, the less generic the output.",
+        ].join("\n"),
+      });
+      setRules({ text, checked: true });
+      setPrUrl(pull.url);
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : "Could not create studio.json.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const toggle = (id: string) =>
     setReuse((current) => (current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]));
@@ -27,7 +68,13 @@ export function Draft({ token, repos }: { token: string; repos: Repo[] }) {
     setPrUrl("");
     setPlan(null);
     try {
-      const result = await requestDraft({ brief, repo: target, features: reuse, context });
+      const briefed = rulesBrief(rules.text);
+      const result = await requestDraft({
+        brief,
+        repo: target,
+        features: reuse,
+        context: briefed ? [{ path: "studio.json", excerpt: briefed }, ...context] : context,
+      });
       setPlan(result);
     } catch (problem) {
       setError(problem instanceof Error ? problem.message : "The agent did not answer.");
@@ -126,6 +173,26 @@ export function Draft({ token, repos }: { token: string; repos: Repo[] }) {
           Folder (optional)
           <input value={prefix} onChange={(event) => setPrefix(event.target.value)} placeholder="e.g. src/pages" />
         </label>
+      </div>
+
+      <div className="rules">
+        <h3 style={{ marginTop: 0 }}>Project rules</h3>
+        {!rules.checked && <p className="muted small">Looking for studio.json…</p>}
+        {rules.checked && rules.text && (
+          <p className="muted small">
+            Reading <code>studio.json</code> — {rulesBrief(rules.text).split("\n").length} lines of context will go to the
+            agent.
+          </p>
+        )}
+        {rules.checked && !rules.text && (
+          <>
+            <p className="muted small">
+              This project has no <code>studio.json</code>. Adding one gives the agent its stack, its hard rules and its
+              design notes instead of guessing.
+            </p>
+            <button className="btn" onClick={createRules} disabled={busy}>Create studio.json (opens a PR)</button>
+          </>
+        )}
       </div>
 
       <label htmlFor="attach">Give the agent real code (optional)</label>

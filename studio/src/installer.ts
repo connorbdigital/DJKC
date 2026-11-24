@@ -1,6 +1,29 @@
-import type { Capability } from "./types";
+import type { Capability, InstalledFeature, StudioManifest } from "./types";
 import { CAPABILITIES } from "./features";
-import { createBranch, defaultBranch, openPull, readFile, writeFile } from "./github";
+import { createBranch, defaultBranch, headCommit, openPull, readFile, writeFile } from "./github";
+
+export const MANIFEST_PATH = "studio/features.json";
+
+/** Reads whatever the target already records; missing or broken counts as empty. */
+export function parseManifest(text: string | null): StudioManifest {
+  if (!text) return { version: 1, features: [] };
+  try {
+    const raw = JSON.parse(text) as Partial<StudioManifest>;
+    const features = Array.isArray(raw.features) ? (raw.features as InstalledFeature[]) : [];
+    return { version: 1, features: features.filter((entry) => entry && typeof entry.id === "string") };
+  } catch {
+    return { version: 1, features: [] };
+  }
+}
+
+/** Adds or replaces one feature in the manifest and returns the file to write. */
+export function mergeManifest(existing: string | null, entry: InstalledFeature): string {
+  const manifest = parseManifest(existing);
+  const features = [...manifest.features.filter((feature) => feature.id !== entry.id), entry].sort((a, b) =>
+    a.id.localeCompare(b.id)
+  );
+  return `${JSON.stringify({ version: 1, features }, null, 2)}\n`;
+}
 
 /** Where a capability's file lands in the target repo. */
 export function targetPath(prefix: string, sourcePath: string): string {
@@ -103,13 +126,18 @@ export async function preflight(opts: {
   return { files, collisions, unresolved, missingDependencies };
 }
 
-export function installBody(capability: Capability, opts: { source: string; prefix: string; paths: string[]; preflight?: Preflight }): string {
+export function installBody(
+  capability: Capability,
+  opts: { source: string; prefix: string; paths: string[]; preflight?: Preflight; sourceCommit?: string }
+): string {
   const lines = [
     `Adds **${capability.name}** to this project.`,
     "",
     capability.summary,
     "",
-    `Copied from \`${opts.source}\`${opts.prefix ? ` into \`${opts.prefix}/\`` : ""}. Nothing was modified in transit — the files are byte-for-byte what already ships there.`,
+    `Copied from \`${opts.source}\`${opts.sourceCommit ? ` at \`${opts.sourceCommit.slice(0, 7)}\`` : ""}${opts.prefix ? ` into \`${opts.prefix}/\`` : ""}. Nothing was modified in transit — the files are byte-for-byte what already ships there.`,
+    "",
+    `Version \`${capability.version}\`. The install is recorded in \`${MANIFEST_PATH}\`, so this project knows what it has, where it came from, and which commit to compare against later.`,
     "",
     "## Files",
     ...opts.paths.map((p) => `- \`${p}\``),
@@ -170,6 +198,9 @@ export async function installFeature(opts: {
   const step = opts.onStep ?? (() => {});
   const base = await defaultBranch(token, target);
   const branch = branchName(capability.id, new Date());
+  const sourceBranch = await defaultBranch(token, capability.source);
+  const sourceCommit = await headCommit(token, capability.source, sourceBranch);
+  step(`Pinning to ${capability.source}@${sourceCommit.slice(0, 7)}`);
 
   step(`Creating ${branch} from ${base}`);
   await createBranch(token, target, branch, base);
@@ -177,7 +208,7 @@ export async function installFeature(opts: {
   const paths: string[] = [];
   const skipped: string[] = [];
   for (const file of capability.files) {
-    const content = await readFile(token, capability.source, file.path, base === "main" ? "main" : undefined);
+    const content = await readFile(token, capability.source, file.path, sourceBranch);
     if (content === null) {
       skipped.push(file.path);
       continue;
@@ -190,12 +221,30 @@ export async function installFeature(opts: {
 
   if (!paths.length) throw new Error(`None of ${capability.id}'s files could be read from ${capability.source}.`);
 
+  step(`Recording it in ${MANIFEST_PATH}`);
+  const manifest = mergeManifest(await readFile(token, target, MANIFEST_PATH, branch), {
+    id: capability.id,
+    name: capability.name,
+    version: capability.version,
+    source: capability.source,
+    sourceCommit,
+    installedAt: new Date().toISOString(),
+    files: paths,
+  });
+  await writeFile(token, target, MANIFEST_PATH, manifest, branch, `Record ${capability.id} in the studio manifest`);
+
   step("Opening the pull request");
   const pull = await openPull(token, target, {
     title: `Studio: add ${capability.name}`,
     head: branch,
     base,
-    body: installBody(capability, { source: capability.source, prefix, paths, preflight: opts.preflight }),
+    body: installBody(capability, {
+      source: capability.source,
+      prefix,
+      paths,
+      preflight: opts.preflight,
+      sourceCommit,
+    }),
   });
   step(`Opened #${pull.number}`);
   return { branch, pullUrl: pull.url, pullNumber: pull.number, paths, skipped };

@@ -1,4 +1,4 @@
-import type { ActivityEvent, CommitEvent, PullEvent, Repo } from "./types";
+import type { ActivityEvent, CheckRun, CommitEvent, PullEvent, Repo } from "./types";
 
 const API = "https://api.github.com";
 
@@ -188,4 +188,28 @@ export async function openPull(
     body: JSON.stringify({ ...pull, draft: false }),
   });
   return { url: created.html_url, number: created.number };
+}
+
+/** HEAD of a branch, for pinning an install to an exact commit. */
+export async function headCommit(token: string, fullName: string, branch: string): Promise<string> {
+  return branchHead(token, fullName, branch);
+}
+
+/** CI results for a commit or branch — empty when the repo has no checks. */
+export async function checksFor(token: string, fullName: string, ref: string): Promise<CheckRun[]> {
+  try {
+    const payload = await gh<{ check_runs?: { name: string; status: string; conclusion: string | null; html_url: string }[] }>(
+      token,
+      `/repos/${fullName}/commits/${encodeURIComponent(ref)}/check-runs?per_page=20`
+    );
+    return (payload.check_runs ?? []).map((run) => ({
+      name: run.name,
+      status: run.status,
+      conclusion: run.conclusion,
+      url: run.html_url,
+    }));
+  } catch (error) {
+    if (error instanceof GithubError && error.status === 404) return [];
+    throw error;
+  }
 }

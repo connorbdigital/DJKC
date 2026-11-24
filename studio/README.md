@@ -43,9 +43,30 @@ The Studio has **no database**. Your GitHub token is typed in and kept in that t
 
 **Projects** — every repository the token can see, newest first, with commits and pull requests merged into one history. This is the answer to "what's been on this project", without needing anything from Arena: Arena's work arrives here as branches and pull requests.
 
-**Feature library** — each entry is a real capability lifted from shipped code: what it does, its files, the env vars it needs, what it depends on, and what a human still has to change. "Copy files and open a pull request" writes those files into a target repo on a `studio/feature-…` branch and opens a PR whose body lists the edits still required.
+**Feature library** — each entry is a real capability lifted from shipped code: what it does, its files, the env vars it needs, what it depends on, and what a human still has to change.
 
-**Agent** — write a brief, tick the features it may reuse, get a proposal as whole files. Nothing is written until you press the second button, and the pull request says, in its own body, that it was model-drafted and must be reviewed.
+- **Check against target** reads the destination before anything is written: files it would overwrite, relative imports that will not resolve there, and capabilities that must be installed first.
+- **Copy files and open a pull request** pins the read to the source repo's current HEAD, writes the files on a `studio/feature-…` branch, records the install in `studio/features.json` inside the target (id, version, source commit, files), and opens a PR describing both.
+- **Checks** then polls that branch's CI and reports pass/fail in the Studio, so "it opened" is not the same as "it worked".
+
+**Agent** — write a brief, tick the features it may reuse, optionally attach real source files, and get a proposal as whole files. Nothing is written until you press the second button, and the pull request says, in its own body, that it was model-drafted and must be reviewed.
+
+### studio.json — the project's memory
+
+Each project can carry a `studio.json` at its root:
+
+```json
+{
+  "version": 1,
+  "name": "Kaysie",
+  "summary": "Singer and vocalist site",
+  "stack": ["Vite", "React", "TypeScript", "Vercel"],
+  "rules": ["Prices in GBP", "Logo stays brand pink", "No doorway city pages"],
+  "design": { "palette": "pink on near-black", "type": "Unbounded / Manrope", "voice": "warm, direct" }
+}
+```
+
+The Agent tab loads it and sends it with every brief, so proposals respect decisions the project already made. If it is missing, the Studio offers to open a PR that creates a starter file. This is the cheapest way to stop the output being generic.
 
 ## What it deliberately does not do
 

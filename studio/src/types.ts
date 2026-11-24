@@ -46,6 +46,8 @@ export interface FileRef {
 export interface Capability {
   id: string;
   name: string;
+  /** Bumped by hand when the files change; recorded in the target's manifest. */
+  version: string;
   summary: string;
   /** Source project the files are copied from, as owner/name. */
   source: string;
@@ -66,4 +68,27 @@ export interface DraftPlan {
   summary: string;
   steps: string[];
   files: DraftedFile[];
+}
+
+export interface InstalledFeature {
+  id: string;
+  name: string;
+  version: string;
+  source: string;
+  /** Commit the files were read from, so an install can be reproduced. */
+  sourceCommit: string;
+  installedAt: string;
+  files: string[];
+}
+
+export interface StudioManifest {
+  version: 1;
+  features: InstalledFeature[];
+}
+
+export interface CheckRun {
+  name: string;
+  status: string;
+  conclusion: string | null;
+  url: string;
 }
