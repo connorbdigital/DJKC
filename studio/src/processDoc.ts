@@ -93,6 +93,7 @@ export function processDocMarkdown(): string {
   }
   lines.push(`- [How the builder works](#how-the-builder-works) — ${BUILDER_STEPS.length} steps`);
   lines.push("- [Dependencies](#dependencies)");
+  lines.push("");
 
   for (const category of CATEGORIES) {
     lines.push(`## ${category.label}`);

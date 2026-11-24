@@ -47,7 +47,7 @@ export interface FileRef {
  * The themes the library is organised by. Small, stable and human: they are
  * how you find a feature when you do not know its name.
  */
-export type Category = "bookings" | "operations" | "marketing" | "design" | "search" | "storage";
+export type Category = "bookings" | "operations" | "marketing" | "store" | "design" | "search" | "storage";
 
 export interface Capability {
   id: string;

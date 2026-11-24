@@ -57,6 +57,18 @@ export const PACKS: Pack[] = [
     ],
   },
   {
+    id: "product-store",
+    name: "Open a product store",
+    summary:
+      "A working shop from a supplier spreadsheet: pricing and catalogue that cannot drift, a cart and checkout policy that can be audited, structured data and budgets, then the CSV importer, Merchant feed and static product pages built on top.",
+    features: ["store-core", "supplier-catalogue"],
+    before: [
+      "Have your supplier file to hand — Aosom, Avasam, Dropship For You and the rest are listed with links in commerce/SUPPLIERS.md",
+      "This builds a catalogue, not a fulfilment pipeline: decide who holds the stock and who ships before you list anything",
+      "Payment is still your job. Stripe Checkout or equivalent goes in after the order model, and GAPS.md says why it comes first",
+    ],
+  },
+  {
     id: "list-and-desk",
     name: "Mailing list and a desk",
     summary:

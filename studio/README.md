@@ -57,11 +57,13 @@ The Studio has **no database**. Your GitHub token is typed in and kept in that t
 - One branch (`studio/pack-new-site-…`), one pull request, one `studio/features.json` write listing every feature with its version and the source commit. Still no merge.
 - A pack is only allowed to exist if every dependency it needs is inside it. The test suite fails if a pack lists something unknown, something missing, or a loop.
 
-Three packs ship today: **Start a new site** (storage, priced booking form with deposits, email alerts, booking chat, sticky bar, static pages), **Take bookings and run them** (adds the desk, blocked dates and the calendar feed), and **Mailing list and a desk**.
+Four packs ship today: **Start a new site** (storage, priced booking form with deposits, email alerts, booking chat, sticky bar, static pages), **Take bookings and run them** (adds the desk, blocked dates and the calendar feed), **Mailing list and a desk**, and **Open a product store** (the storefront core — money, catalogue, cart, checkout audit, structured data, budgets — plus the supplier CSV importer, Merchant feed and static catalogue pages that sit on top).
+
+The store pack is how the shop gets what it needs today: `store-core` and `supplier-catalogue` are lifted from `commerce/`, so the same code that builds the demo catalogue in this repository can be copied into a store repository with one pull request. What the shop still lacks — payments, order records, returns, reviews — is written down in [`commerce/GAPS.md`](../commerce/GAPS.md) rather than pretended away.
 
 **Feature library** — each entry is a real capability lifted from shipped code: what it does, its files, the env vars it needs, what it depends on, and what a human still has to change.
 
-Every entry now also carries **why it is here** and **what breaks without it**, and every shelf carries a reason of its own. Two buttons copy the whole catalogue or just the arguments as Markdown. The same text is checked into [`PROCESSES.md`](PROCESSES.md), generated from the library by `npm run processes` — a test fails if the file and the library disagree, so the document cannot rot.
+Every entry now also carries **why it is here** and **what breaks without it**, and every shelf carries a reason of its own. There are seven shelves: bookings, running the desk, marketing, **store and catalogue**, design, search, and data. Two buttons copy the whole catalogue or just the arguments as Markdown. The same text is checked into [`PROCESSES.md`](PROCESSES.md), generated from the library by `npm run processes` — a test fails if the file and the library disagree, so the document cannot rot.
 
 The document covers all 11 processes on the 6 shelves plus the eight steps the builder itself runs (inventory, preflight, draft, pull request, checks, gate, site check, code search), each with the reason it exists.
 

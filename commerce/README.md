@@ -26,6 +26,8 @@ catalogue/
 
 Pure TypeScript, no runtime dependencies, no React. `npm test` runs 81 tests; `npm run typecheck` is clean.
 
+**What is still missing** is [`GAPS.md`](GAPS.md): every row compared against what Amazon, Argos, Wayfair and a default Shopify theme do — payments, order records, returns, reviews, facets, tax, analytics — with the five things to build next and four things not to build at all.
+
 **Sourcing and the catalogue:** [`SUPPLIERS.md`](SUPPLIERS.md) lists the supplier feeds worth having (Aosom, BigBuy, Avasam, Matterhorn and the rest), what each sends you, and what it costs. `npm run catalogue` builds a working store catalogue from any of those files:
 
 ```bash

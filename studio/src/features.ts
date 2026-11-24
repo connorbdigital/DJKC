@@ -247,6 +247,72 @@ export const CAPABILITIES: Capability[] = [
     requires: [],
     manual: ["Register your own section colours"],
   },
+  {
+    id: "store-core",
+    category: "store",
+    version: "1.0.0",
+    name: "Storefront core: prices, catalogue, cart, checkout audit",
+    summary:
+      "Integer-penny money, a product and variant model with a completeness validator, typo-tolerant search that never dead-ends, a cart that prices discounts and delivery deterministically, a guest-first checkout audit, and performance and accessibility budgets that fail a build.",
+    why:
+      "Every shop rebuilds the same four mistakes: prices in floating point, a cart nobody can explain, a checkout with twenty fields, and a product page that search engines and shopping agents cannot read. This is that layer, written once, with the argument for each decision attached.",
+    without:
+      "Totals drift by a penny between components, delivery and discount maths is duplicated in the UI, and there is no way to say why checkout converts badly because nothing measures it.",
+    source: "connorbdigital/DJKC",
+    files: [
+      { path: "commerce/src/money.ts", role: "Integer minor units, VAT-inclusive prices, one formatter" },
+      { path: "commerce/src/catalog.ts", role: "Product and variant model, plus the validator agents read", adapt: true },
+      { path: "commerce/src/search.ts", role: "Typo-tolerant search index, with a fallback for zero results" },
+      { path: "commerce/src/cart.ts", role: "Discounts, delivery and stock truth, priced in one place" },
+      { path: "commerce/src/checkout.ts", role: "The guest-first checkout as a spec, and an audit that fails loudly", adapt: true },
+      { path: "commerce/src/seo.ts", role: "Product, Offer and ReturnPolicy JSON-LD, breadcrumbs, FAQ, llms.txt" },
+      { path: "commerce/src/budget.ts", role: "Performance and accessibility budgets that fail a build" },
+      { path: "commerce/src/fixtures.ts", role: "Two example products — delete these once yours are in" },
+      { path: "commerce/src/index.ts", role: "The barrel file, so imports stay short" },
+      { path: "commerce/GAPS.md", role: "What a real store has that this does not — the backlog, in order" },
+    ],
+    expects: [],
+    env: [],
+    requires: [],
+    manual: [
+      "Add vitest and run the tests before wiring it into a UI — they are the point",
+      "Replace fixtures.ts with your own products, or import them from a supplier CSV",
+      "Decide who takes payment: the framework prices an order, it does not charge one",
+      "Read GAPS.md and pick the first gap deliberately rather than discovering it in production",
+    ],
+  },
+  {
+    id: "supplier-catalogue",
+    category: "store",
+    version: "1.0.0",
+    name: "Product catalogue from a supplier CSV",
+    summary:
+      "A supplier CSV parser, column maps for four real feed shapes, per-row repair reporting, a Google Merchant feed exporter, and a build that turns the file into static product pages with structured data, llms.txt and a sitemap.",
+    why:
+      "Products arrive as a spreadsheet from a wholesaler, and the shop has to become real pages search engines and agents can read. Importing it by hand is a week; importing it by script is a minute, and the issues report tells you which rows will fail before a customer finds them.",
+    without:
+      "Someone retypes fifty products into a CMS, the descriptions stay supplier boilerplate, the Merchant feed gets rejected for missing images, and the pages do not exist until a front end is built.",
+    source: "connorbdigital/DJKC",
+    files: [
+      { path: "commerce/src/csv.ts", role: "Quoted fields, BOMs, CRLF, ragged rows and messy headers" },
+      { path: "commerce/src/importProducts.ts", role: "Four supplier column maps, price/stock coercion, per-row issues", adapt: true },
+      { path: "commerce/src/exportFeed.ts", role: "Google Merchant feed, products.json, sitemap" },
+      { path: "commerce/scripts/build-catalogue.mts", role: "CSV → static pages, images, feed, llms.txt", adapt: true },
+      { path: "commerce/catalogue/products.csv", role: "A worked example in a trade-feed shape — replace it", adapt: true },
+      { path: "commerce/catalogue/scripts/serve.mjs", role: "A static server for previewing the built catalogue" },
+      { path: "commerce/SUPPLIERS.md", role: "Where to get the CSV: suppliers, links, costs, vetting questions" },
+    ],
+    expects: [],
+    env: [],
+    requires: ["store-core"],
+    manual: [
+      "Run npm run catalogue against your own supplier file and read the issues list",
+      "Rewrite every supplier description — duplicate copy is the fastest way to be invisible",
+      "Replace the generated placeholder images with photography you have the rights to use",
+      "Add the build to CI so the catalogue cannot drift from the feed",
+      "Confirm VAT treatment and stock freshness for the supplier you chose",
+    ],
+  },
 ];
 
 export const capabilityById = (id: string) => CAPABILITIES.find((c) => c.id === id);
@@ -278,6 +344,12 @@ export const CATEGORIES: CategoryInfo[] = [
     label: "Marketing",
     blurb: "Keeping in touch — the list, the sign-up card, the reasons to come back.",
     why: "Getting one booking is expensive; getting the second from the same person is nearly free. This shelf is how the site earns a second visit.",
+  },
+  {
+    id: "store",
+    label: "Store & catalogue",
+    blurb: "Selling things: prices, a catalogue, a cart, feeds and the pages products live on.",
+    why: "A shop is a catalogue plus arithmetic plus a payment. This shelf is the first two: pricing that is exact, products a search engine and an AI agent can read, and a supplier spreadsheet that becomes a store instead of a spreadsheet.",
   },
   {
     id: "design",
