@@ -18,8 +18,6 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - run: npm run catalogue
-      - run: test -s catalogue/dist/index.html && test -s catalogue/dist/google-feed.csv
       - run: npm run build
 
   studio:
@@ -56,4 +54,4 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run catalogue
-      - run: test -s catalogue/dist/index.html && test -s catalogue/dist/google-feed.csv
+      - run: test -s catalogue/dist/index.html && test -s catalogue/dist/google-feed.csv && grep -q "49.99 GBP" catalogue/dist/google-feed.csv
