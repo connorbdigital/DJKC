@@ -1,4 +1,4 @@
-import type { Capability } from "./types";
+import type { Capability, Category } from "./types";
 
 /**
  * The feature library. Every entry is something that already ships in one of
@@ -8,6 +8,7 @@ import type { Capability } from "./types";
 export const CAPABILITIES: Capability[] = [
   {
     id: "booking-form-deposits",
+    category: "bookings",
     version: "1.0.1",
     name: "Booking form with Stripe deposits",
     summary:
@@ -35,6 +36,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "storage-kv",
+    category: "storage",
     version: "1.0.0",
     name: "Vercel KV storage layer",
     summary:
@@ -48,6 +50,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "booking-desk",
+    category: "operations",
     version: "1.0.0",
     name: "Token-gated admin desk",
     summary:
@@ -67,6 +70,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "mailing-list",
+    category: "marketing",
     version: "1.0.1",
     name: "Database-backed mailing list",
     summary:
@@ -88,6 +92,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "booking-chat",
+    category: "bookings",
     version: "1.0.1",
     name: "Booking chat",
     summary:
@@ -107,6 +112,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "blocked-dates",
+    category: "operations",
     version: "1.0.0",
     name: "Blocked dates",
     summary: "Block holidays and holds so the public availability check steers enquiries elsewhere, managed from the desk.",
@@ -122,6 +128,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "notifications",
+    category: "operations",
     version: "1.0.0",
     name: "Email notifications",
     summary: "Emails the desk when an enquiry lands, with reply-to set to the enquirer. Never blocks storage if mail fails.",
@@ -134,6 +141,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "calendar-feed",
+    category: "operations",
     version: "1.0.1",
     name: "Public calendar feed",
     summary: "A read-only iCalendar feed of upcoming dates, so the owner can subscribe to their own gig list.",
@@ -146,6 +154,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "static-seo-pages",
+    category: "search",
     version: "1.0.1",
     name: "Crawlable static pages",
     summary:
@@ -166,6 +175,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "sticky-cta-bar",
+    category: "design",
     version: "1.0.1",
     name: "Sticky booking bar",
     summary: "Phone-only bottom bar that appears past the hero, steps aside at the form, and preselects the deposit on tap.",
@@ -182,6 +192,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "theme-colour",
+    category: "design",
     version: "1.0.0",
     name: "Section-following browser colour",
     summary: "Updates the address-bar colour to the section in view, without touching the logo or favicon.",
@@ -195,3 +206,31 @@ export const CAPABILITIES: Capability[] = [
 ];
 
 export const capabilityById = (id: string) => CAPABILITIES.find((c) => c.id === id);
+
+export interface CategoryInfo {
+  id: Category;
+  label: string;
+  blurb: string;
+}
+
+/** The shelves, in the order they are shown. */
+export const CATEGORIES: CategoryInfo[] = [
+  { id: "bookings", label: "Bookings & enquiries", blurb: "Taking the enquiry, quoting it, and answering questions before it." },
+  { id: "operations", label: "Running the desk", blurb: "What happens after somebody says yes: the desk, holds, alerts, the calendar." },
+  { id: "marketing", label: "Marketing", blurb: "Keeping in touch — the list, the sign-up card, the reasons to come back." },
+  { id: "design", label: "Design & conversion", blurb: "How it looks and how it nudges: colour, the booking bar, the small mechanics." },
+  { id: "search", label: "Search & AI answers", blurb: "Being found and being quoted: real HTML pages, sitemaps, structured data." },
+  { id: "storage", label: "Data & storage", blurb: "The boring layer everything else stands on." },
+];
+
+export const categoryInfo = (id: Category) => CATEGORIES.find((entry) => entry.id === id);
+
+/** Capabilities on one shelf, in library order. */
+export const inCategory = (id: Category) => CAPABILITIES.filter((entry) => entry.category === id);
+
+/** How many features sit on each shelf — used for the filter chips. */
+export const categoryCounts = (): Record<Category, number> =>
+  CATEGORIES.reduce(
+    (counts, entry) => ({ ...counts, [entry.id]: inCategory(entry.id).length }),
+    {} as Record<Category, number>
+  );

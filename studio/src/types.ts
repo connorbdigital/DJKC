@@ -43,12 +43,20 @@ export interface FileRef {
   adapt?: boolean;
 }
 
+/**
+ * The themes the library is organised by. Small, stable and human: they are
+ * how you find a feature when you do not know its name.
+ */
+export type Category = "bookings" | "operations" | "marketing" | "design" | "search" | "storage";
+
 export interface Capability {
   id: string;
   name: string;
   /** Bumped by hand when the files change; recorded in the target's manifest. */
   version: string;
   summary: string;
+  /** Which shelf it belongs on. */
+  category: Category;
   /** Source project the files are copied from, as owner/name. */
   source: string;
   files: FileRef[];
