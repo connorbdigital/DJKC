@@ -6,6 +6,7 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | Document | What it answers |
 | --- | --- |
 | [shop-round-2026-11-20.md](shop-round-2026-11-20.md) | This round's shop work: the name, the 12-department taxonomy, SEO/AEO/GEO, the four product-source routes, and how each piece was checked |
+| [atlas-round-2026-11-20.md](atlas-round-2026-11-20.md) | The Atlas: a flyable 3D space in the Studio holding every project, process, pathway, the decision record and the 14-post blog plan for sitebuildup.co.uk — plus search, the site gallery and VR |
 | [../commerce/README.md](../commerce/README.md) | The storefront framework, the research it is built from, and what `npm run site` produces |
 | [../commerce/COMMISSION.md](../commerce/COMMISSION.md) | The money: resale margin worked line by line, marketplace commission, affiliate rates, and the four routes (Alibaba, AliExpress, Amazon, eBay) with their caps and gates |
 | [../commerce/SUPPLIERS.md](../commerce/SUPPLIERS.md) | Where product feeds come from, what each contains, what it costs, and the vetting questions |
@@ -22,6 +23,11 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [shop-product-2026-11-20.png](shop-product-2026-11-20.png) | A product page: price, delivery before the click, stock, basket, accordions, key facts |
 | [shop-basket-2026-11-20.png](shop-basket-2026-11-20.png) | The basket with two lines, and the checkout that says it is not connected |
 | [shop-mobile-2026-11-20.png](shop-mobile-2026-11-20.png) | 390px: compact header, scrolling department rail, stacked calls to action |
+| [atlas-gate-2026-11-20.png](atlas-gate-2026-11-20.png) | The Studio gate, with the no-token way into the space |
+| [atlas-opening-2026-11-20.png](atlas-opening-2026-11-20.png) | The Atlas on arrival: builder steps, library, pathways, projects, the blog plan wall |
+| [atlas-brief-2026-11-20.png](atlas-brief-2026-11-20.png) | A blog brief opened from its card: promise, outline, facts with sources |
+| [atlas-blog-plan-2026-11-20.png](atlas-blog-plan-2026-11-20.png) | The blog plan filtered to its own district — 14 posts, two rows |
+| [atlas-gallery-2026-11-20.png](atlas-gallery-2026-11-20.png) | The gallery with a live page requested, and the note that says when a site refuses framing |
 
 ## Generated, not stored
 

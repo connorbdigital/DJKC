@@ -9,16 +9,19 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "processes": "tsx scripts/write-processes.mts"
+    "processes": "tsx scripts/write-processes.mts",
+    "briefs": "tsx scripts/write-briefs.mts"
   },
   "dependencies": {
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@types/node": "22.19.17",
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
+    "@types/three": "^0.187.0",
     "@vitejs/plugin-react": "5.1.1",
     "tsx": "^4.23.15",
     "typescript": "5.9.3",
