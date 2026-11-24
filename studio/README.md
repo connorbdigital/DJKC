@@ -46,11 +46,13 @@ which broke the Vercel build until it was pinned — leave the file and the lock
 3. Environment variables:
    - `ANTHROPIC_API_KEY` — only needed for the Agent tab. Without it the other tabs still work and the agent answers with a clear 503.
    - `STUDIO_MODEL` — optional, defaults to `claude-sonnet-4-5`.
+   - `GITHUB_TOKEN` — a read-only personal access token, so the Projects tab can read GitHub without anyone pasting a token into a browser. Without it the gate appears and asks for one, exactly as before.
+   - `ANYTHING_API_KEY` — an Anything API key (anything.com → account → API keys). Without it the Anything tab says so and reads nothing.
 4. Deploy. It is `noindex, nofollow` and should stay that way.
 
-The Studio has **no database**. Your GitHub token is typed in and kept in that tab's `sessionStorage`; closing the tab locks it. Reads and writes go straight from the browser to `api.github.com`. The only server-side secret is the model key.
+The Studio has **no database**. Three secrets can live on the deployment and nowhere else: the model key, `GITHUB_TOKEN`, and `ANYTHING_API_KEY`. When they are set, reads go through `/api/github` and `/api/anything`, both read-only, so the browser never holds a credential just to look at something. Writes — opening a branch, a file, a pull request — still ask for a token at the gate, where the person authorising it can see what they are authorising, and that token stays in `sessionStorage` and dies with the tab.
 
-## The seven tabs
+## The eight tabs
 
 **Projects** — every repository the token can see, newest first, with commits and pull requests merged into one history, and a **What is in it** panel that reads the repo itself: detected stack, file/route/page/component/test counts, which library features have evidence in the code and which of those are unrecorded in `studio/features.json`, the routes and pages it serves, the env vars it expects, and the notes worth knowing (no CI, no tests, no docs, truncated tree). "Copy a summary for a brief" turns it into a paragraph. This is the answer to "what's been on this project", without needing anything from Arena: Arena's work arrives here as branches and pull requests.
 
@@ -109,6 +111,8 @@ The sky is three seeded shells of stars (900 near, 1,500 mid, 2,200 far) drawn f
 Every node that is not a site or a post is a **sun**, not a sphere: a photosphere shader with two frequencies of granulation, limb darkening, a thin hot rim, sunspots and a slow churn, wrapped in a tight corona and a wide falloff of thrown light. Colours are the districts' own (gold packs, pink capabilities, mint steps, violet projects), with a few degrees of hue drift per star. Click a star to frame it; click it again — or press **Zoom in** on its card — to fly inside the corona and see the surface move. Diving into a site also requests its page in the gallery panel, so the preview is waiting for you. All of it is geometry and sprites, no post-processing pass, so it runs on a phone.
 
 The blog plan is real content, not demo data — `src/atlasBriefs.ts` holds 14 briefs (about 19,200 words) for `sitebuildup.co.uk`, each with its target query, audience, service, outline, facts with a source, and the capability it demonstrates. `npm run briefs` renders them to [BRIEFS.md](BRIEFS.md). See [../docs/atlas-round-2026-11-20.md](../docs/atlas-round-2026-11-20.md).
+
+**Anything** — your projects on [anything.com](https://www.anything.com), read with the deployment's key: name, organisation, slug, when it was last updated, credits left, filterable by name. Read-only by construction — `/api/anything` accepts `POST`, forwards a `GET`, and only to the two documented paths (`/v0/api/me`, `/v0/api/projects`), so nothing here can create, rename or delete a project. A missing key and a rejected key say different things, because the fix is different: one is a Vercel environment variable, the other is a key that is not an API key.
 
 **Shelf** — what to do next and where everything lives, in one place, and it needs no token and no network: the same on a bad day. Three columns — **Now** (costs money or blocks everything else), **Next**, **Later** — each item carrying its reason, an effort estimate and which part of the project it touches, filterable by that. Below it: 28 links in five groups — where stock comes from (the `commerce/SUPPLIERS.md` list, with the same reasons), where you list it, reading worth doing, the accounts the work depends on, and this project's own documents — plus a table of every environment variable the two deployed projects read, what it unlocks, and what a visitor sees when it is missing. **Copy as Markdown** turns the whole shelf into text for a brief or an issue, and a test holds it to its promises: every link https with a reason, every task with an owner, and "Now" capped at five so it stays a plan rather than a backlog.
 

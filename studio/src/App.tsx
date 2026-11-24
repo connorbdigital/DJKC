@@ -10,10 +10,11 @@ import { Packs } from "./components/Packs";
 import { Search } from "./components/Search";
 import { Draft } from "./components/Draft";
 import { Resources } from "./components/Resources";
+import { Anything } from "./components/Anything";
 /* three.js is ~700kB; nobody pays for it until they ask for the space. */
 const Atlas = lazy(() => import("./components/Atlas").then((module) => ({ default: module.Atlas })));
 
-type Tab = "projects" | "packs" | "features" | "search" | "draft" | "resources" | "atlas";
+type Tab = "projects" | "packs" | "features" | "search" | "draft" | "resources" | "anything" | "atlas";
 
 const TABS: { id: Tab; label: string; blurb: string }[] = [
   { id: "projects", label: "Projects", blurb: "Everything on the account, newest first, with its history." },
@@ -21,6 +22,11 @@ const TABS: { id: Tab; label: string; blurb: string }[] = [
   { id: "features", label: "Feature library", blurb: "What already ships, ready to copy into another project." },
   { id: "search", label: "Search", blurb: "Look inside every project, and at one public page outside them." },
   { id: "draft", label: "Agent", blurb: "Describe the change; the agent drafts files; you review and open the pull request." },
+  {
+    id: "anything",
+    label: "Anything",
+    blurb: "The projects you built on anything.com, read with this deployment's key — listed, never changed.",
+  },
   {
     id: "resources",
     label: "Shelf",
@@ -151,6 +157,7 @@ export function App() {
       {repos && tab === "draft" && <Draft token={token} repos={repos} />}
       {/* The shelf needs no token and no network: it is the same on a bad day. */}
       {tab === "resources" && <Resources />}
+      {tab === "anything" && <Anything />}
       {tab === "atlas" && (
         <Suspense fallback={<p className="atlas-boot">Loading the space…</p>}>
           <Atlas onClose={() => setTab("projects")} />

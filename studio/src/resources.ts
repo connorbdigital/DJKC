@@ -353,6 +353,7 @@ export interface EnvKey {
 /** The keys the two deployed projects read, and the honest consequence of a gap. */
 export const ENV_KEYS: EnvKey[] = [
   { key: "ANTHROPIC_API_KEY", project: "studio", what: "Agent drafting", without: "the Agent tab refuses" },
+  { key: "ANYTHING_API_KEY", project: "studio", what: "The /api/anything proxy: list your anything.com projects", without: "the Anything tab says it is not connected" },
   { key: "STUDIO_MODEL", project: "studio", what: "Optional model override", without: "claude-sonnet-4-5 is used" },
   { key: "GITHUB_TOKEN", project: "studio", what: "The /api/github proxy: browse without pasting a token", without: "the gate asks for one, as before" },
   { key: "KV_REST_API_URL", project: "djkc", what: "Storage, address", without: "bookings and sign-ups fail" },
