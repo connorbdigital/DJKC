@@ -50,6 +50,8 @@ export interface Product {
   returnPolicy: ReturnPolicy;
   /** Extra structured properties for agents and feeds. */
   attributes?: Record<string, string>;
+  /** Material, dimensions, care — the key-facts table and schema.org properties. */
+  specs?: Record<string, string>;
   rating?: { value: number; count: number };
   /** Internal: best sellers survive a zero-result search. */
   bestseller?: boolean;
@@ -167,6 +169,17 @@ export function priceFrom(product: Product): Money | null {
   const candidates = variantsInStock(product);
   if (!candidates.length) return null;
   return candidates.reduce((lowest, variant) => (variant.price.amount < lowest.amount ? variant.price : lowest), candidates[0]!.price);
+}
+
+/**
+ * The price to show a shopper, whether or not it is in stock. A sold-out
+ * product still has a price, and hiding it makes the shop look broken.
+ */
+export function listPrice(product: Product): Money | null {
+  if (!product.variants.length) return null;
+  return product.variants
+    .map((variant) => variant.price)
+    .reduce((lowest, price) => (price.amount < lowest.amount ? price : lowest), product.variants[0]!.price);
 }
 
 export const variantBySku = (products: Product[], sku: string): { product: Product; variant: Variant } | null => {

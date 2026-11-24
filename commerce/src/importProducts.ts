@@ -85,7 +85,7 @@ const AOSOM: ImportProfile = {
     brand: ["brand", "manufacturer", "supplier"],
     category: ["category", "category name", "product type", "department"],
     price: ["rrp", "price", "retail price", "sell price"],
-    compareAt: ["list price", "compare at price", "was price"],
+    compareAt: ["compare at", "compare at price", "list price", "was price"],
     stock: ["stock", "quantity available", "qty", "stock level"],
     availability: ["stock status", "availability", "status"],
     sku: ["sku", "sku code", "manufacturer part number", "mpn"],
@@ -160,6 +160,17 @@ const PROFILE_BY_ID: Record<ProfileId, ImportProfile> = {
   shopify: SHOPIFY,
   google: GOOGLE,
 };
+
+/** Columns that become the "key facts" table rather than the description. */
+export const SPEC_COLUMNS: { label: string; candidates: string[] }[] = [
+  { label: "Material", candidates: ["material", "materials", "fabric", "composition"] },
+  { label: "Dimensions", candidates: ["dimensions", "size (cm)", "size", "measurements", "dimensions (cm)"] },
+  { label: "Weight", candidates: ["weight", "item weight", "product weight"] },
+  { label: "Colour", candidates: ["colour", "color"] },
+  { label: "Care", candidates: ["care", "care instructions", "washing instructions"] },
+  { label: "Power", candidates: ["power", "battery", "wattage", "voltage"] },
+  { label: "Includes", candidates: ["includes", "what's included", "contents", "pack contents"] },
+];
 
 const CURRENCY_TOKENS: Record<string, Currency> = { GBP: "GBP", "£": "GBP", EUR: "EUR", "€": "EUR", USD: "USD", $: "USD" };
 
@@ -316,6 +327,12 @@ export function importCsv(text: string, options: ImportOptions = {}): ImportResu
 
     const days = Number.isFinite(returnDays) && returnDays > 0 ? returnDays : (options.returnDays ?? 30);
 
+    const specs: Record<string, string> = {};
+    for (const column of SPEC_COLUMNS) {
+      const value = valueFor(row, column.candidates);
+      if (value) specs[column.label] = value;
+    }
+
     products.push({
       id: valueFor(row, profile.columns.id) || variant.sku,
       slug,
@@ -325,6 +342,7 @@ export function importCsv(text: string, options: ImportOptions = {}): ImportResu
       category: (valueFor(row, profile.columns.category).split(/[>|/]/)[0] ?? "General").trim() || "General",
       currency: variant.price.currency,
       images,
+      ...(Object.keys(specs).length ? { specs } : {}),
       variants: [variant],
       returnPolicy: {
         days,

@@ -15,7 +15,7 @@ npm run feed -- --url "https://www.dropshipforyou.co.uk/feeds/stock_feed.php?u=y
 FEED_URL="https://supplier.example/products.csv" FEED_AUTH_HEADER="Authorization: Bearer …" npm run feed -- --name supplier
 
 # then build from it
-npm run catalogue -- feeds/dropforyou-2026-11-20.csv
+npm run site -- feeds/dropforyou-2026-11-20.csv
 ```
 
 `feeds/manifest.json` records what was downloaded and when: the redacted URL,

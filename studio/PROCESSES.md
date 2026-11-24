@@ -135,7 +135,7 @@ _A shop is a catalogue plus arithmetic plus a payment. This shelf is the first t
 **What breaks without it.** Totals drift by a penny between components, delivery and discount maths is duplicated in the UI, and there is no way to say why checkout converts badly because nothing measures it.
 
 - Version: 1.0.0 · source: `connorbdigital/DJKC`
-- Files: `commerce/src/money.ts`, `commerce/src/catalog.ts` (needs editing), `commerce/src/search.ts`, `commerce/src/cart.ts`, `commerce/src/checkout.ts` (needs editing), `commerce/src/seo.ts`, `commerce/src/budget.ts`, `commerce/src/fixtures.ts`, `commerce/src/index.ts`, `commerce/GAPS.md`
+- Files: `commerce/src/money.ts`, `commerce/src/catalog.ts` (needs editing), `commerce/src/search.ts`, `commerce/src/cart.ts`, `commerce/src/checkout.ts` (needs editing), `commerce/src/seo.ts`, `commerce/src/budget.ts`, `commerce/src/siteModel.ts`, `commerce/src/affiliate.ts`, `commerce/catalogue/site.ts` (needs editing), `commerce/src/fixtures.ts`, `commerce/src/index.ts`, `commerce/GAPS.md`
 - By hand: Add vitest and run the tests before wiring it into a UI — they are the point; Replace fixtures.ts with your own products, or import them from a supplier CSV; Decide who takes payment: the framework prices an order, it does not charge one; Read GAPS.md and pick the first gap deliberately rather than discovering it in production
 
 ### Product catalogue from a supplier CSV
@@ -147,9 +147,9 @@ _A shop is a catalogue plus arithmetic plus a payment. This shelf is the first t
 **What breaks without it.** Someone retypes fifty products into a CMS, the descriptions stay supplier boilerplate, the Merchant feed gets rejected for missing images, and the pages do not exist until a front end is built.
 
 - Version: 1.0.0 · source: `connorbdigital/DJKC`
-- Files: `commerce/src/csv.ts`, `commerce/src/importProducts.ts` (needs editing), `commerce/src/exportFeed.ts`, `commerce/scripts/build-catalogue.mts` (needs editing), `commerce/catalogue/products.csv` (needs editing), `commerce/catalogue/scripts/serve.mjs`, `commerce/src/feedSource.ts`, `commerce/scripts/fetch-feed.mts`, `commerce/feeds/README.md`, `commerce/SUPPLIERS.md`, `commerce/COMMISSION.md`
+- Files: `commerce/src/csv.ts`, `commerce/src/importProducts.ts` (needs editing), `commerce/src/exportFeed.ts`, `commerce/catalogue/site.ts` (needs editing), `commerce/catalogue/render.ts`, `commerce/catalogue/scripts/build-site.mts` (needs editing), `commerce/catalogue/products.csv` (needs editing), `commerce/catalogue/scripts/serve.mjs`, `commerce/src/feedSource.ts`, `commerce/scripts/fetch-feed.mts`, `commerce/feeds/README.md`, `commerce/SUPPLIERS.md`, `commerce/COMMISSION.md`
 - Install after: store-core
-- By hand: Run npm run feed against the URL your supplier gives you, then npm run catalogue on the file it saved; Read the issues list before publishing — every 'no GTIN' or 'repaired' line is a product that would fail later; Rewrite every supplier description — duplicate copy is the fastest way to be invisible; Replace the generated placeholder images with photography you have the rights to use; Add the build to CI so the catalogue cannot drift from the feed; Confirm VAT treatment and stock freshness for the supplier you chose
+- By hand: Run npm run feed against the URL your supplier gives you, then npm run site on the file it saved; npm run serve:catalogue and read the home page on a phone before publishing anything; Read the issues list before publishing — every 'no GTIN' or 'repaired' line is a product that would fail later; Rewrite every supplier description — duplicate copy is the fastest way to be invisible; Replace the generated placeholder images with photography you have the rights to use; Add the build to CI so the catalogue cannot drift from the feed; Confirm VAT treatment and stock freshness for the supplier you chose
 
 ## Design & conversion
 

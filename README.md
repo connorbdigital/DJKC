@@ -98,11 +98,13 @@ The desk shows awaiting/confirmed/declined counts, searchable bookings with a da
 
 `/share-preview.html` shows the Open Graph cards as WhatsApp/iMessage, LinkedIn/Facebook and X/Bluesky would render them, plus the gaps worth fixing. Both internal pages are static files in `public/`, so they need no build step and are excluded from the single-page bundle.
 
-## Studio (separate product)
+## Shop (commerce, separate product)
 
-`commerce/` also builds a working shop: `npm run catalogue` turns a supplier CSV into static product pages with structured data, a Google Merchant feed, `products.json`, `llms.txt` and a sitemap. [commerce/SUPPLIERS.md](commerce/SUPPLIERS.md) is the researched list of places to get those CSVs — Aosom, BigBuy, Avasam, Matterhorn and the rest — with what each feed contains, what it costs, and the checks to run before publishing a product. [commerce/GAPS.md](commerce/GAPS.md) is the honest other half: what a real store has that this one still does not, ranked. [commerce/COMMISSION.md](commerce/COMMISSION.md) does the money: margin on a resold product, what The Range and eBay take, and what an affiliate click actually pays. `npm run feed` downloads a supplier feed without leaking the account.
+`commerce/` also builds a working shop, **Exommeece** (`https://exommeece.co.uk`): `npm run site` turns a supplier CSV into 45 static pages — home, twelve departments, 32 product pages, search and three policy pages — with Schema.org `Product`/`Offer`/`FAQPage`/`CollectionPage` markup, a Google Merchant feed, `products.json`, `llms.txt`/`llms-full.txt`, a sitemap and a `robots.txt` that explicitly admits the AI crawlers. [commerce/SUPPLIERS.md](commerce/SUPPLIERS.md) is the researched list of where those CSVs come from — Aosom, BigBuy, Avasam, Matterhorn and the rest — with what each feed contains and what it costs. [commerce/COMMISSION.md](commerce/COMMISSION.md) does the money: margin on a resold product, what The Range and eBay take, and the four product-source routes (Alibaba, AliExpress, Amazon, eBay) with their caps and gates; [commerce/src/affiliate.ts](commerce/src/affiliate.ts) holds the same rates as typed data, so the arithmetic and the prose cannot drift. [commerce/GAPS.md](commerce/GAPS.md) is the honest other half: what a real store has that this one still does not, ranked. `npm run feed` downloads a supplier feed without leaking the account.
 
 `commerce/` is a storefront framework — pricing, catalogue validation, search, checkout policy, structured data and build budgets, each written against a published failure in mainstream ecommerce. It is its own package with its own tests and CI job, and is not imported by this site. See [commerce/README.md](commerce/README.md), which begins with the market research it is built from.
+
+## Studio (separate product)
 
 `studio/` is a private workspace — every project's history from GitHub, a reusable feature library, and an agent that drafts changes as pull requests. It has its own package, build and Vercel project (Root Directory `studio`) and is not imported by this site. See [studio/README.md](studio/README.md).
 

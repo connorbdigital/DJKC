@@ -5,6 +5,8 @@ export * from "./cart";
 export * from "./checkout";
 export * from "./seo";
 export * from "./budget";
+export * from "./affiliate";
+export * from "./siteModel";
 
 /**
  * The framework in one sentence, exported so the README and the code cannot

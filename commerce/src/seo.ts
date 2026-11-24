@@ -23,6 +23,12 @@ export interface ProductLdOptions {
   returnDays?: number;
   /** Set false to publish a variant out of stock rather than omit it. */
   includeOutOfStock?: boolean;
+  /** What delivery actually costs and how long it takes, so the offer tells the truth. */
+  shipping?: { rate: string; minDays: number; maxDays: number; free?: boolean };
+  /** A date, not a promise: the price is valid until then. */
+  priceValidUntil?: string;
+  /** Material, dimensions and so on, published as additionalProperty. */
+  specs?: Record<string, string>;
 }
 
 const clean = (value: { [key: string]: unknown }): JsonLd =>
@@ -41,14 +47,20 @@ export function productJsonLd(product: Product, variant: Variant, options: Produ
     availability: availabilityUrl(state),
     itemCondition: "https://schema.org/NewCondition",
     seller: { "@type": "Organization", name: options.siteName },
-    priceValidUntil: undefined,
+    priceValidUntil: options.priceValidUntil,
     shippingDetails: {
       "@type": "OfferShippingDetails",
-      shippingRate: { "@type": "MonetaryAmount", value: "0.00", currency },
+      shippingRate: { "@type": "MonetaryAmount", value: options.shipping?.rate ?? "0.00", currency },
+      shippingDestination: { "@type": "DefinedRegion", addressCountry: "GB" },
       deliveryTime: {
         "@type": "ShippingDeliveryTime",
         handlingTime: { "@type": "QuantitativeValue", minValue: 0, maxValue: 1, unitCode: "DAY" },
-        transitTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 3, unitCode: "DAY" },
+        transitTime: {
+          "@type": "QuantitativeValue",
+          minValue: options.shipping?.minDays ?? 1,
+          maxValue: options.shipping?.maxDays ?? 3,
+          unitCode: "DAY",
+        },
       },
     },
     hasMerchantReturnPolicy: {
@@ -79,11 +91,14 @@ export function productJsonLd(product: Product, variant: Variant, options: Produ
   if (variant.weightGrams) {
     data.weight = { "@type": "QuantitativeValue", value: variant.weightGrams, unitCode: "GRM" };
   }
-  if (product.attributes) data.additionalProperty = Object.entries(product.attributes).map(([name, value]) => ({
-    "@type": "PropertyValue",
-    name,
-    value,
-  }));
+  const properties = { ...(product.specs ?? {}), ...(options.specs ?? {}) };
+  if (Object.keys(properties).length) {
+    data.additionalProperty = Object.entries(properties).map(([name, value]) => ({
+      "@type": "PropertyValue",
+      name: name === "Dimensions" ? "size" : name === "Material" ? "material" : name,
+      value,
+    }));
+  }
   if (product.rating && product.rating.count > 0) {
     data.aggregateRating = {
       "@type": "AggregateRating",
