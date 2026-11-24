@@ -14,6 +14,7 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [../studio/PROCESSES.md](../studio/PROCESSES.md) | Every process the Studio can generate, including the product-catalogue one |
 | [../studio/README.md](../studio/README.md) | The Studio: inventory, feature library, draft → PR → checks → merge gate |
 | [../README.md](../README.md) | The DJKC site itself and the two products that live beside it |
+| [split-pr-2026-11-20.md](split-pr-2026-11-20.md) | *Process note:* how to split PR #18 into two PRs, with the commands that were tested and the coupling that argues against it |
 
 ## Screenshots of this round's build (20 Nov 2026)
 
