@@ -18,11 +18,15 @@ studio/
 
 ```bash
 cd studio
-npm install
-npm run test     # registry + installer + adapters
+npm ci           # uses the committed lockfile
+npm run test     # registry, installer, preflight, adapters
 npm run build
 npm run dev      # http://localhost:5173, proxied by Vercel in production
 ```
+
+`studio/.npmrc` sets `legacy-peer-deps=true`. Without it npm 10 fails to resolve this
+dependency set on a clean checkout ("Cannot read properties of null (reading 'edgesOut')"),
+which broke the Vercel build until it was pinned — leave the file and the lockfile in place.
 
 ## Deploy it
 
