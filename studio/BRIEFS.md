@@ -42,10 +42,10 @@
 **Evidence**
 
 - Cart abandonment averages 70.2% across 50 studies — *Baymard, updated Sep 2025*
-- Unexpected costs cause 40–48% of preventable abandonments — *Baymard*
-- Forced account creation accounts for 18–26% — *Baymard*
-- The average US checkout shows 23.5 form elements; ~12 is achievable — *Baymard*
-- Mobile abandonment is ~80% against ~66% on desktop — *Baymard*
+- Unexpected costs cause 40–48% of preventable abandonments — *Baymard Institute cart-abandonment research — third-party, not measured here*
+- Forced account creation accounts for 18–26% — *Baymard Institute checkout-usability research — third-party, not measured here*
+- The average US checkout shows 23.5 form elements; ~12 is achievable — *Baymard Institute checkout-usability research — third-party, not measured here*
+- Mobile abandonment is ~80% against ~66% on desktop — *Baymard Institute cart-abandonment statistics — third-party, not measured here*
 
 **Proof in the repo:** `commerce/src/checkout.ts`, `commerce/src/cart.ts`, `commerce/GAPS.md`
 
@@ -72,7 +72,7 @@
 
 **Evidence**
 
-- Unexpected costs are the top preventable abandonment reason at 40–48% — *Baymard*
+- Unexpected costs are the top preventable abandonment reason at 40–48% — *Baymard Institute cart-abandonment research — third-party, not measured here*
 - A stated £3.95 with free over £40 removes the surprise without giving margin away — *commerce/catalogue/site.ts, the demo shop's policy*
 - The basket shows "£15.50 more for free delivery", not a countdown — *commerce/catalogue/render.ts*
 
@@ -102,8 +102,8 @@
 **Evidence**
 
 - Every 0.1s of load improvement lifts retail conversion ~8% — *Google/Deloitte*
-- Each 100ms of LCP improvement correlates with ~3.5% more conversions — *Shopify*
-- Stores at 1.5s LCP convert ~30% higher than those at 2.5s — *Shopify*
+- Each 100ms of LCP improvement correlates with ~3.5% more conversions — *Industry speed benchmarks widely cited in 2023–25; third-party, not measured here*
+- Stores at 1.5s LCP convert ~30% higher than those at 2.5s — *Industry speed benchmarks widely cited in 2023–25; third-party, not measured here*
 - Only ~39% of ecommerce sites pass all three Core Web Vitals — *industry audits, 2026*
 
 **Proof in the repo:** `commerce/src/budget.ts`, `commerce/src/seo.ts`

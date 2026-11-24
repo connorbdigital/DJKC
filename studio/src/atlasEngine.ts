@@ -14,10 +14,14 @@
 import * as THREE from "three";
 import { CSS3DObject, CSS3DRenderer } from "three/examples/jsm/renderers/CSS3DRenderer.js";
 import type { Atlas, AtlasNode, District, NodeKind } from "./atlas";
-import { compass, kindColour, nearestDistrict, nearestNode } from "./atlas";
+import { compass, kindColour, nearestDistrict, nearestNode, responsiveFov } from "./atlas";
 
 export interface EngineHandlers {
   onSelect: (node: AtlasNode | null) => void;
+  /** Pointer hovering a node, desktop only. */
+  onHover?: (node: AtlasNode | null) => void;
+  /** Any deliberate movement — used to cancel a guided tour. */
+  onInteract?: () => void;
   onTick: (info: { position: [number, number, number]; district: District; heading: string; near: string | null }) => void;
   onStatus: (message: string) => void;
 }
@@ -28,6 +32,151 @@ interface Pickable {
   /** The thing whose opacity changes on selection: a mesh material or a card sprite. */
   material: THREE.Material & { opacity: number };
   halo?: THREE.Mesh;
+  /** Suns carry their own brightness uniform; this is how selection dims one. */
+  fade?: (value: number) => void;
+}
+
+/** A radial gradient on a canvas: cheap light, no post-processing pass. */
+function nebulaTexture(): THREE.Texture {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0, "rgba(255,255,255,0.9)");
+    gradient.addColorStop(0.35, "rgba(255,255,255,0.28)");
+    gradient.addColorStop(0.7, "rgba(255,255,255,0.06)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+/** A round star with a bright core, so points are stars and not squares. */
+function starTexture(): THREE.Texture {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.25, "rgba(255,255,255,0.85)");
+    gradient.addColorStop(0.55, "rgba(255,255,255,0.22)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+
+/**
+ * A sun, not a sphere.
+ *
+ * The photosphere is a shader: two octaves of value noise churn across the
+ * surface, limb darkening keeps the middle hot, and a thin bright rim does the
+ * work a bloom pass would — light that spills past the edge instead of stopping
+ * at it. Nothing here needs a render target, so it costs the same on a phone.
+ */
+function sunMaterial(colour: THREE.Color, seed: number) {
+  const hot = colour.clone().lerp(new THREE.Color(0xffffff), 0.28);
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColour: { value: colour.clone() },
+      uHot: { value: hot },
+      uSeed: { value: seed },
+      uFade: { value: 1 },
+      uHeat: { value: 1 },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vView;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vNormal = normalize(normalMatrix * normal);
+        vView = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform vec3 uColour;
+      uniform vec3 uHot;
+      uniform float uSeed;
+      uniform float uFade;
+      uniform float uHeat;
+      varying vec3 vNormal;
+      varying vec3 vView;
+
+      float hash(vec3 p) {
+        return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
+      }
+      float noise(vec3 p) {
+        vec3 i = floor(p);
+        vec3 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float n000 = hash(i);
+        float n100 = hash(i + vec3(1.0, 0.0, 0.0));
+        float n010 = hash(i + vec3(0.0, 1.0, 0.0));
+        float n110 = hash(i + vec3(1.0, 1.0, 0.0));
+        float n001 = hash(i + vec3(0.0, 0.0, 1.0));
+        float n101 = hash(i + vec3(1.0, 0.0, 1.0));
+        float n011 = hash(i + vec3(0.0, 1.0, 1.0));
+        float n111 = hash(i + vec3(1.0, 1.0, 1.0));
+        return mix(
+          mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),
+          mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y),
+          f.z
+        );
+      }
+      float fbm(vec3 p) {
+        float v = 0.0;
+        float a = 0.55;
+        for (int i = 0; i < 4; i++) {
+          v += a * noise(p);
+          p *= 2.07;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main() {
+        float facing = clamp(dot(vNormal, vView), 0.0, 1.0);
+        float churn = uTime * 0.03;
+
+        /* Fine granulation over slow convection: rice-grain cells, not continents.
+           Two frequencies because one alone reads as camouflage up close. */
+        float fine = fbm(vNormal * 46.0 + vec3(uSeed, churn, -churn));
+        float mid = fbm(vNormal * 15.0 - vec3(churn * 0.6, uSeed, churn * 0.3));
+        float cells = smoothstep(0.34, 0.74, fine) * 0.78 + smoothstep(0.46, 0.82, mid) * 0.22;
+
+        vec3 surface = mix(uColour * 0.86, uHot, clamp(cells, 0.0, 1.0) * 0.72);
+
+        /* Sunspots: a few darker, slower patches — the thing that tells you a
+           disc is a body turning and not a texture on a billboard. */
+        float spot = smoothstep(0.74, 0.93, fbm(vNormal * 3.4 + vec3(uSeed * 1.7, 0.0, churn * 0.25)));
+        surface = mix(surface, uColour * 0.28, spot * 0.6);
+
+        /* Limb darkening is what makes a disc read as a sphere: the middle burns,
+           the edge falls away, and a thin hot rim carries the corona. */
+        float limb = pow(facing, 1.45);
+        float rim = pow(1.0 - facing, 6.0);
+        vec3 lit = surface * (0.36 + 1.0 * limb) + uHot * rim * 0.95;
+        lit *= 1.1 * uHeat;
+        gl_FragColor = vec4(lit * uFade, 1.0);
+      }
+    `,
+  });
 }
 
 const FOV = 62;
@@ -138,6 +287,12 @@ export class AtlasEngine {
   private readonly pickables: Pickable[] = [];
   private readonly labels: { sprite: THREE.Sprite; kind: NodeKind; base: THREE.Vector3 }[] = [];
   private readonly cards: { sprite: THREE.Sprite; base: THREE.Vector3 }[] = [];
+  /** Touch joystick input, merged with the keyboard in applyKeys(). */
+  private touch = { forward: 0, strafe: 0, lift: 0, boost: false };
+  private readonly pointers = new Map<number, { x: number; y: number }>();
+  private pinchDistance = 0;
+  private highlight = new Set<string>();
+  private highlightUntil = 0;
   private readonly panels = new Map<string, HTMLElement>();
   private readonly velocity = new THREE.Vector3();
   private readonly keys = new Set<string>();
@@ -146,7 +301,9 @@ export class AtlasEngine {
   private readonly clock = new THREE.Clock();
   private readonly handlers: EngineHandlers;
   private readonly atlas: Atlas;
-  private readonly edgeLines: { from: string; to: string; kind: string; line: THREE.LineSegments }[] = [];
+  private readonly edgeLines: { from: string; to: string; kind: string; line: THREE.LineSegments; midpoint: THREE.Vector3 }[] = [];
+  private readonly stars: { points: THREE.Points; material: THREE.PointsMaterial; speed: number; base: number; phase: number }[] = [];
+  private readonly suns: { id: string; material: THREE.ShaderMaterial; mesh: THREE.Mesh; spin: number }[] = [];
   private frame = 0;
   private yaw = 0;
   private pitch = -0.13;
@@ -163,13 +320,17 @@ export class AtlasEngine {
     private readonly cssHost: HTMLElement,
     private readonly stage: HTMLElement,
     atlas: Atlas,
-    handlers: EngineHandlers
+    handlers: EngineHandlers,
+    start?: [number, number, number] | null
   ) {
     this.atlas = atlas;
     this.handlers = handlers;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    /* Phones have enough pixels already: uncapped devicePixelRatio costs frames
+       and buys nothing on a 6-inch screen. */
+    const coarse = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2));
     this.renderer.setSize(host.clientWidth || 1, host.clientHeight || 1);
     this.renderer.setClearColor(0x0a0512, 1);
     this.renderer.xr.enabled = true;
@@ -181,25 +342,22 @@ export class AtlasEngine {
     cssHost.appendChild(this.cssRenderer.domElement);
 
     this.scene.fog = new THREE.Fog(0x0a0512, 60, 420);
-    /* A dusting of far points so the space reads as depth, not a black wall. */
-    const dust = new Float32Array(1400 * 3);
-    for (let index = 0; index < 1400; index += 1) {
-      dust[index * 3] = (Math.random() - 0.5) * 900;
-      dust[index * 3 + 1] = Math.random() * 340 - 40;
-      dust[index * 3 + 2] = (Math.random() - 0.5) * 900;
-    }
-    const dustGeometry = new THREE.BufferGeometry();
-    dustGeometry.setAttribute("position", new THREE.Float32BufferAttribute(dust, 3));
-    this.scene.add(
-      new THREE.Points(
-        dustGeometry,
-        new THREE.PointsMaterial({ color: 0x9f8cff, size: 0.9, transparent: true, opacity: 0.5, sizeAttenuation: true, fog: false })
-      )
-    );
     this.scene.add(this.rig);
     this.rig.add(this.camera);
     this.camera.rotation.order = "YXZ";
-    this.rig.position.set(0, 30, 132);
+    /* Portrait needs a wider vertical FOV and a longer view, or the whole
+       space reads as a speck in the middle of a tall black screen. */
+    this.fitCamera();
+    if (start) {
+      this.rig.position.set(start[0], start[1], start[2]);
+    } else if (this.camera.aspect < 0.85) {
+      /* Portrait gets an overview: from down here the space is a horizontal
+         band in a tall black screen. */
+      this.rig.position.set(0, 52, 104);
+      this.pitch = -0.33;
+    } else {
+      this.rig.position.set(0, 30, 132);
+    }
     cameraLook(this.rig, this.camera, this.yaw, this.pitch);
 
     this.scene.add(new THREE.AmbientLight(0xb9a5ff, 0.9));
@@ -227,26 +385,68 @@ export class AtlasEngine {
 
   /* ------------------------------------------------------------- the scene */
 
+  /**
+   * Three shells of stars, not one cloud. Near stars are bright and large, far
+   * ones are dim and small, and each shell turns at its own speed — so moving
+   * through the space changes the parallax between them, which is what reads as
+   * depth. All three are seeded, so the sky is the same on every visit.
+   */
   private buildStars() {
-    const count = 2400;
-    const positions = new Float32Array(count * 3);
-    let seed = 7;
-    const random = () => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    };
-    for (let i = 0; i < count; i++) {
-      const radius = 300 + random() * 480;
-      const theta = random() * Math.PI * 2;
-      const phi = Math.acos(2 * random() - 1);
-      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = radius * Math.cos(phi) * 0.7;
-      positions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
+    const shells = [
+      { count: 900, inner: 150, outer: 320, size: 2.2, opacity: 0.95, colour: 0xdfd2ff, speed: 0.0016 },
+      { count: 1500, inner: 320, outer: 560, size: 1.5, opacity: 0.7, colour: 0xb9a5ff, speed: 0.0009 },
+      { count: 2200, inner: 560, outer: 900, size: 1.0, opacity: 0.45, colour: 0x8fa6ff, speed: 0.0004 },
+    ];
+    const star = starTexture();
+    shells.forEach((shell, index) => {
+      let seed = 7 + index * 131;
+      const random = () => {
+        seed = (seed * 16807) % 2147483647;
+        return seed / 2147483647;
+      };
+      const positions = new Float32Array(shell.count * 3);
+      for (let i = 0; i < shell.count; i++) {
+        const radius = shell.inner + random() * (shell.outer - shell.inner);
+        const theta = random() * Math.PI * 2;
+        const phi = Math.acos(2 * random() - 1);
+        positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = radius * Math.cos(phi) * 0.62;
+        positions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      const material = new THREE.PointsMaterial({
+        map: star,
+        alphaTest: 0.02,
+        color: shell.colour,
+        size: shell.size * 1.6,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: shell.opacity,
+        depthWrite: false,
+        fog: false,
+      });
+      const points = new THREE.Points(geometry, material);
+      points.rotation.z = random() * Math.PI;
+      this.scene.add(points);
+      this.stars.push({ points, material, speed: shell.speed, base: shell.opacity, phase: index * 1.7 });
+    });
+
+    /* A soft glow behind each district so the space has light, not just points. */
+    const glow = nebulaTexture();
+    for (const [colour, position, size, opacity] of [
+      [0xff2bd6, [0, 26, -30], 220, 0.16],
+      [0x8c5bff, [-90, 40, 40], 260, 0.13],
+      [0x38bdf8, [80, 30, 70], 200, 0.1],
+      [0xffd166, [0, 60, -120], 240, 0.08],
+    ] as [number, [number, number, number], number, number][]) {
+      const sprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: glow, color: colour, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
+      );
+      sprite.position.set(...position);
+      sprite.scale.setScalar(size);
+      this.scene.add(sprite);
     }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    const material = new THREE.PointsMaterial({ color: 0xcbb6ff, size: 1.6, sizeAttenuation: true, transparent: true, opacity: 0.7 });
-    this.scene.add(new THREE.Points(geometry, material));
   }
 
   private buildDistrictLabels() {
@@ -285,7 +485,7 @@ export class AtlasEngine {
       /* The brief → process links are the busiest thing here, so they only appear
          once a post is selected: the space stays readable until you ask. */
       line.visible = edge.kind !== "proves";
-      this.edgeLines.push({ from: edge.from, to: edge.to, kind: edge.kind, line });
+      this.edgeLines.push({ from: edge.from, to: edge.to, kind: edge.kind, line, midpoint: curve.getPoint(0.5) });
       this.scene.add(line);
     }
   }
@@ -302,7 +502,16 @@ export class AtlasEngine {
 
   private buildNodes() {
     for (const node of this.atlas.nodes) {
+      /* Every sun is its kind's colour, with a few degrees of hue drift of its
+         own — a district of identical spheres reads as a diagram, and the same
+         district with a little variation reads as a sky. */
       const colour = new THREE.Color(kindColour[node.kind]);
+      if (node.kind !== "site") {
+        const drift = ((node.id.charCodeAt(node.id.length - 1) * 37) % 11) / 11 - 0.5;
+        const hsl = { h: 0, s: 0, l: 0 };
+        colour.getHSL(hsl);
+        colour.setHSL((hsl.h + drift * 0.05 + 1) % 1, Math.min(1, hsl.s * (1 + Math.abs(drift) * 0.2)), hsl.l);
+      }
       const group = new THREE.Group();
       group.position.set(...node.position);
 
@@ -320,18 +529,66 @@ export class AtlasEngine {
         continue;
       }
 
-      const geometry = node.kind === "site" ? new THREE.BoxGeometry(node.size * 1.7, node.size * 1.1, 0.14) : new THREE.IcosahedronGeometry(node.size, node.kind === "project" ? 2 : 1);
-      const material = new THREE.MeshStandardMaterial({
-        color: colour,
-        emissive: colour,
-        emissiveIntensity: node.kind === "project" ? 1.1 : 0.8,
-        roughness: 0.35,
-        metalness: 0.15,
-        transparent: true,
-        opacity: 0.95,
-      });
+      /* Sites stay screens: a framed box reads as a page, and a sphere would not.
+         Everything else is a sun. */
+      const isSite = node.kind === "site";
+      const geometry = isSite
+        ? new THREE.BoxGeometry(node.size * 1.7, node.size * 1.1, 0.14)
+        : new THREE.SphereGeometry(node.size * 1.18, node.kind === "project" || node.kind === "pack" ? 64 : 40, node.kind === "project" || node.kind === "pack" ? 48 : 28);
+      const material = isSite
+        ? new THREE.MeshStandardMaterial({
+            color: colour,
+            emissive: colour,
+            emissiveIntensity: 1.1,
+            roughness: 0.35,
+            metalness: 0.15,
+            transparent: true,
+            opacity: 0.95,
+          })
+        : sunMaterial(colour, node.id.length * 0.37 + node.position[0] * 0.11);
       const mesh = new THREE.Mesh(geometry, material);
       group.add(mesh);
+      if (!isSite) {
+        this.suns.push({
+          id: node.id,
+          material: material as THREE.ShaderMaterial,
+          mesh,
+          spin: node.kind === "project" ? 0.05 : node.kind === "pack" ? 0.04 : 0.028,
+        });
+      }
+
+      /* Bloom, tuned rather than cranked. Two sprites per sun: a tight hot
+         corona that belongs to the star, and a wide faint one that is the light
+         it throws into the dark. The wide one used to be twice this bright,
+         which smeared every node into a pink bruise at distance. */
+      const coronaColour = colour.clone().lerp(new THREE.Color(0xffffff), 0.5);
+      const corona = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: nebulaTexture(),
+          color: coronaColour,
+          transparent: true,
+          opacity: isSite ? 0.16 : 0.34,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          fog: false,
+        })
+      );
+      corona.scale.setScalar(node.size * (isSite ? 3.6 : 3.1));
+      group.add(corona);
+
+      const glow = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: nebulaTexture(),
+          color: colour,
+          transparent: true,
+          opacity: isSite ? 0.2 : 0.14,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          fog: false,
+        })
+      );
+      glow.scale.setScalar(node.size * (isSite ? 5.4 : 6.6));
+      group.add(glow);
 
       const halo = new THREE.Mesh(
         new THREE.TorusGeometry(node.size * 1.34, node.size * 0.03, 8, 44),
@@ -349,7 +606,17 @@ export class AtlasEngine {
       }
 
       this.scene.add(group);
-      this.pickables.push({ node, mesh, material, halo });
+      this.pickables.push({
+        node,
+        mesh,
+        material: isSite ? material : (glow.material as THREE.SpriteMaterial),
+        halo,
+        fade: isSite ? undefined : (value: number) => {
+          const sun = material as THREE.ShaderMaterial;
+          sun.uniforms.uFade!.value = 0.35 + value * 0.65;
+          (corona.material as THREE.SpriteMaterial).opacity = (isSite ? 0.16 : 0.34) * value;
+        },
+      });
     }
   }
 
@@ -401,16 +668,51 @@ export class AtlasEngine {
   }
 
   private onPointerDown = (event: PointerEvent) => {
-    /* A click inside a live page belongs to the page, not to the camera. */
-    if ((event.target as HTMLElement).closest?.(".atlas-panel")) return;
+    /* A click inside a live page, or on a panel laid over the world, belongs to
+       that panel — including a drag that is really a scroll. */
+    if ((event.target as HTMLElement).closest?.(".atlas-panel, .atlas-hud")) return;
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    this.handlers.onInteract?.();
+    if (this.pointers.size === 2) {
+      /* Two fingers: pinch to dolly, and stop looking while they do it. */
+      this.pinchDistance = this.pinchSpan();
+      this.dragging = false;
+      return;
+    }
     this.dragging = true;
     this.dragDistance = 0;
     this.last = { x: event.clientX, y: event.clientY };
     (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
   };
 
+  private pinchSpan() {
+    const [a, b] = [...this.pointers.values()];
+    if (!a || !b) return 0;
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
   private onPointerMove = (event: PointerEvent) => {
-    if (!this.dragging) return;
+    if (this.pointers.has(event.pointerId)) this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (this.pointers.size === 2) {
+      const span = this.pinchSpan();
+      if (this.pinchDistance > 0 && span > 0) {
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.rig.quaternion);
+        this.flight = null;
+        this.rig.position.addScaledVector(forward, (span - this.pinchDistance) * 0.12);
+        this.clampRig();
+      }
+      this.pinchDistance = span;
+      return;
+    }
+
+    if (!this.dragging) {
+      /* Desktop nicety: the pointer tells you what is under it before you click. */
+      if (event.pointerType === "mouse" && this.handlers.onHover) {
+        this.handlers.onHover(this.nodeAt(event.clientX, event.clientY));
+      }
+      return;
+    }
     const dx = event.clientX - this.last.x;
     const dy = event.clientY - this.last.y;
     this.last = { x: event.clientX, y: event.clientY };
@@ -420,20 +722,13 @@ export class AtlasEngine {
     cameraLook(this.rig, this.camera, this.yaw, this.pitch);
   };
 
-  private onPointerUp = (event: PointerEvent) => {
-    const wasDragging = this.dragging;
-    this.dragging = false;
-    if (!wasDragging || this.dragDistance > 6) return;
+  private nodeAt(clientX: number, clientY: number): AtlasNode | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
-    this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    this.pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const visible = this.pickables.filter((entry) => entry.mesh.visible);
-    const hits = this.raycaster.intersectObjects(visible.map((entry) => entry.mesh), true);
-    const hit = hits[0];
-    if (!hit) {
-      this.select(null);
-      return;
-    }
+    const hit = this.raycaster.intersectObjects(visible.map((entry) => entry.mesh), true)[0];
+    if (!hit) return null;
     const owner = visible.find((entry) => {
       let object: THREE.Object3D | null = hit.object;
       while (object) {
@@ -442,7 +737,24 @@ export class AtlasEngine {
       }
       return false;
     });
-    if (owner) this.select(owner.node.id);
+    return owner?.node ?? null;
+  }
+
+  private onPointerUp = (event: PointerEvent) => {
+    this.pointers.delete(event.pointerId);
+    if (this.pointers.size < 2) this.pinchDistance = 0;
+    const wasDragging = this.dragging;
+    this.dragging = false;
+    if (!wasDragging || this.dragDistance > 6) return;
+    const node = this.nodeAt(event.clientX, event.clientY);
+    if (!node) {
+      this.select(null);
+      return;
+    }
+    /* First click frames the star; clicking the same star again flies inside
+       its corona, which is where the surface detail lives. */
+    if (node.id === this.selected) this.diveTo(node.id);
+    else this.flyTo(node);
   };
 
   private onKeyDown = (event: KeyboardEvent) => {
@@ -474,12 +786,43 @@ export class AtlasEngine {
     const node = id ? this.atlas.nodes.find((entry) => entry.id === id) ?? null : null;
     this.updateEdges();
     for (const entry of this.pickables) {
-      entry.material.opacity = !node || entry.node.id === node.id ? 1 : 0.5;
+      const bright = !node || entry.node.id === node.id;
+      entry.material.opacity = bright ? 1 : 0.5;
+      entry.fade?.(bright ? 1 : 0.5);
       if (entry.halo && entry.halo.material instanceof THREE.MeshBasicMaterial) {
         entry.halo.material.opacity = entry.node.id === node?.id ? 0.6 : 0;
       }
     }
     this.handlers.onSelect(node);
+  }
+
+  /** Thumbstick, buttons and anything else that is not a keyboard key. */
+  setMoveInput(input: Partial<{ forward: number; strafe: number; lift: number; boost: boolean }>) {
+    this.touch = { ...this.touch, ...input };
+    if (input.forward || input.strafe || input.lift) {
+      this.flight = null;
+      this.handlers.onInteract?.();
+    }
+  }
+
+  /** Pulse a set of nodes — used when a search result should be findable in the dark. */
+  highlightNodes(ids: string[]) {
+    this.highlight = new Set(ids);
+    this.highlightUntil = performance.now() + 6000;
+  }
+
+  clearHighlight() {
+    this.highlight.clear();
+    this.highlightUntil = 0;
+  }
+
+  /** Where the visitor is, so the space can be resumed rather than restarted. */
+  getPose(): [number, number, number] {
+    return [this.rig.position.x, this.rig.position.y, this.rig.position.z];
+  }
+
+  stopFlight() {
+    this.flight = null;
   }
 
   /** Put a live page inside its gallery panel. The click has to come from real
@@ -501,6 +844,34 @@ export class AtlasEngine {
     const node = this.atlas.nodes.find((entry) => entry.id === id);
     if (!node) return;
     this.flyTo(node);
+  }
+
+  /**
+   * Fly inside the corona. Close enough that the sun fills the view and you can
+   * see the granulation move, not so close that the surface clips the near
+   * plane. A site opens its live preview on the way in; that is the only node
+   * kind with a page to show.
+   */
+  diveTo(id: string) {
+    const node = this.atlas.nodes.find((entry) => entry.id === id);
+    if (!node) return;
+    const target = new THREE.Vector3(...node.position);
+    const direction = new THREE.Vector3().subVectors(this.rig.position, target);
+    if (direction.lengthSq() < 0.01) direction.set(0, 0.25, 1);
+    direction.normalize();
+    const distance = Math.max(node.size * (node.kind === "site" ? 5.2 : 3.7), 9);
+    const stop = target.clone().addScaledVector(direction, distance);
+    /* Stay above the grid, and look slightly down on the star rather than
+       dead-level with its equator. */
+    stop.y = Math.max(stop.y, target.y + node.size * 0.35);
+    this.flight = { from: this.rig.position.clone(), to: stop, look: target, t: 0 };
+    this.select(node.id);
+    if (node.kind === "site") this.loadSite(node.id);
+    this.handlers.onStatus(
+      node.kind === "site"
+        ? `${node.label}: up close, with its page requested.`
+        : `${node.label}: up close.`
+    );
   }
 
   flyTo(node: AtlasNode) {
@@ -568,10 +939,21 @@ export class AtlasEngine {
     this.scene.add(grip);
   }
 
+  /** Narrow screens get a wider vertical field of view and a touch more tilt. */
+  private fitCamera() {
+    const width = this.host.clientWidth || 1;
+    const height = this.host.clientHeight || 1;
+    const aspect = width / height;
+    this.camera.aspect = aspect;
+    this.camera.fov = responsiveFov(aspect);
+    this.camera.updateProjectionMatrix();
+  }
+
   resize = () => {
     const width = this.host.clientWidth || 1;
     const height = this.host.clientHeight || 1;
     this.camera.aspect = width / height;
+    this.camera.fov = responsiveFov(this.camera.aspect);
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.cssRenderer.setSize(width, height);
@@ -605,11 +987,20 @@ export class AtlasEngine {
       this.applyKeys(delta);
     }
 
-    /* Gentle drift so the space never looks like a still image. */
+    /* Gentle drift so the space never looks like a still image; searched-for
+       nodes breathe harder until the highlight expires. */
+    const hot = this.highlight.size > 0 && this.highlightUntil > performance.now();
+    if (!hot && this.highlight.size) this.highlight.clear();
     for (const entry of this.pickables) {
       entry.mesh.rotation.y += delta * (entry.node.kind === "project" ? 0.12 : 0.05);
       const pulse = 1 + Math.sin(this.frame * 0.02 + entry.mesh.position.x) * 0.03;
-      entry.mesh.scale.setScalar(entry.node.id === this.selected ? 1.18 : pulse);
+      const beat = 1 + Math.sin(this.frame * 0.11) * 0.09;
+      const scale = entry.node.id === this.selected ? 1.18 : hot && this.highlight.has(entry.node.id) ? beat : pulse;
+      entry.mesh.scale.setScalar(scale);
+      if ("emissiveIntensity" in entry.material) {
+        const material = entry.material as THREE.MeshStandardMaterial;
+        material.emissiveIntensity = hot && this.highlight.has(entry.node.id) ? 2.1 : entry.node.kind === "project" ? 1.1 : 0.8;
+      }
     }
 
     /* Labels keep a readable size on screen instead of shrinking into pixels. */
@@ -627,6 +1018,30 @@ export class AtlasEngine {
       const away = world.distanceTo(this.rig.position);
       const factor = clamp(away / 42, 0.55, 1.9);
       card.sprite.scale.set(card.base.x * factor, card.base.y * factor, 1);
+    }
+
+    /* Stars turn slowly and breathe; edges fade with distance so the far side of
+       the space recedes instead of drawing every wire at once. */
+    const seconds = this.clock.elapsedTime;
+    for (const sun of this.suns) {
+      sun.material.uniforms.uTime!.value = seconds;
+      sun.mesh.rotation.y += delta * sun.spin;
+      sun.mesh.rotation.x = Math.sin(seconds * 0.12 + sun.spin * 30) * 0.06;
+      /* A searched-for sun burns hotter than its neighbours, and the selected
+         one keeps a little extra heat so it still reads once the camera is
+         inside its corona. */
+      sun.material.uniforms.uHeat!.value =
+        (hot && this.highlight.has(sun.id) ? 1.5 : 1) + (sun.id === this.selected ? 0.25 : 0);
+    }
+    for (const star of this.stars) {
+      star.points.rotation.y += delta * star.speed;
+      star.material.opacity = star.base * (0.86 + Math.sin(seconds * 0.6 + star.phase) * 0.08);
+    }
+    for (const edge of this.edgeLines) {
+      if (!edge.line.visible) continue;
+      const material = edge.line.material as THREE.LineBasicMaterial;
+      const away = edge.midpoint.distanceTo(this.rig.position);
+      material.opacity = clamp(0.34 - away / 900, 0.03, 0.34) * (edge.kind === "proves" ? 1.1 : 1);
     }
 
     if (this.frame % 12 === 0) {
@@ -652,11 +1067,16 @@ export class AtlasEngine {
     if (this.keys.has("s") || this.keys.has("arrowdown")) direction.sub(forward);
     if (this.keys.has("d") || this.keys.has("arrowright")) direction.add(right);
     if (this.keys.has("a") || this.keys.has("arrowleft")) direction.sub(right);
+    /* The thumbstick is an input like any other, not a second code path. */
+    if (this.touch.forward) direction.addScaledVector(forward, this.touch.forward);
+    if (this.touch.strafe) direction.addScaledVector(right, this.touch.strafe);
     if (this.keys.has("e") || this.keys.has(" ")) direction.y += 1;
     if (this.keys.has("q")) direction.y -= 1;
+    if (this.touch.lift) direction.y += this.touch.lift;
 
     if (direction.lengthSq() > 0) direction.normalize();
-    const boost = this.keys.has("shift") ? BOOST : 1;
+    const boost = this.keys.has("shift") || this.touch.boost ? BOOST : 1;
+    if (direction.lengthSq() > 0) this.handlers.onInteract?.();
     this.velocity.lerp(direction.multiplyScalar(SPEED * boost), Math.min(1, delta * 9));
     this.rig.position.addScaledVector(this.velocity, delta);
 
@@ -666,8 +1086,12 @@ export class AtlasEngine {
       this.yaw += turn * delta * 1.6;
       cameraLook(this.rig, this.camera, this.yaw, this.pitch);
     }
-    const floor = EYE_HEIGHT;
-    if (this.rig.position.y < floor) this.rig.position.y = floor;
+    this.clampRig();
+  }
+
+  /** Keep the visitor inside the space, in every input path. */
+  private clampRig() {
+    if (this.rig.position.y < EYE_HEIGHT) this.rig.position.y = EYE_HEIGHT;
     if (this.rig.position.y > 160) this.rig.position.y = 160;
     const radius = Math.hypot(this.rig.position.x, this.rig.position.z);
     if (radius > 300) {
@@ -680,8 +1104,9 @@ export class AtlasEngine {
   dispose() {
     this.disposed = true;
     this.renderer.setAnimationLoop(null);
-    this.renderer.domElement.removeEventListener("pointerdown", this.onPointerDown);
-    this.renderer.domElement.removeEventListener("pointermove", this.onPointerMove);
+    this.stage.removeEventListener("pointerdown", this.onPointerDown);
+    this.stage.removeEventListener("pointermove", this.onPointerMove);
+    this.stage.removeEventListener("wheel", this.onWheel);
     window.removeEventListener("pointerup", this.onPointerUp);
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);

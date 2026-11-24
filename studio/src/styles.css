@@ -170,6 +170,12 @@ button.btn, a.btn {
 .atlas-webgl { position: absolute; inset: 0; }
 .atlas-webgl canvas { display: block; width: 100%; height: 100%; cursor: grab; }
 .atlas-webgl canvas:active { cursor: grabbing; }
+.atlas.is-hovering .atlas-webgl canvas { cursor: pointer; }
+/* A drag is a look, not a scroll: without this a phone scrolls the page. */
+/* Only the canvas swallows gestures. Panels laid over it keep pan-y, or a
+   report could not be scrolled with a thumb. */
+.atlas-stage { touch-action: manipulation; }
+.atlas-webgl, .atlas-webgl canvas { touch-action: none; }
 /* Chromium does not hit-test CSS3D content, so the panels are display only:
    the HUD is where a live page gets loaded. The layer must not swallow drags. */
 .atlas-css-host { position: absolute; inset: 0; pointer-events: none; }
@@ -278,7 +284,12 @@ button.btn, a.btn {
 }
 .atlas-map svg { width: 100%; height: auto; display: block; }
 .atlas-map .ring { fill: none; stroke: #ffffff1a; }
-.atlas-map .district { fill: #241536; stroke: #ffffff22; }
+.atlas-map .district { fill: #241536; stroke: #ffffff22; transition: fill .2s; }
+.atlas-map .district.is-here { fill: #3a1f56; stroke: var(--pink); }
+.atlas-map-stop { cursor: pointer; }
+.atlas-map-stop:hover .district { fill: #4a2a6b; }
+.atlas-map-stop:focus-visible { outline: none; }
+.atlas-map-stop:focus-visible .district { stroke: #fff; stroke-width: 3; }
 .atlas-map .district-label { fill: #8d81a4; font-size: 13px; font-family: "IBM Plex Mono", monospace; }
 .atlas-map .you { fill: var(--pink); stroke: #fff; stroke-width: 1.5; }
 .atlas-map p { margin: .25rem 0 0; font-size: .62rem; color: #a99cbd; font-family: "IBM Plex Mono", monospace; }
@@ -305,14 +316,6 @@ button.btn, a.btn {
 .atlas-list li button { background: none; border: 0; color: #fff; font: inherit; padding: 0; text-align: left; cursor: pointer; text-decoration: underline; }
 .atlas-list li p { margin: .15rem 0 0; font-size: .8rem; color: var(--dim); }
 
-@media (max-width: 720px) {
-  .atlas-title { display: none; }
-  .atlas-filters { top: 4.2rem; overflow-x: auto; flex-wrap: nowrap; }
-  .atlas-detail { top: auto; bottom: 3rem; right: .5rem; left: .5rem; width: auto; max-height: 42vh; }
-  .atlas-map { display: none; }
-  .atlas-help p { font-size: .62rem; }
-}
-
 .atlas-boot {
   position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
   background: #0a0512; color: #a99cbd; margin: 0;
@@ -321,3 +324,244 @@ button.btn, a.btn {
 .gate-preview { display: grid; gap: .5rem; justify-items: start; margin: .4rem 0 .2rem; }
 .gate-preview .btn { font-size: .82rem; }
 .gate-preview p { margin: 0; }
+
+/* ------------------------------------------------------------------ tour */
+
+.atlas-tour {
+  left: 50%; transform: translateX(-50%);
+  bottom: 5.4rem; width: min(30rem, calc(100% - 2.2rem));
+  background: #0d0618f0; border: 1px solid #ffffff26; border-radius: 14px;
+  padding: .7rem .9rem; box-shadow: 0 20px 60px #00000070;
+}
+.atlas-tour p { margin: .15rem 0; font-size: .84rem; color: #ded3ee; }
+.atlas-tour .eyebrow { color: var(--pink); font-size: .6rem; }
+.atlas-tour-actions { display: flex; gap: .4rem; margin-top: .5rem; }
+.atlas-tour-actions .btn { font-size: .72rem; padding: .3rem .8rem; }
+
+/* ------------------------------------------------------- touch controls */
+
+.atlas-dock {
+  position: absolute; z-index: 5;
+  left: 0; right: 0; bottom: 0;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 1rem; padding: .9rem 1.1rem calc(.9rem + env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+.atlas-dock > * { pointer-events: auto; }
+.atlas-thumb {
+  width: 7.4rem; height: 7.4rem; flex: none;
+  border-radius: 50%; border: 1px solid #ffffff2e;
+  background: radial-gradient(circle at 50% 45%, #1d0e33cc, #0c0616cc);
+  display: grid; place-items: center;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.atlas-thumb-knob {
+  width: 2.9rem; height: 2.9rem; border-radius: 50%;
+  background: linear-gradient(180deg, #ff2bd6, #8c5bff);
+  box-shadow: 0 0 24px #ff2bd680;
+  will-change: transform;
+}
+.atlas-dock-buttons { display: grid; gap: .5rem; justify-items: center; }
+.atlas-pad {
+  width: 3.4rem; height: 3.4rem; border-radius: 50%;
+  border: 1px solid #ffffff2e; background: #150a24cc; color: #f5effa;
+  font: inherit; font-size: 1.1rem; display: grid; place-items: center;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.atlas-pad:active, .atlas-pad.is-boost:active { background: #ff2bd633; border-color: var(--pink); }
+
+/* -------------------------------------------------------------- phones */
+
+@media (max-width: 720px), (pointer: coarse) and (max-width: 900px) {
+  .atlas-top {
+    gap: .5rem; padding: .55rem .7rem .4rem; align-items: flex-start;
+    background: linear-gradient(180deg, #0a0512f7 62%, #0a051200);
+  }
+  /* One compact bar: the name on the left, the actions on the right, then
+     the search. The long sentence belongs on a desktop, not a phone. */
+  .atlas-title { order: 1; flex: 1 1 auto; min-width: 0; }
+  .atlas-title strong { display: none; }
+  .atlas-title .eyebrow { font-size: .78rem; letter-spacing: .04em; color: #fff; }
+  .atlas-search { order: 3; flex: 1 1 100%; min-width: 0; }
+  .atlas-search input { font-size: .8rem; padding: .5rem .8rem; }
+  .atlas-actions { order: 2; gap: .3rem; margin-left: auto; }
+  .atlas-actions .btn { font-size: .68rem; padding: .35rem .6rem; }
+
+  .atlas-filters {
+    top: 7.1rem; flex-wrap: nowrap; overflow-x: auto;
+    padding: 0 .7rem .35rem; gap: .3rem;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .atlas-filters::-webkit-scrollbar { display: none; }
+  .chip { flex: none; font-size: .7rem; padding: .3rem .6rem; }
+
+  .atlas-results { top: 8.6rem; left: .7rem; width: calc(100% - 1.4rem); max-height: 38vh; }
+
+  .atlas-map { width: 5.4rem; left: auto; right: .7rem; bottom: 13.4rem; padding: .25rem; }
+  .atlas-map p { font-size: .5rem; line-height: 1.35; }
+  .atlas-map .district-label { font-size: 15px; }
+
+  /* The detail card becomes a sheet you can dismiss, not a panel over the world. */
+  .atlas-detail {
+    top: auto; left: .5rem; right: .5rem; bottom: calc(9.3rem + env(safe-area-inset-bottom));
+    width: auto; max-height: 46vh; padding: .8rem .9rem 1rem;
+    border-radius: 16px 16px 12px 12px;
+    pointer-events: auto;
+  }
+  .atlas-detail h2 { font-size: 1rem; }
+  .atlas-detail p { font-size: .78rem; }
+  /* The sheet scrolls; its actions stay reachable at the bottom of it. */
+  .atlas-detail-actions {
+    position: sticky; bottom: -.2rem; flex-wrap: wrap;
+    background: linear-gradient(180deg, #0d061800, #0d0618f5 34%);
+    padding: .6rem 0 .2rem; margin-top: .4rem;
+  }
+  .atlas-detail-actions .btn { font-size: .74rem; padding: .45rem .8rem; }
+
+  /* On a phone the dock is the instructions; only messages earn screen space. */
+  .atlas-help { top: 8.4rem; bottom: auto; left: .7rem; right: .7rem; max-width: 62%; }
+  .atlas-help p { font-size: .68rem; }
+  .atlas.is-touch .atlas-help p:first-child { display: none; }
+  .atlas-tour { bottom: calc(9.4rem + env(safe-area-inset-bottom)); left: .5rem; right: .5rem; width: auto; transform: none; }
+}
+
+/* The joystick and the sheet both live at the bottom; the status line must not. */
+.atlas.is-touch .atlas-help .atlas-status { background: #0d0618ee; border-radius: 8px; padding: .3rem .5rem; }
+/* "Near: …" is a desktop nicety; on a phone it fights the search results. */
+.atlas.is-touch .atlas-help .near { display: none; }
+
+/* --------------------------------------------------- sheets: projects, audit */
+
+.atlas-panel-sheet {
+  z-index: 6;
+  top: 7.6rem; left: 1.1rem; width: min(30rem, calc(100% - 2.2rem));
+  max-height: min(72vh, 40rem);
+  overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  background: #0d0618f7; border: 1px solid #ffffff24; border-radius: 16px;
+  padding: 0 1.05rem 1.15rem;
+  box-shadow: 0 24px 70px #00000075;
+  scrollbar-width: thin; scrollbar-color: #5c3f7d #150a24;
+}
+.atlas-panel-sheet::-webkit-scrollbar { width: .55rem; }
+.atlas-panel-sheet::-webkit-scrollbar-track { background: #150a24; border-radius: 999px; }
+.atlas-panel-sheet::-webkit-scrollbar-thumb { background: #5c3f7d; border-radius: 999px; }
+
+.atlas-sheet-head { display: flex; align-items: center; gap: .5rem; position: sticky; top: 0; z-index: 2; }
+.atlas-panel-sheet .atlas-sheet-head {
+  margin: 0 -1.05rem .6rem; padding: .85rem 1.05rem .55rem;
+  background: #0d0618; border-bottom: 1px solid #ffffff12;
+  border-radius: 15px 15px 0 0;
+}
+.atlas-sheet-head h2 {
+  font-size: .95rem; margin: 0; text-transform: none; letter-spacing: 0;
+  font-family: Georgia, serif; color: #fff;
+}
+.atlas-sheet-head .btn { padding: .22rem .6rem; font-size: .72rem; }
+.atlas-sheet-head .btn:last-child { margin-left: auto; }
+.atlas-sheet-note { font-size: .76rem; line-height: 1.55; color: #a99cbd; margin: .2rem 0 .7rem; }
+.atlas-sheet-note code { font-size: .92em; color: #d9cfe6; }
+
+.atlas-form { display: grid; gap: .55rem; margin-bottom: .9rem; }
+.atlas-form label { display: grid; gap: .22rem; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: #9d8db6; }
+.atlas-form input, .atlas-scan-bar input {
+  width: 100%; box-sizing: border-box;
+  background: #150a24; border: 1px solid #ffffff22; border-radius: 9px;
+  color: var(--ink); padding: .5rem .65rem; font: inherit; font-size: .82rem;
+  text-transform: none; letter-spacing: 0;
+}
+.atlas-form input:focus-visible, .atlas-scan-bar input:focus-visible { outline: 2px solid var(--pink); outline-offset: 1px; }
+.atlas-form .btn { justify-self: start; margin-top: .15rem; }
+
+.atlas-own { list-style: none; margin: 0; padding: .5rem 0 0; border-top: 1px solid #ffffff14; display: grid; gap: .3rem; }
+.atlas-own li { display: flex; align-items: center; gap: .5rem; }
+.atlas-own-go {
+  flex: 1; text-align: left; background: none; border: 0; color: #fff; font: inherit;
+  font-size: .82rem; padding: .3rem .1rem; cursor: pointer;
+}
+.atlas-own-go:hover { color: #ffb8ee; }
+.atlas-own .btn { font-size: .66rem; padding: .18rem .5rem; }
+
+.atlas-audit-block + .atlas-audit-block { border-top: 1px solid #ffffff14; margin-top: .9rem; padding-top: .85rem; }
+.atlas-audit-tally {
+  font-family: "IBM Plex Mono", monospace; font-size: .7rem; color: #ffb8ee;
+  margin: -.2rem 0 .6rem;
+}
+.atlas-findings {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem;
+}
+.atlas-findings button {
+  width: 100%; box-sizing: border-box; display: grid; gap: .18rem;
+  text-align: left; background: #150a2488; border: 1px solid #ffffff14;
+  border-radius: 10px; padding: .5rem .6rem; color: inherit; font: inherit; cursor: pointer;
+}
+.atlas-findings button:hover, .atlas-findings button:focus-visible { background: #23123a; border-color: #ffffff2e; }
+.atlas-findings strong { font-size: .79rem; font-weight: 600; color: #fff; }
+.atlas-findings small { font-size: .72rem; line-height: 1.45; color: #a99cbd; }
+.severity {
+  justify-self: start; font-family: "IBM Plex Mono", monospace; font-size: .58rem;
+  text-transform: uppercase; letter-spacing: .1em; border-radius: 999px;
+  padding: .06rem .45rem; border: 1px solid currentColor;
+}
+.severity.is-high { color: #ff6b6b; }
+.severity.is-medium { color: #ffc46b; }
+.severity.is-low { color: #8fd6ff; }
+
+.atlas-scan-bar { display: flex; gap: .4rem; align-items: stretch; }
+.atlas-scan-bar input { flex: 1; min-width: 0; }
+.atlas-scan-bar .btn { white-space: nowrap; font-size: .74rem; padding: .45rem .8rem; }
+.atlas-error { font-size: .76rem; color: #ffb4b4; margin: .55rem 0 0; }
+
+/* The report is long by nature: it scrolls in its own box so the sheet around it
+   keeps its place, and pan-y lets a thumb drag it on a phone. */
+.atlas-report {
+  margin-top: .75rem; max-height: min(46vh, 26rem);
+  overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; touch-action: pan-y;
+  border: 1px solid #ffffff17; border-radius: 12px; padding: .7rem .75rem;
+  background: #0a051288;
+  scrollbar-width: thin; scrollbar-color: #5c3f7d #150a24;
+}
+.atlas-report::-webkit-scrollbar { width: .5rem; }
+.atlas-report::-webkit-scrollbar-thumb { background: #5c3f7d; border-radius: 999px; }
+.atlas-report-head { font-size: .8rem; color: #fff; margin: 0 0 .3rem; }
+.atlas-checks { list-style: none; margin: .5rem 0; padding: 0; display: grid; gap: .4rem; }
+.atlas-checks li { display: flex; gap: .5rem; align-items: flex-start; }
+.atlas-checks li > span {
+  flex: none; width: 1.05rem; height: 1.05rem; display: grid; place-items: center;
+  border-radius: 50%; font-size: .62rem; margin-top: .1rem;
+}
+.atlas-checks li.is-pass > span { background: #14361f; color: #7ef0a5; }
+.atlas-checks li.is-warn > span { background: #3a2c10; color: #ffc46b; }
+.atlas-checks li.is-fail > span { background: #3a1414; color: #ff8a8a; }
+.atlas-checks strong { display: block; font-size: .78rem; color: #fff; font-weight: 600; }
+.atlas-checks small { display: block; font-size: .71rem; line-height: 1.45; color: #a99cbd; }
+.atlas-checks .atlas-because { color: #8d81a4; font-style: italic; }
+
+/* ------------------------------------------------------- scan: the site in situ */
+
+.atlas-scan {
+  z-index: 6;
+  top: 7.6rem; right: 1.1rem; width: min(34rem, calc(100% - 2.2rem));
+  max-height: calc(100vh - 10.4rem);
+  display: flex; flex-direction: column;
+  background: #0d0618f7; border: 1px solid #ffffff24; border-radius: 16px;
+  padding: .8rem .9rem .9rem; box-shadow: 0 24px 70px #00000075;
+}
+.atlas-scan .atlas-sheet-head { position: static; }
+.atlas-scan .atlas-sheet-note { margin: .5rem 0 .6rem; }
+.atlas-scan-frame {
+  flex: 1 1 auto; width: 100%; min-height: 18rem;
+  border: 1px solid #ffffff1f; border-radius: 10px; background: #fff;
+  touch-action: pan-y;
+}
+.atlas-scan-actions { display: flex; gap: .4rem; margin-top: .6rem; flex-wrap: wrap; }
+.atlas-scan-actions .btn { font-size: .74rem; padding: .42rem .8rem; }
+
+@media (max-width: 720px) {
+  .atlas-panel-sheet { top: 8.6rem; left: .6rem; right: .6rem; width: auto; max-height: calc(100vh - 12rem); }
+  .atlas-scan { top: 8.6rem; left: .6rem; right: .6rem; width: auto; max-height: calc(100vh - 11rem); }
+  .atlas-scan-frame { min-height: 12rem; }
+}

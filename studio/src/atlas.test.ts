@@ -5,6 +5,13 @@ import { BRIEFS, briefsByService, briefsMarkdown } from "./atlasBriefs";
 import {
   PROJECTS,
   SITES,
+  TOUR,
+  auditAtlas,
+  customProjectId,
+  hashForNode,
+  parseCustomProjects,
+  nodeFromHash,
+  responsiveFov,
   bestMatch,
   buildAtlas,
   compass,
@@ -120,8 +127,115 @@ describe("searching the space", () => {
     expect(searchAtlas(atlas, "affiliate")[0].id).toBe("brief-affiliate-vs-resell");
   });
 
+  it("opens on a node from the URL", () => {
+    const link = hashForNode("brief-affiliate-vs-resell");
+    expect(link).toBe("#atlas/brief-affiliate-vs-resell");
+    expect(nodeFromHash(link, atlas)?.id).toBe("brief-affiliate-vs-resell");
+    /* A bare id is accepted too: people paste what the HUD shows. */
+    expect(nodeFromHash("#brief-affiliate-vs-resell", atlas)?.id).toBe("brief-affiliate-vs-resell");
+    expect(nodeFromHash("", atlas)).toBeNull();
+    expect(nodeFromHash("#atlas/not-a-node", atlas)).toBeNull();
+    expect(nodeFromHash("#", atlas)).toBeNull();
+  });
+
+  it("widens the field of view for portrait screens, within limits", () => {
+    expect(responsiveFov(16 / 9)).toBe(62);
+    expect(responsiveFov(1.6)).toBe(62);
+    const portrait = responsiveFov(390 / 844);
+    expect(portrait).toBeGreaterThan(62);
+    expect(portrait).toBeLessThanOrEqual(86);
+    expect(responsiveFov(0)).toBe(62);
+    expect(responsiveFov(Number.NaN)).toBe(62);
+    /* Wider never regresses as the phone gets narrower. */
+    expect(responsiveFov(0.7)).toBeGreaterThanOrEqual(responsiveFov(0.9));
+  });
+
+  it("tours every district, and the tour's node stops exist", () => {
+    const districts = new Set(atlas.districts.map((district) => district.id));
+    expect(TOUR.length).toBeGreaterThanOrEqual(5);
+    for (const stop of TOUR) {
+      expect(districts.has(stop.district)).toBe(true);
+      expect(stop.caption.length).toBeGreaterThan(20);
+      if (stop.node) expect(atlas.nodes.some((node) => node.id === stop.node)).toBe(true);
+    }
+    /* One stop per district keeps the tour a tour, not a playlist. */
+    expect(new Set(TOUR.map((stop) => stop.district)).size).toBe(TOUR.length);
+  });
+
   it("measures the jump in metres", () => {
     expect(distance([0, 0, 0], [3, 4, 0])).toBe(5);
+  });
+});
+
+describe("projects you add yourself", () => {
+  it("turns anything stored into a shaped project, or drops it", () => {
+    const parsed = parseCustomProjects([
+      { label: "  Hilltop Cafe  ", line: "Menus and table bookings", href: "https://hilltop.example", stack: ["Astro", "Stripe", ""] },
+      { label: "x" },
+      { label: "Hilltop Cafe" },
+      { label: "Danger", href: "javascript:alert(1)" },
+      "not an object",
+      null,
+    ]);
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]).toMatchObject({ id: "project-own-hilltop-cafe", label: "Hilltop Cafe", href: "https://hilltop.example" });
+    expect(parsed[0].stack).toEqual(["Astro", "Stripe"]);
+    /* A URL scheme that is not http(s) is not a link. */
+    expect(parsed[1].href).toBeUndefined();
+    expect(parseCustomProjects("nonsense")).toEqual([]);
+    expect(customProjectId("  ")).toBe("project-own-project");
+  });
+
+  it("adds them to the same district without moving the authored three", () => {
+    const before = buildAtlas();
+    const after = buildAtlas([{ id: "project-own-test", label: "Test project", line: "A thing", href: "https://example.com" }]);
+    expect(after.nodes.length).toBe(before.nodes.length + 1);
+    const added = after.nodes.find((node) => node.id === "project-own-test");
+    expect(added?.district).toBe("projects");
+    expect(added?.href).toBe("https://example.com");
+    for (const original of before.nodes.filter((node) => node.district === "projects")) {
+      const same = after.nodes.find((node) => node.id === original.id);
+      expect(same?.position).toEqual(original.position);
+    }
+    /* The new node is inside the space, so you can fly to it. */
+    expect(Math.abs(added!.position[0])).toBeLessThan(200);
+    expect(Math.abs(added!.position[2])).toBeLessThan(200);
+  });
+});
+
+describe("the audit", () => {
+  it("finds nothing it cannot justify", () => {
+    const findings = auditAtlas(atlas);
+    expect(Array.isArray(findings)).toBe(true);
+    for (const finding of findings) {
+      expect(["high", "medium", "low"]).toContain(finding.severity);
+      expect(finding.title.length).toBeGreaterThan(3);
+      expect(finding.detail.length).toBeGreaterThan(20);
+      if (finding.node) expect(atlas.nodes.some((node) => node.id === finding.node)).toBe(true);
+    }
+  });
+
+  it("passes the proof check when every cited file exists", () => {
+    const findings = auditAtlas(atlas, { exists: () => true });
+    expect(findings.filter((finding) => finding.title === "Proof file is missing")).toHaveLength(0);
+  });
+
+  it("catches a missing proof, a dangling edge and a duplicate name", () => {
+    const broken = {
+      ...atlas,
+      edges: [...atlas.edges, { from: "brief-checkout-losing-money", to: "ghost", kind: "proves" as const }],
+      nodes: [
+        ...atlas.nodes,
+        { ...atlas.nodes[0]!, id: "dupe", label: atlas.nodes[0]!.label },
+      ],
+    };
+    const findings = auditAtlas(broken, { exists: (path) => path !== "commerce/src/siteModel.ts" });
+    const titles = findings.map((finding) => finding.title);
+    expect(titles).toContain("Edge to nowhere");
+    expect(titles).toContain("Two nodes with the same name");
+    expect(titles).toContain("Proof file is missing");
+    /* Worst first. */
+    expect(findings[0].severity).toBe("high");
   });
 });
 
