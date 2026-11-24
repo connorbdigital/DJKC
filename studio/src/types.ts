@@ -52,6 +52,11 @@ export interface Capability {
   /** Source project the files are copied from, as owner/name. */
   source: string;
   files: FileRef[];
+  /**
+   * Files this feature reads but never writes — your own content, or another
+   * feature's files. Listed so the pull request can say what is still missing.
+   */
+  expects: FileRef[];
   env: string[];
   requires: string[];
   /** Steps a human still has to do after the PR lands. */

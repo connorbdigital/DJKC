@@ -65,11 +65,13 @@ describe("preflight helpers", () => {
         collisions: ["feature/api/bookings.ts"],
         unresolved: [{ file: "src/components/Booking.tsx", specifier: "../data" }],
         missingDependencies: ["storage-kv"],
+        missingExpectations: ["src/data.ts — the tiers and prices"],
       },
     });
     expect(body).toContain("Checked before writing");
     expect(body).toContain("Overwrote an existing file");
     expect(body).toContain("../data");
     expect(body).toContain("storage-kv");
+    expect(body).toContain("Expects `src/data.ts");
   });
 });
