@@ -13,6 +13,10 @@ export const CAPABILITIES: Capability[] = [
     name: "Booking form with Stripe deposits",
     summary:
       "A priced enquiry form: package selection, suggested budget, deposit or pay-in-full choice, Stripe Checkout, and a verified confirmation on return.",
+    why:
+      "This is the only place on the site where money moves, and everything else points at it. A priced form plus a deposit turns a vague enquiry into a held date: people who pay something turn up, and the price is agreed before the first message.",
+    without:
+      "Enquiries arrive as unstructured texts and DMs, two people can hold the same Saturday, and the price gets negotiated twice. Nothing records what was quoted.",
     source: "connorbdigital/DJKC",
     files: [
       { path: "api/bookings.ts", role: "Stores the request, validates fields, mints the payment link", adapt: true },
@@ -41,6 +45,10 @@ export const CAPABILITIES: Capability[] = [
     name: "Vercel KV storage layer",
     summary:
       "Thin wrapper over the KV REST API used by every other data feature: command(), hash pairing and constant-time token comparison. Each storage feature needs this first.",
+    why:
+      "Every feature that remembers anything — enquiries, blocked dates, sign-ups — writes here. It is the difference between a site that collects and a site that forgets.",
+    without:
+      "Enquiries exist only in whatever mailbox caught them. The desk, the availability check and the mailing list all have nothing to read, so each feature silently stops working.",
     source: "connorbdigital/DJKC",
     files: [{ path: "api/store.ts", role: "command(), store(), pairsFromHash(), sameToken()" }],
     expects: [],
@@ -55,6 +63,10 @@ export const CAPABILITIES: Capability[] = [
     name: "Token-gated admin desk",
     summary:
       "A private single-page desk for requests and sign-ups: unlock with a token, search, change status, export CSV, manage blocked dates.",
+    why:
+      "Bookings are a job after the enquiry lands: quoting, confirming, blocking a date, deleting someone who asks. The desk is where that happens without a database console.",
+    without:
+      "Records can only be read by whoever holds the KV token. Nobody can change a status or honour a deletion request, and an erasure request becomes a manual job with a deadline.",
     source: "connorbdigital/DJKC",
     files: [
       { path: "public/admin.html", role: "The whole desk — no build step", adapt: true },
@@ -75,6 +87,10 @@ export const CAPABILITIES: Capability[] = [
     name: "Database-backed mailing list",
     summary:
       "Subscribe endpoint with validation and rate limiting, a read/export/delete endpoint for the desk, and a delayed sign-up card for the site.",
+    why:
+      "Repeat customers are a small share of buyers but a large share of revenue — around a fifth of buyers producing well over a third of sales in the studies behind this library. The list is the cheapest second booking there is.",
+    without:
+      "The site takes a booking and then loses the relationship. The only way back to that person is paid advertising, or hoping they remember the URL.",
     source: "connorbdigital/DJKC",
     files: [
       { path: "api/subscribe.ts", role: "POST a sign-up, rate limited" },
@@ -97,6 +113,10 @@ export const CAPABILITIES: Capability[] = [
     name: "Booking chat",
     summary:
       "A themed chat panel that answers booking questions and hands off to the enquiry form, with a serverless endpoint that rates-limits and fails safe.",
+    why:
+      "Most pre-booking questions are the same dozen: deposit, travel, what is included. Answering them inside the page keeps people from leaving to ask in a DM, where the answer is neither searchable nor saved.",
+    without:
+      "The same questions arrive by hand every week, and anyone who will not fill in a form leaves without asking at all.",
     source: "connorbdigital/DJKC",
     files: [
       { path: "api/chat.ts", role: "Serverless reply endpoint" },
@@ -116,6 +136,10 @@ export const CAPABILITIES: Capability[] = [
     version: "1.0.0",
     name: "Blocked dates",
     summary: "Block holidays and holds so the public availability check steers enquiries elsewhere, managed from the desk.",
+    why:
+      "Availability is the one fact people check before they enquire. Blocking holidays is what keeps that check honest.",
+    without:
+      "The site invites enquiries for dates the owner cannot work. A wrong yes is worse than a slow one: it has to be taken back.",
     source: "connorbdigital/DJKC",
     files: [
       { path: "api/blocked.ts", role: "GET/POST/DELETE for blocked dates" },
@@ -132,6 +156,10 @@ export const CAPABILITIES: Capability[] = [
     version: "1.0.0",
     name: "Email notifications",
     summary: "Emails the desk when an enquiry lands, with reply-to set to the enquirer. Never blocks storage if mail fails.",
+    why:
+      "An enquiry is only worth having if it is seen while the person is still interested. Email is the alert that does not depend on anyone opening a dashboard.",
+    without:
+      "Requests sit in storage until someone remembers to look. By then the enquirer has usually booked elsewhere.",
     source: "connorbdigital/DJKC",
     files: [{ path: "api/notify.ts", role: "Resend call with a short timeout" }],
     expects: [],
@@ -145,6 +173,10 @@ export const CAPABILITIES: Capability[] = [
     version: "1.0.1",
     name: "Public calendar feed",
     summary: "A read-only iCalendar feed of upcoming dates, so the owner can subscribe to their own gig list.",
+    why:
+      "One subscription keeps the owner's own phone calendar in step with what the site publishes, so dates are entered once.",
+    without:
+      "Dates live in two places and drift apart. The site advertises a date that has already moved, which is the fastest way to lose trust.",
     source: "connorbdigital/DJKC",
     files: [{ path: "api/calendar.ts", role: "text/calendar response, escaped, no contact details", adapt: true }],
     expects: [{ path: "src/data.ts", role: "the dates the feed publishes — your own content" }],
@@ -159,6 +191,10 @@ export const CAPABILITIES: Capability[] = [
     name: "Crawlable static pages",
     summary:
       "Builds real HTML pages — prices, FAQs, dates, coverage — plus sitemap.xml and llms.txt from your data file, so search engines and answer bots can read the site without running JavaScript.",
+    why:
+      "Search is where a large share of buying starts — commonly quoted at 40–60% of shoppers going straight to a search box or engine — and answer engines only quote pages they can read without running JavaScript. The generated pages are how the site gets found at all.",
+    without:
+      "The site is a single JavaScript page: crawlers index a shell, AI assistants have nothing to quote, and every price, date and FAQ is invisible to the thing people now ask first.",
     source: "connorbdigital/DJKC",
     files: [
       { path: "scripts/build-static-pages.mts", role: "The generator", adapt: true },
@@ -179,6 +215,10 @@ export const CAPABILITIES: Capability[] = [
     version: "1.0.1",
     name: "Sticky booking bar",
     summary: "Phone-only bottom bar that appears past the hero, steps aside at the form, and preselects the deposit on tap.",
+    why:
+      "On a phone the booking button is off-screen for most of the page. The bar keeps the action one tap away, and steps aside at the form so it never covers the thing it is advertising.",
+    without:
+      "Most visitors are on a phone, scroll the whole page, and leave without ever seeing the button. Enquiry rate drops without any error being logged.",
     source: "connorbdigital/DJKC",
     files: [
       { path: "src/components/BookBar.tsx", role: "The bar, its scroll logic and the pay-on-book event", adapt: true },
@@ -196,6 +236,10 @@ export const CAPABILITIES: Capability[] = [
     version: "1.0.0",
     name: "Section-following browser colour",
     summary: "Updates the address-bar colour to the section in view, without touching the logo or favicon.",
+    why:
+      "Small polish: browser chrome follows the section, so screenshots and shared links look deliberate. It never touches the logo or the favicon.",
+    without:
+      "Nothing breaks. The site simply looks less considered in the browsers that support it — which is most of them.",
     source: "connorbdigital/DJKC",
     files: [{ path: "src/utils/themeColor.ts", role: "Observer that writes theme-color", adapt: true }],
     expects: [],
@@ -211,16 +255,48 @@ export interface CategoryInfo {
   id: Category;
   label: string;
   blurb: string;
+  /** Why the shelf exists — what would be missing from the site without it. */
+  why: string;
 }
 
 /** The shelves, in the order they are shown. */
 export const CATEGORIES: CategoryInfo[] = [
-  { id: "bookings", label: "Bookings & enquiries", blurb: "Taking the enquiry, quoting it, and answering questions before it." },
-  { id: "operations", label: "Running the desk", blurb: "What happens after somebody says yes: the desk, holds, alerts, the calendar." },
-  { id: "marketing", label: "Marketing", blurb: "Keeping in touch — the list, the sign-up card, the reasons to come back." },
-  { id: "design", label: "Design & conversion", blurb: "How it looks and how it nudges: colour, the booking bar, the small mechanics." },
-  { id: "search", label: "Search & AI answers", blurb: "Being found and being quoted: real HTML pages, sitemaps, structured data." },
-  { id: "storage", label: "Data & storage", blurb: "The boring layer everything else stands on." },
+  {
+    id: "bookings",
+    label: "Bookings & enquiries",
+    blurb: "Taking the enquiry, quoting it, and answering questions before it.",
+    why: "This is the shelf that makes money: the form, the deposit, the answers that stop people leaving. Everything else exists to feed it or to run what it produces.",
+  },
+  {
+    id: "operations",
+    label: "Running the desk",
+    blurb: "What happens after somebody says yes: the desk, holds, alerts, the calendar.",
+    why: "A booking that is not run becomes a complaint. These are the processes that keep the diary true after the enquiry lands.",
+  },
+  {
+    id: "marketing",
+    label: "Marketing",
+    blurb: "Keeping in touch — the list, the sign-up card, the reasons to come back.",
+    why: "Getting one booking is expensive; getting the second from the same person is nearly free. This shelf is how the site earns a second visit.",
+  },
+  {
+    id: "design",
+    label: "Design & conversion",
+    blurb: "How it looks and how it nudges: colour, the booking bar, the small mechanics.",
+    why: "Small mechanics with measurable effect: the action stays reachable, the page looks finished, nothing floats over the form.",
+  },
+  {
+    id: "search",
+    label: "Search & AI answers",
+    blurb: "Being found and being quoted: real HTML pages, sitemaps, structured data.",
+    why: "Being found and being quotable are now the same job. Static pages are read by crawlers and assistants; a JavaScript-only page is not.",
+  },
+  {
+    id: "storage",
+    label: "Data & storage",
+    blurb: "The boring layer everything else stands on.",
+    why: "No storage, no memory. Every other shelf depends on this one, which is why it is the first thing installed into a new project.",
+  },
 ];
 
 export const categoryInfo = (id: Category) => CATEGORIES.find((entry) => entry.id === id);

@@ -228,3 +228,19 @@ export async function searchCode(token: string, term: string, context: QueryCont
     throw error;
   }
 }
+
+/** Every blob path in a repository at one ref. Truncated by GitHub at ~100k. */
+export async function listTree(
+  token: string,
+  fullName: string,
+  ref: string
+): Promise<{ paths: string[]; truncated: boolean }> {
+  const payload = await gh<{ tree?: { path: string; type: string }[]; truncated?: boolean }>(
+    token,
+    `/repos/${fullName}/git/trees/${encodeURIComponent(ref)}?recursive=1`
+  );
+  return {
+    paths: (payload.tree ?? []).filter((entry) => entry.type === "blob").map((entry) => entry.path),
+    truncated: Boolean(payload.truncated),
+  };
+}

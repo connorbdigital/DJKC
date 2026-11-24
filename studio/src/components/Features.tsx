@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { CAPABILITIES, CATEGORIES, capabilityById, categoryCounts, categoryInfo } from "../features";
 import type { Category } from "../types";
 import { installFeature, preflight, type InstallResult, type Preflight } from "../installer";
+import { BUILDER_STEPS, processDocMarkdown, shelfSummaryMarkdown } from "../processDoc";
 import type { Repo } from "../types";
 import { Checks } from "./Checks";
 
@@ -16,6 +17,7 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
   const [check, setCheck] = useState<Preflight | null>(null);
   const [query, setQuery] = useState("");
   const [shelf, setShelf] = useState<Category | "all">("all");
+  const [copied, setCopied] = useState<"full" | "reasons" | "">("");
 
   const capability = capabilityById(openId);
   const counts = useMemo(categoryCounts, []);
@@ -29,6 +31,17 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
   const shown = CAPABILITIES.filter(matches);
   /* Grouped only when browsing the whole shelf; a search or a filter is already a list. */
   const grouped = shelf === "all" && !term;
+
+  const copy = async (kind: "full" | "reasons") => {
+    const markdown = kind === "full" ? processDocMarkdown() : shelfSummaryMarkdown();
+    try {
+      await navigator.clipboard.writeText(markdown);
+      setCopied(kind);
+      setTimeout(() => setCopied(""), 2000);
+    } catch {
+      setError("The browser refused clipboard access — select the text in PROCESSES.md instead.");
+    }
+  };
 
   const runCheck = async () => {
     if (!capability || !target) return;
@@ -79,6 +92,18 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+        <p className="muted small">
+          {CAPABILITIES.length} processes on {CATEGORIES.length} shelves, plus the {BUILDER_STEPS.length} steps the builder runs. Every
+          entry carries what it does, why the site needs it, and what breaks without it — also in <code>PROCESSES.md</code>.
+        </p>
+        <div className="doc-actions">
+          <button className="btn" onClick={() => copy("full")}>
+            {copied === "full" ? "Copied" : "Copy the process catalogue"}
+          </button>
+          <button className="btn ghost" onClick={() => copy("reasons")}>
+            {copied === "reasons" ? "Copied" : "Copy just the reasons"}
+          </button>
+        </div>
         <div className="chips" role="group" aria-label="Filter by category">
           <button
             className={`chip${shelf === "all" ? " is-on" : ""}`}
@@ -107,7 +132,7 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
             return (
               <section key={group.id} className="shelf">
                 <h3 className="shelf-title">{group.label}</h3>
-                <p className="muted small shelf-blurb">{group.blurb}</p>
+                <p className="muted small shelf-blurb">{group.why}</p>
                 <ul className="list">
                   {entries.map((entry) => (
                     <li key={entry.id}>
@@ -148,6 +173,14 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
           <div className="panel">
             <h2>{capability.name}</h2>
             <p>{capability.summary}</p>
+
+            <div className="why">
+              <h3>Why it is here</h3>
+              <p>{capability.why}</p>
+              <p className="muted small">
+                <strong>Without it:</strong> {capability.without}
+              </p>
+            </div>
 
             <h3>Files copied</h3>
             <ul className="files">
