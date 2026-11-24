@@ -50,7 +50,7 @@ which broke the Vercel build until it was pinned — leave the file and the lock
 
 The Studio has **no database**. Your GitHub token is typed in and kept in that tab's `sessionStorage`; closing the tab locks it. Reads and writes go straight from the browser to `api.github.com`. The only server-side secret is the model key.
 
-## The six tabs
+## The seven tabs
 
 **Projects** — every repository the token can see, newest first, with commits and pull requests merged into one history, and a **What is in it** panel that reads the repo itself: detected stack, file/route/page/component/test counts, which library features have evidence in the code and which of those are unrecorded in `studio/features.json`, the routes and pages it serves, the env vars it expects, and the notes worth knowing (no CI, no tests, no docs, truncated tree). "Copy a summary for a brief" turns it into a paragraph. This is the answer to "what's been on this project", without needing anything from Arena: Arena's work arrives here as branches and pull requests.
 
@@ -103,6 +103,8 @@ The sky is three seeded shells of stars (900 near, 1,500 mid, 2,200 far) drawn f
 Every node that is not a site or a post is a **sun**, not a sphere: a photosphere shader with two frequencies of granulation, limb darkening, a thin hot rim, sunspots and a slow churn, wrapped in a tight corona and a wide falloff of thrown light. Colours are the districts' own (gold packs, pink capabilities, mint steps, violet projects), with a few degrees of hue drift per star. Click a star to frame it; click it again — or press **Zoom in** on its card — to fly inside the corona and see the surface move. Diving into a site also requests its page in the gallery panel, so the preview is waiting for you. All of it is geometry and sprites, no post-processing pass, so it runs on a phone.
 
 The blog plan is real content, not demo data — `src/atlasBriefs.ts` holds 14 briefs (about 19,200 words) for `sitebuildup.co.uk`, each with its target query, audience, service, outline, facts with a source, and the capability it demonstrates. `npm run briefs` renders them to [BRIEFS.md](BRIEFS.md). See [../docs/atlas-round-2026-11-20.md](../docs/atlas-round-2026-11-20.md).
+
+**Shelf** — what to do next and where everything lives, in one place, and it needs no token and no network: the same on a bad day. Three columns — **Now** (costs money or blocks everything else), **Next**, **Later** — each item carrying its reason, an effort estimate and which part of the project it touches, filterable by that. Below it: 28 links in five groups — where stock comes from (the `commerce/SUPPLIERS.md` list, with the same reasons), where you list it, reading worth doing, the accounts the work depends on, and this project's own documents — plus a table of every environment variable the two deployed projects read, what it unlocks, and what a visitor sees when it is missing. **Copy as Markdown** turns the whole shelf into text for a brief or an issue, and a test holds it to its promises: every link https with a reason, every task with an owner, and "Now" capped at five so it stays a plan rather than a backlog.
 
 **Agent** — write a brief, tick the features it may reuse, optionally attach real source files, and get a proposal as whole files. Nothing is written until you press the second button, and the pull request says, in its own body, that it was model-drafted and must be reviewed.
 
