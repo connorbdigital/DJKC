@@ -5,6 +5,8 @@ CSV of products, the marketplace you list on when you already hold the stock,
 what each one costs, and the checks that decide whether a feed is safe to
 publish. The catalogue in `catalogue/` is built from one such file.
 
+Money, margins and commission are worked out in [`COMMISSION.md`](COMMISSION.md) — three different routes with the arithmetic for each.
+
 **Two things to hold on to.**
 
 1. **A supplier feed is not the only way in.** The Range, Wayfair, eBay, Amazon
@@ -50,6 +52,72 @@ before you sign anything.
 | [eSources](https://www.esources.co.uk) | UK wholesale directory, free tier |
 | [SaleHoo](https://www.salehoo.com) | Supplier directory plus a dropship app; paid |
 | [Faire](https://www.faire.com) | Wholesale marketplace for independent retailers. You buy stock up front, with 60-day terms — the opposite of dropship |
+
+## How the download actually works
+
+No supplier emails a CSV to a stranger. In every case you apply, get approved,
+and *then* the file is available in one of three ways:
+
+1. **A pull URL** you can fetch. Best case: a cron job or the script below keeps
+   the shop in step.
+2. **An FTP/XML drop** or an API token, usually on a paid plan.
+3. **An export button in a portal**, or an app that pushes to Shopify. You
+   download the file, or the app writes to a store you have to run on that
+   platform.
+
+| Source | Where you get the file | What you need first | How fresh |
+| --- | --- | --- | --- |
+| Aosom | Business portal: live product feed (product info, price, stock); CSV/XML export | Approved trade account | Live |
+| BigBuy | CSV/XML export, FTP drop, REST API — credentials in the account panel | Account plus a plan | Hourly–daily |
+| Avasam | CSV export; auto stock and price sync on paid plans | Free account to browse, paid to sync | Plan-dependent |
+| Syncee | App import and catalogue sync | Account | App-driven |
+| Spocket | App; CSV on higher tiers | Account | App-driven |
+| AppScenic | App integrations, supplier data export | Account | App-driven |
+| **Dropship For You** | Two documented URLs, keyed to the email on your account: `https://www.dropshipforyou.co.uk/feeds/csv_feed.php?u=you@example.com` (products) and `…/stock_feed.php?u=you@example.com` (ID, SKU, STOCK, QTY) | Registered account email | Whenever you poll |
+| Something Different (SDW Connect) | CSV/XML through the connection, or export | Trade account | On request |
+| GoDropship | Download the catalogue CSV from the account | Account | Manual |
+| AW Dropship | CSV through apps, or order by hand; prices appear after login | Trade account | Manual |
+| Costway UK | Dropship portal: catalogue, stock, daily orders | Approved dropship account | Manual |
+| Matterhorn | XML/CSV/XLS files and a REST API, refreshed every two hours | Free account | Every 2 hours |
+| Pound Wholesale | Trade portal; CSV on request | Trade account | Manual |
+| Prodigi | API and CSV importer | Account | API |
+| Dropora | CSV/JSON/XML export, or push to Shopify/WooCommerce | Free reseller account | On demand |
+| CJdropshipping / DSers | App export | Account | App-driven |
+
+### Downloading one
+
+`npm run feed` fetches a URL, dates the file, records it in a manifest and tells
+you which supplier profile it recognises. It refuses plain HTTP, refuses an
+account hidden in the URL, and never writes a token to disk.
+
+```bash
+cd commerce
+
+# a documented supplier URL
+npm run feed -- --url "https://www.dropshipforyou.co.uk/feeds/csv_feed.php?u=you@example.com" --name dropforyou
+
+# a feed behind a header (the token stays in the environment)
+FEED_URL="https://supplier.example/products.csv" \
+FEED_AUTH_HEADER="Authorization: Bearer …" \
+npm run feed -- --name supplier
+
+# an FTP drop or a portal export: put the file in feeds/ and continue
+npm run catalogue -- feeds/dropforyou-2026-11-20.csv
+```
+
+What lands:
+
+```
+feeds/
+├── dropforyou-2026-11-20.csv     the file, dated, git-ignored
+├── manifest.json                 redacted url, bytes, sha256, rows, columns, profile
+└── README.md                     how to run it
+```
+
+The manifest is the audit trail: it answers "was this price real on Tuesday?" and
+"did the supplier change their columns?". `redactUrl` blanks query values and
+opaque path segments before anything is written or logged, so a feed URL with
+your account in it never ends up in a commit.
 
 ---
 

@@ -147,9 +147,9 @@ _A shop is a catalogue plus arithmetic plus a payment. This shelf is the first t
 **What breaks without it.** Someone retypes fifty products into a CMS, the descriptions stay supplier boilerplate, the Merchant feed gets rejected for missing images, and the pages do not exist until a front end is built.
 
 - Version: 1.0.0 · source: `connorbdigital/DJKC`
-- Files: `commerce/src/csv.ts`, `commerce/src/importProducts.ts` (needs editing), `commerce/src/exportFeed.ts`, `commerce/scripts/build-catalogue.mts` (needs editing), `commerce/catalogue/products.csv` (needs editing), `commerce/catalogue/scripts/serve.mjs`, `commerce/SUPPLIERS.md`
+- Files: `commerce/src/csv.ts`, `commerce/src/importProducts.ts` (needs editing), `commerce/src/exportFeed.ts`, `commerce/scripts/build-catalogue.mts` (needs editing), `commerce/catalogue/products.csv` (needs editing), `commerce/catalogue/scripts/serve.mjs`, `commerce/src/feedSource.ts`, `commerce/scripts/fetch-feed.mts`, `commerce/feeds/README.md`, `commerce/SUPPLIERS.md`, `commerce/COMMISSION.md`
 - Install after: store-core
-- By hand: Run npm run catalogue against your own supplier file and read the issues list; Rewrite every supplier description — duplicate copy is the fastest way to be invisible; Replace the generated placeholder images with photography you have the rights to use; Add the build to CI so the catalogue cannot drift from the feed; Confirm VAT treatment and stock freshness for the supplier you chose
+- By hand: Run npm run feed against the URL your supplier gives you, then npm run catalogue on the file it saved; Read the issues list before publishing — every 'no GTIN' or 'repaired' line is a product that would fail later; Rewrite every supplier description — duplicate copy is the fastest way to be invisible; Replace the generated placeholder images with photography you have the rights to use; Add the build to CI so the catalogue cannot drift from the feed; Confirm VAT treatment and stock freshness for the supplier you chose
 
 ## Design & conversion
 
