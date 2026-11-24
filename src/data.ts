@@ -375,6 +375,31 @@ export const TESTIMONIALS = [
   },
 ];
 
+/**
+ * Share of the fee taken as a holding deposit, in percent. The server can
+ * override this with STRIPE_DEPOSIT_PERCENT — keep the two in step so the
+ * form's estimate matches what Stripe actually charges.
+ */
+export const DEPOSIT_PERCENT = 50;
+
+/** Smallest budget a custom enquiry may suggest, in pounds. */
+export const MIN_OFFER = 100;
+/** Largest budget accepted without a phone call, in pounds. */
+export const MAX_OFFER = 50_000;
+
+/** Parses a display price ("£1,100", "£650") into pounds; null for "Custom". */
+export function priceValue(price: string): number | null {
+  const match = price.replace(/,/g, "").match(/(\d+(?:\.\d+)?)/);
+  return match ? Number(match[1]) : null;
+}
+
+/** Money the client is asked for now, in pounds, for a quote and a mode. */
+export function chargeFor(pounds: number, mode: "deposit" | "full", percent = DEPOSIT_PERCENT): number {
+  const pence = Math.round(pounds * 100);
+  if (mode === "full") return Math.max(1, pence) / 100;
+  return Math.max(1, Math.round((pence * percent) / 100)) / 100;
+}
+
 export interface Tier {
   name: string;
   price: string;
@@ -457,6 +482,26 @@ export const FAQS = [
   {
     q: "Do you cover Manchester, Liverpool and the North West?",
     a: "Yes — the North West is KC's home turf. Manchester and Liverpool anchor most UK runs (Freight Island, 24 Kitchen Street), with Preston, Blackpool, Chester and Bolton all in reach on the same weekend routing. Club nights, festivals and private events across the North West are quoted in GBP, with a compact fly-rig that keeps travel costs low.",
+  },
+  {
+    q: "How much does a DJ cost in the UK?",
+    a: "Most UK party and wedding DJs charge somewhere between £450 and £900 a night, with wedding DJs typically £600–£1,400 and a DJ who also sings live usually £1,000–£1,900. KC's club nights start at £650 and the Signature Live show — three hours of DJing plus live vocals — starts at £1,100. Travel is included across the North West; dates elsewhere are quoted with travel at cost.",
+  },
+  {
+    q: "Do you play weddings?",
+    a: "Yes. Weddings in the North West are quoted from £1,100 for the Signature Live show, which covers the drinks reception through to the last dance: background sets while people eat, the first dance, then the party. The live vocal moment is optional — some couples want it for the first dance, others want it at 11pm when the floor is full. KC brings a mic for speeches and works to your timings, not the other way round.",
+  },
+  {
+    q: "Can you play a corporate party or Christmas do?",
+    a: "Yes — corporate parties, awards nights, Christmas parties and brand events across the UK. These are usually open-format: soul and disco over dinner, then house and party anthems once the formalities are done, with volume and announcements handled to your running order. December Fridays and Saturdays go first, so ask early.",
+  },
+  {
+    q: "What's the difference between a DJ and a singer-DJ?",
+    a: "A DJ plays records; a singer-DJ performs live vocals over them. KC sings her own productions mid-set with her own mic and in-ear monitoring, which is why the Signature Live show sits above a DJ-only booking — you get a vocalist and a DJ for one fee, with no second rider, second contract or second soundcheck.",
+  },
+  {
+    q: "How far in advance should we book?",
+    a: "Average lead time for a UK DJ booking is around four to five months, and six to twelve for peak Saturdays and weddings. Prime Friday and Saturday dates with KC typically go 6–10 weeks out; December and festival season earlier. Short-notice enquiries are always worth sending — cancellations happen.",
   },
   {
     q: "Can we hear a full mix before booking?",

@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { AREA_GROUPS, TIERS } from '../src/data.js';
-import { command, pairsFromHash, store } from './store.js';
+import { AREA_GROUPS, MAX_OFFER, MIN_OFFER, TIERS, priceValue } from '../src/data.js';
+import { command, pairsFromHash, sameToken, store } from './store.js';
+import { chargeFor, createCheckout, type PayMode } from './deposit.js';
+import { notifyDesk } from './notify.js';
 
 export const BOOKINGS_KEY = 'kc:bookings';
 export const STATUSES = ['requested', 'confirmed', 'declined'] as const;
@@ -19,6 +21,16 @@ export interface Booking {
   status: BookingStatus;
   createdAt: string;
   updatedAt?: string;
+  notified?: boolean;
+  /** Budget the enquirer suggested, in pounds, for custom or unsure packages. */
+  offer?: number;
+  /** The number the payment was worked out from, in pounds. */
+  quotedAmount?: number;
+  /** deposit = holding deposit, full = whole fee. Overwritten with what was actually paid. */
+  paymentMode?: PayMode;
+  depositPaid?: boolean;
+  depositAmount?: number;
+  paidAt?: string;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -30,9 +42,6 @@ const csvCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
 
 let windowStart = 0;
 let requests = 0;
-
-const token = (header: string | string[] | undefined, expected: string) =>
-  (Array.isArray(header) ? header[0] : header)?.replace(/^Bearer\s+/i, '') === expected;
 
 async function read(client: ReturnType<typeof store> & object, id: string) {
   const { result } = await command(client, ['HGET', BOOKINGS_KEY, id]);
@@ -65,6 +74,10 @@ export default async function bookings(req: IncomingMessage & { body?: unknown }
     const date = isoDate(body.date);
     const pkg = clean(body.package, 40);
     const message = clean(body.message, 2000);
+    const offerRaw = Number(body.offer);
+    const offer = Number.isFinite(offerRaw) && offerRaw > 0 ? Math.round(offerRaw) : 0;
+    const payRaw = clean(body.pay, 10);
+    const pay: PayMode | 'none' = payRaw === 'full' ? 'full' : payRaw === 'deposit' ? 'deposit' : 'none';
     const today = new Date().toISOString().slice(0, 10);
     const limit = new Date(Date.now() + 730 * 86_400_000).toISOString().slice(0, 10);
 
@@ -74,6 +87,14 @@ export default async function bookings(req: IncomingMessage & { body?: unknown }
     if (date && (date < today || date > limit)) return send(400, { error: 'Choose a date within the next two years' });
     if (!PACKAGES.includes(pkg)) return send(400, { error: 'Choose a package' });
     if (area && !AREAS.includes(area)) return send(400, { error: 'Choose a listed area' });
+    if (offer && (offer < MIN_OFFER || offer > MAX_OFFER)) {
+      return send(400, { error: `Suggest a budget between \u00a3${MIN_OFFER} and \u00a3${MAX_OFFER.toLocaleString('en-GB')}` });
+    }
+
+    /* The enquirer's own number wins when they named one; otherwise the list price. */
+    const tier = TIERS.find((t) => t.name === pkg);
+    const quote = offer || (tier ? priceValue(tier.price) : null) || null;
+    if (pay !== 'none' && !quote) return send(400, { error: 'Add a budget so we can work out the payment' });
     if (!client) return send(503, { error: 'Bookings unavailable' });
 
     const booking: Booking = {
@@ -81,18 +102,32 @@ export default async function bookings(req: IncomingMessage & { body?: unknown }
       name, email, venue, area, date, package: pkg, message,
       status: 'requested',
       createdAt: new Date().toISOString(),
+      ...(offer ? { offer } : {}),
+      ...(quote ? { quotedAmount: quote } : {}),
+      ...(pay !== 'none' ? { paymentMode: pay } : {}),
     };
     try {
-      await command(client, ['HSET', BOOKINGS_KEY, booking.id, JSON.stringify(booking)]);
-      return send(201, { ok: true, id: booking.id, status: booking.status });
+      const settled = await command(client, ['HSET', BOOKINGS_KEY, booking.id, JSON.stringify(booking)]);
+      if (settled.result === undefined && !('result' in settled)) throw new Error('not stored');
+      const notified = await notifyDesk(booking);
+      /* Always mint a deposit link when a price is known, so the desk can still
+         ask for it later — paying up front is the enquirer's choice, not a gate. */
+      const mode: PayMode = pay === 'full' ? 'full' : 'deposit';
+      const paymentUrl = quote ? await createCheckout(booking, quote, mode) : null;
+      const amount = quote ? chargeFor(quote, mode) / 100 : null;
+      return send(201, {
+        ok: true, id: booking.id, status: booking.status, notified,
+        depositUrl: paymentUrl, paymentUrl, amount, mode: pay, quotedAmount: quote,
+      });
     } catch {
       return send(503, { error: 'Bookings unavailable' });
     }
   }
 
   const expected = process.env.BOOKINGS_TOKEN;
-  if (!expected) return send(503, { error: 'Set BOOKINGS_TOKEN to manage bookings' });
-  if (!token(req.headers.authorization, expected)) return send(401, { error: 'Unauthorised' });
+  const admin = process.env.ADMIN_TOKEN;
+  if (!expected && !admin) return send(503, { error: 'Set BOOKINGS_TOKEN to manage bookings' });
+  if (!sameToken(req.headers.authorization, expected, admin)) return send(401, { error: 'Unauthorised' });
   if (!client) return send(503, { error: 'Bookings unavailable' });
 
   try {
@@ -109,8 +144,9 @@ export default async function bookings(req: IncomingMessage & { body?: unknown }
       res.setHeader('Content-Disposition', 'attachment; filename="dj-kc-bookings.csv"');
       res.statusCode = 200;
       return res.end([
-        'id,status,date,package,area,name,email,venue,created_at,message',
-        ...rows.map((b) => [b.id, b.status, b.date, b.package, b.area, b.name, b.email, b.venue, b.createdAt, b.message].map((v) => csvCell(v ?? '')).join(',')),
+        'id,status,date,package,area,name,email,venue,created_at,quoted,paid,mode,message',
+        ...rows.map((b) => [b.id, b.status, b.date, b.package, b.area, b.name, b.email, b.venue, b.createdAt,
+          b.quotedAmount ?? '', b.depositAmount ?? '', b.paymentMode ?? '', b.message].map((v) => csvCell(String(v ?? ''))).join(',')),
       ].join('\n'));
     }
 

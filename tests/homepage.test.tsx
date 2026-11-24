@@ -149,7 +149,9 @@ it('leads with the North West home turf in coverage and testimonials', () => {
 it('describes the North West base in metadata for search and link previews', () => {
   const html = readFileSync('index.html', 'utf8');
   const meta = (name: string) => html.match(new RegExp(`<meta (?:name|property)="${name}" content="([^"]*)"`))?.[1] ?? '';
-  expect(meta('description')).toContain('North West, UK');
+  expect(meta('description')).toContain('North West');
+  expect(meta('description')).toContain('Manchester');
+  expect(meta('description')).toMatch(/Hire DJ KC/);
   expect(meta('og:title')).toContain('North West');
   expect(html).not.toMatch(/Cork, Ireland/);
   expect(html).toContain('"homeLocation"');

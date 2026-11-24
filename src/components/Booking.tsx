@@ -2,7 +2,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { calendarDate } from "../utils/dates";
 import { Reveal } from "./Reveal";
 import { Icon } from "./Icons";
-import { AREA_GROUPS, BOOKING_EMAIL, SOCIALS, TIERS } from "../data";
+import { AREA_GROUPS, BOOKING_EMAIL, DEPOSIT_PERCENT, MAX_OFFER, MIN_OFFER, SOCIALS, TIERS, chargeFor, priceValue } from "../data";
 
 const inputCls =
   "w-full rounded-xl border bg-night/70 px-4 py-3.5 text-sm text-ink placeholder:text-faint outline-none transition-colors focus:border-magenta";
@@ -14,20 +14,39 @@ interface FormState {
   area: string;
   date: string;
   message: string;
+  offer: string;
+  pay: "none" | "deposit" | "full";
 }
 
+const money = (pounds: number) => `£${pounds.toLocaleString("en-GB", { maximumFractionDigits: 2 })}`;
+
 export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) => void }) {
-  const [form, setForm] = useState<FormState>({ name: "", email: "", venue: "", area: "", date: "", message: "" });
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [form, setForm] = useState<FormState>({ name: "", email: "", venue: "", area: "", date: "", message: "", offer: "", pay: "none" });
+  const [errors, setErrors] = useState<Partial<Record<keyof FormState | "offer", string>>>({});
   const [draft, setDraft] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState<{ id: string } | null>(null);
-  const [slot, setSlot] = useState<"idle" | "checking" | "open" | "requested" | "booked" | "unknown">("idle");
+  const [sent, setSent] = useState<{ id: string; paymentUrl?: string | null; amount?: number | null; mode?: string } | null>(null);
+  const [slot, setSlot] = useState<"idle" | "checking" | "open" | "requested" | "booked" | "blocked" | "unknown">("idle");
+  const [deposit, setDeposit] = useState<{ id: string; amount: number; mode: string } | null>(null);
 
   const set = (k: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
     setErrors((er) => ({ ...er, [k]: undefined }));
   };
+
+  /* Pricing: the enquirer's own number wins, otherwise the list price of the package. */
+  const chosen = TIERS.find((t) => t.name === tier);
+  const listPrice = chosen ? priceValue(chosen.price) : null;
+  const offerNumber = Number(form.offer);
+  const offer = Number.isFinite(offerNumber) && offerNumber > 0 ? Math.round(offerNumber) : null;
+  const quote = offer ?? listPrice;
+  const depositAmount = quote ? chargeFor(quote, "deposit") : null;
+  const fullAmount = quote ? chargeFor(quote, "full") : null;
+  const payOptions = [
+    { id: "none" as const, title: "No payment now", note: "KC replies within 24 hours first", amount: null },
+    { id: "deposit" as const, title: `${DEPOSIT_PERCENT}% holding deposit`, note: "Holds the date", amount: depositAmount },
+    { id: "full" as const, title: "Pay in full", note: "Clears the fee up front", amount: fullAmount },
+  ];
 
   /* Ask the booking desk whether the chosen date already has an enquiry or a confirmed show. */
   useEffect(() => {
@@ -42,7 +61,7 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
         const response = await fetch(`/api/availability?date=${form.date}`, { signal: controller.signal });
         const data = response.ok ? await response.json() : null;
         if (controller.signal.aborted) return;
-        setSlot(["open", "requested", "booked"].includes(data?.status) ? data.status : "unknown");
+        setSlot(["open", "requested", "booked", "blocked"].includes(data?.status) ? data.status : "unknown");
       } catch {
         if (!controller.signal.aborted) setSlot("unknown");
       }
@@ -53,6 +72,27 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
     };
   }, [form.date]);
 
+  /* Book now (bottom bar) lands here: put the holding deposit in front of them. */
+  useEffect(() => {
+    const preferDeposit = () => setForm((f) => (f.pay === "none" ? { ...f, pay: "deposit" } : f));
+    window.addEventListener("kc:pay-on-book", preferDeposit);
+    return () => window.removeEventListener("kc:pay-on-book", preferDeposit);
+  }, []);
+
+  /* Returning from Stripe: ask the server to verify the session before claiming a payment. */
+  useEffect(() => {
+    const session = new URLSearchParams(window.location.search).get("deposit");
+    if (!session) return;
+    let cancelled = false;
+    fetch(`/api/deposit?session_id=${encodeURIComponent(session)}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.paid) setDeposit({ id: String(data.id ?? ""), amount: Number(data.amount ?? 0), mode: String(data.mode ?? "deposit") });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const er: typeof errors = {};
@@ -60,6 +100,8 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email)) er.email = "That email doesn't look right";
     if (!form.venue.trim()) er.venue = "Venue or event name, please";
     if (form.date && form.date < calendarDate()) er.date = "Choose today or a future date";
+    if (offer && (offer < MIN_OFFER || offer > MAX_OFFER)) er.offer = `Suggest anything from ${money(MIN_OFFER)} to ${money(MAX_OFFER)}`;
+    if (form.pay !== "none" && !quote) er.offer = "Add the budget you have in mind so we can work out the payment";
     setErrors(er);
     if (Object.keys(er).length) return;
     setSending(true);
@@ -70,11 +112,17 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
         body: JSON.stringify({
           name: form.name, email: form.email, venue: form.venue,
           area: form.area, date: form.date, package: tier, message: form.message,
+          offer: offer ?? undefined, pay: form.pay,
         }),
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.ok) throw new Error("not stored");
-      setSent({ id: String(result.id) });
+      setSent({
+        id: String(result.id),
+        paymentUrl: typeof result.paymentUrl === "string" ? result.paymentUrl : null,
+        amount: typeof result.amount === "number" ? result.amount : null,
+        mode: typeof result.mode === "string" ? result.mode : "deposit",
+      });
       setSlot("requested");
     } catch {
       /* No booking store reachable: hand over the email draft instead of claiming success. */
@@ -86,15 +134,19 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
 
   const reset = () => {
     setSent(null);
+    setDeposit(null);
     setDraft(false);
-    setForm({ name: "", email: "", venue: "", area: "", date: "", message: "" });
+    setForm({ name: "", email: "", venue: "", area: "", date: "", message: "", offer: "", pay: "none" });
     setSlot("idle");
   };
 
   const subject = `Booking enquiry: ${form.venue}`;
   const body = [`Name: ${form.name}`, `Reply to: ${form.email}`, `Venue / event: ${form.venue}`,
     ...(form.area ? [`Area: ${form.area}`] : []),
-    `Date: ${form.date || "To be confirmed"}`, `Package: ${tier}`, "", form.message].join("\n");
+    `Date: ${form.date || "To be confirmed"}`, `Package: ${tier}`,
+    ...(quote ? [`Quote: ${money(quote)}${offer ? " (my suggested budget)" : ""}`] : []),
+    ...(form.pay !== "none" ? [`Payment: ${form.pay === "full" ? "in full" : `${DEPOSIT_PERCENT}% deposit`}`] : []),
+    "", form.message].join("\n");
 
   return (
     <section id="book" className="relative overflow-x-clip py-24 sm:py-32">
@@ -167,7 +219,30 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
 
         <Reveal delay={200} scale>
           <div className="ring-grad rounded-[2rem] p-6 sm:p-9">
-            {sent ? (
+            {deposit ? (
+              <div className="space-y-5">
+                <span className="inline-block rounded-full bg-mint/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-mint">
+                  {deposit.mode === "full" ? "Payment received" : "Deposit received"}
+                </span>
+                <h3 className="font-display text-xl font-bold">
+                  {deposit.mode === "full" ? "Thank you — the fee is paid in full." : "Thank you — the deposit is paid."}
+                </h3>
+                <p className="text-sm leading-relaxed text-dim">
+                  {deposit.amount > 0 ? `We received £${deposit.amount.toLocaleString("en-GB")}. ` : ""}
+                  {deposit.id ? <>Your booking reference is <strong className="text-ink">{deposit.id}</strong>. </> : null}
+                  {deposit.mode === "full"
+                    ? "KC will confirm the date and send the short contract next. "
+                    : "The balance is due before the event. "}
+                  Keep this reference for any questions.
+                </p>
+                <a
+                  className="btn-primary inline-block rounded-full px-5 py-3 font-bold text-white"
+                  href={`mailto:${BOOKING_EMAIL}?subject=${encodeURIComponent(`${deposit.mode === "full" ? "Paid in full" : "Deposit paid"} — ${deposit.id}`)}`}
+                >
+                  Email KC about this booking
+                </a>
+              </div>
+            ) : sent ? (
               <div className="space-y-5">
                 <span className="inline-block rounded-full bg-mint/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-mint">
                   Request received
@@ -177,6 +252,30 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                   Your reference is <strong className="text-ink">{sent.id}</strong>. KC replies within 24 hours to confirm
                   the date, fee and travel. Nothing is booked until she confirms in writing.
                 </p>
+                {sent.paymentUrl && (
+                  <div className="rounded-2xl border border-magenta/40 bg-magenta/[0.07] p-4">
+                    <p className="text-sm font-semibold text-ink">
+                      {typeof sent.amount === "number"
+                        ? sent.mode === "full"
+                          ? `Pay ${money(sent.amount)} in full`
+                          : `Hold the date for ${money(sent.amount)}`
+                        : "Want to hold the date now?"}
+                    </p>
+                    <p className="mt-1 text-sm text-dim">
+                      {sent.mode === "full"
+                        ? "This clears the whole fee for your quote. "
+                        : `This is the ${DEPOSIT_PERCENT}% holding deposit on your quote; the balance is due before the event. `}
+                      Payment runs through Stripe and the refund terms are in the contract KC sends before anything is final.
+                    </p>
+                    <a className="btn-primary mt-3 inline-block rounded-full px-5 py-2.5 text-sm font-bold text-white" href={sent.paymentUrl}>
+                      {typeof sent.amount === "number"
+                        ? sent.mode === "full"
+                          ? `Pay ${money(sent.amount)} now`
+                          : `Pay the ${money(sent.amount)} deposit`
+                        : "Pay the holding deposit"}
+                    </a>
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-4">
                   <a
                     className="btn-primary rounded-full px-5 py-3 font-bold text-white"
@@ -270,13 +369,14 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                     {errors.date && <p id="bk-date-error" role="alert" className="mt-1.5 text-xs text-danger">{errors.date}</p>}
                     {!errors.date && slot !== "idle" && (
                       <p
-                        className={`mt-1.5 text-xs ${slot === "booked" ? "text-amber" : slot === "open" ? "text-mint" : "text-dim"}`}
+                        className={`mt-1.5 text-xs ${slot === "booked" || slot === "blocked" ? "text-amber" : slot === "open" ? "text-mint" : "text-dim"}`}
                         role="status"
                       >
                         {slot === "checking" && "Checking that date…"}
                         {slot === "open" && "That date looks open — KC confirms after your request."}
                         {slot === "requested" && "Another enquiry is already in for this date; KC can still fit you in."}
                         {slot === "booked" && "KC already has a confirmed show that day — send your enquiry for alternatives."}
+                        {slot === "blocked" && "KC is unavailable that date (booked or away) — pick another or ask for alternatives."}
                       </p>
                     )}
                   </div>
@@ -309,6 +409,78 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                       </select>
                       <Icon name="chevronRight" className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 rotate-90 text-faint" />
                     </div>
+                  </div>
+                  <div className="sm:col-span-2 rounded-2xl border border-white/10 bg-night/55 p-4 sm:p-5">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-dim">Your price</p>
+                      <p className="font-display text-lg font-extrabold text-ink">{quote ? money(quote) : "Name your budget"}</p>
+                    </div>
+
+                    <label htmlFor="bk-offer" className="mt-4 mb-2 block font-mono text-[10px] uppercase tracking-[0.25em] text-dim">
+                      {listPrice ? "Your budget (optional)" : "Your suggested budget *"}
+                    </label>
+                    <div className="relative">
+                      <span aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-faint">£</span>
+                      <input
+                        id="bk-offer"
+                        type="number"
+                        inputMode="numeric"
+                        min={MIN_OFFER}
+                        max={MAX_OFFER}
+                        step={25}
+                        value={form.offer}
+                        onChange={set("offer")}
+                        placeholder={listPrice ? String(listPrice) : "900"}
+                        aria-invalid={!!errors.offer}
+                        aria-describedby={errors.offer ? "bk-offer-error" : "bk-offer-note"}
+                        className={`${inputCls} pl-8 ${errors.offer ? "border-danger/70" : "border-white/10"}`}
+                      />
+                    </div>
+                    <p id="bk-offer-note" className="mt-2 text-xs leading-relaxed text-dim">
+                      {listPrice
+                        ? `${chosen?.name} prices from ${money(listPrice)}. Leave blank to go with that, or name the number your budget allows.`
+                        : "Tell KC what the night is worth to you. She confirms or counters within 24 hours — nothing is fixed until she replies."}
+                    </p>
+                    {errors.offer && (
+                      <p id="bk-offer-error" role="alert" className="mt-1.5 text-xs text-danger">{errors.offer}</p>
+                    )}
+
+                    <fieldset className="mt-5">
+                      <legend className="mb-2 block font-mono text-[10px] uppercase tracking-[0.25em] text-dim">Payment</legend>
+                      <div className="grid gap-2">
+                        {payOptions.map((option) => {
+                          const active = form.pay === option.id;
+                          return (
+                            <label
+                              key={option.id}
+                              className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-sm transition-colors ${
+                                active ? "border-magenta/60 bg-magenta/10 text-ink" : "border-white/10 text-dim hover:border-white/20"
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="bk-pay"
+                                value={option.id}
+                                checked={active}
+                                onChange={() => set("pay")({ target: { value: option.id } } as ChangeEvent<HTMLInputElement>)}
+                                className="h-4 w-4 shrink-0 accent-magenta"
+                              />
+                              <span className="flex-1">
+                                <span className="block font-semibold">{option.title}</span>
+                                <span className="block text-xs text-dim">{option.note}</span>
+                              </span>
+                              <span className="shrink-0 font-mono text-xs text-ink">
+                                {option.amount !== null ? money(option.amount) : "—"}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                    <p className="mt-3 text-[11px] leading-relaxed text-faint">
+                      Card payment runs through Stripe once you send the request. Any deposit holds the date; refund terms are set
+                      in the one-page contract KC sends before you pay.
+                    </p>
                   </div>
                   <div className="sm:col-span-2">
                     <label htmlFor="bk-msg" className="mb-2 block font-mono text-[10px] uppercase tracking-[0.25em] text-dim">

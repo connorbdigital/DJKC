@@ -1,4 +1,17 @@
+import { timingSafeEqual } from 'node:crypto';
+
 export type Store = { url: string; token: string };
+
+/** Constant-time check of a `Bearer …` header against one or more allowed tokens. */
+export function sameToken(header: string | string[] | undefined, ...expected: (string | undefined)[]) {
+  const offered = (Array.isArray(header) ? header[0] : header)?.replace(/^Bearer\s+/i, '') ?? '';
+  const a = Buffer.from(offered);
+  return expected.some((value) => {
+    if (!value) return false;
+    const b = Buffer.from(value);
+    return a.length === b.length && timingSafeEqual(a, b);
+  });
+}
 
 /** Upstash Redis over REST: configured by Vercel KV or explicit Upstash variables. */
 export function store(): Store | null {

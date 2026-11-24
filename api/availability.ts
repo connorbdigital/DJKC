@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { BOOKINGS_KEY, type Booking } from './bookings.js';
+import { BLOCKED_KEY } from './blocked.js';
 import { command, pairsFromHash, store } from './store.js';
 
 /** Aggregate only: never returns names or contact details. */
@@ -21,6 +22,9 @@ export default async function availability(req: IncomingMessage, res: ServerResp
   if (!client) return send(200, { date, status: 'unknown' });
 
   try {
+    const blocked = await command(client, ['HGET', BLOCKED_KEY, date]);
+    if (typeof blocked.result === 'string') return send(200, { date, status: 'blocked' });
+
     const { result } = await command(client, ['HGETALL', BOOKINGS_KEY]);
     const sameDay = pairsFromHash(result)
       .map(([, value]) => { try { return JSON.parse(value) as Booking; } catch { return null; } })
