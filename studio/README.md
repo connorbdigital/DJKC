@@ -7,13 +7,16 @@ It is a separate package with its own build and its own deploy. Nothing in it is
 ```
 studio/
 ├── api/draft.ts          serverless: talks to the model, holds the key, writes nothing
+├── api/site.ts           serverless: fetches one public page for the site check
 ├── src/github.ts         GitHub REST client: repos, activity, files, branches, pull requests
 ├── src/installer.ts      copies a capability's files into another repo and opens a PR
 ├── src/features.ts       the feature library, copied from code that already ships
 ├── src/packs.ts          whole setups: several capabilities, one pull request
 ├── src/paths.ts          prefix and branch naming shared by both
+├── src/codeSearch.ts     GitHub code search: query building, result flattening
+├── src/sitecheck.ts      URL guard and the HTML audit behind the site check
 ├── src/agent.ts          browser → /api/draft
-└── src/components/       Gate, Projects, Packs, Features, Draft, Checks
+└── src/components/       Gate, Projects, Packs, Features, Search, Draft, Checks
 ```
 
 ## Run it
@@ -41,7 +44,7 @@ which broke the Vercel build until it was pinned — leave the file and the lock
 
 The Studio has **no database**. Your GitHub token is typed in and kept in that tab's `sessionStorage`; closing the tab locks it. Reads and writes go straight from the browser to `api.github.com`. The only server-side secret is the model key.
 
-## The four tabs
+## The five tabs
 
 **Projects** — every repository the token can see, newest first, with commits and pull requests merged into one history. This is the answer to "what's been on this project", without needing anything from Arena: Arena's work arrives here as branches and pull requests.
 
@@ -59,6 +62,17 @@ Three packs ship today: **Start a new site** (storage, priced booking form with 
 - **Check against target** reads the destination before anything is written: files it would overwrite, relative imports that will not resolve there, and capabilities that must be installed first.
 - **Copy files and open a pull request** pins the read to the source repo's current HEAD, writes the files on a `studio/feature-…` branch, records the install in `studio/features.json` inside the target (id, version, source commit, files), and opens a PR describing both.
 - **Checks** then polls that branch's CI and reports pass/fail in the Studio, so "it opened" is not the same as "it worked".
+
+**Search** — two kinds of looking.
+
+- *Inside the projects* uses GitHub's code search across every repository the token can see, or one of them. The query is built here, not typed by hand: GitHub refuses an unscoped search, so the Studio adds `user:` or `repo:` itself. Matches are grouped by repository with the matching lines stripped of GitHub's highlight markup. The API allows roughly ten queries a minute, so a rate limit is reported as a rate limit, not as a failure.
+- *One public page* fetches a single https page through `api/site` and reports what it says about itself: title, description, one headline, Product/Offer/ReturnPolicy markup, alt text, viewport, canonical, share card, readable words and document size — each with the reason it matters. Nothing is crawled, nothing is stored, and the HTML never reaches the browser.
+
+### The site check's guard rails
+
+`src/sitecheck.ts` accepts https only, on the default port, with no credentials, and only public host names: `localhost`, `*.local`, `*.internal`, IP literals (including the decimal and hex aliases) and loopback/link-local addresses are refused before any request is made. `api/site.ts` then refuses redirects, requires `text/html`, times out after 8 seconds and stops reading at 1.5 MB, marking the report truncated.
+
+That is a best-effort guard, **not a security boundary**: a hostname can resolve to a private address after the check. Run the function with restricted egress if that matters, and do not extend it into a crawler.
 
 **Agent** — write a brief, tick the features it may reuse, optionally attach real source files, and get a proposal as whole files. Nothing is written until you press the second button, and the pull request says, in its own body, that it was model-drafted and must be reviewed.
 
@@ -83,6 +97,7 @@ The Agent tab loads it and sends it with every brief, so proposals respect decis
 
 - **Merge.** No auto-merge, no force-push, no direct commits to a default branch.
 - **Run code.** No execution sandbox, so nothing is tested by the Studio — that is what your CI is for.
+- **Crawl.** The site check reads one page the user typed, once. There is no queue, no spider and no cache.
 - **Talk to Arena.** Arena has no public API for starting sessions or reading its internals. The Studio reads the GitHub output instead, and you take briefs back into Arena by hand.
 - **Store secrets.** No token database, no cookies.
 

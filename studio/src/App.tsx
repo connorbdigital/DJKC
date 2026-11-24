@@ -6,14 +6,16 @@ import { Gate } from "./components/Gate";
 import { Projects } from "./components/Projects";
 import { Features } from "./components/Features";
 import { Packs } from "./components/Packs";
+import { Search } from "./components/Search";
 import { Draft } from "./components/Draft";
 
-type Tab = "projects" | "packs" | "features" | "draft";
+type Tab = "projects" | "packs" | "features" | "search" | "draft";
 
 const TABS: { id: Tab; label: string; blurb: string }[] = [
   { id: "projects", label: "Projects", blurb: "Everything on the account, newest first, with its history." },
   { id: "packs", label: "Packs", blurb: "Whole setups — a working site in one pull request, dependencies included." },
   { id: "features", label: "Feature library", blurb: "What already ships, ready to copy into another project." },
+  { id: "search", label: "Search", blurb: "Look inside every project, and at one public page outside them." },
   { id: "draft", label: "Agent", blurb: "Describe the change; the agent drafts files; you review and open the pull request." },
 ];
 
@@ -96,6 +98,7 @@ export function App() {
       {repos && tab === "projects" && <Projects token={token} repos={repos} />}
       {repos && tab === "packs" && <Packs token={token} repos={repos} />}
       {repos && tab === "features" && <Features token={token} repos={repos} />}
+      {repos && tab === "search" && <Search token={token} repos={repos} login={login} />}
       {repos && tab === "draft" && <Draft token={token} repos={repos} />}
 
       <footer className="foot">
