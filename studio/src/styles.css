@@ -122,3 +122,16 @@ button.btn, a.btn {
 .shelf { margin: 0 0 1.1rem; }
 .shelf-title { margin: 0; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
 .shelf-blurb { margin: .1rem 0 .45rem; }
+
+.col.wide { max-width: 62rem; }
+.snippet { margin: .25rem 0 .1rem; padding: .45rem .6rem; background: #ffffff0a; border-left: 2px solid var(--line); border-radius: 0 .35rem .35rem 0; font: .74rem/1.5 ui-monospace, monospace; color: var(--dim); white-space: pre-wrap; word-break: break-word; overflow-x: auto; }
+.results { margin-top: 1rem; }
+.checks-list { list-style: none; margin: .8rem 0 0; padding: 0; display: grid; gap: .5rem; }
+.checks-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem; padding-bottom: .45rem; border-bottom: 1px solid #ffffff10; }
+.check-label { font-weight: 600; font-size: .88rem; }
+.badge.bad { color: #ff8080; border-color: #ff808055; margin-left: .3rem; }
+.dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--dim); flex: none; }
+.dot.pass { background: var(--ok); }
+.dot.warn { background: #ffd166; }
+.dot.fail { background: #ff6b6b; }
+.because { flex-basis: 100%; color: var(--dim); opacity: .85; }

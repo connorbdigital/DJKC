@@ -1,4 +1,5 @@
 import type { ActivityEvent, CheckRun, CommitEvent, PullEvent, Repo } from "./types";
+import { buildCodeQuery, explainCodeError, parseCodeSearch, type CodeSearchResult, type QueryContext } from "./codeSearch";
 
 const API = "https://api.github.com";
 
@@ -210,6 +211,20 @@ export async function checksFor(token: string, fullName: string, ref: string): P
     }));
   } catch (error) {
     if (error instanceof GithubError && error.status === 404) return [];
+    throw error;
+  }
+}
+
+/** Code search across everything the token can see. One request, one page. */
+export async function searchCode(token: string, term: string, context: QueryContext): Promise<CodeSearchResult> {
+  const query = buildCodeQuery(term, context);
+  try {
+    const payload = await gh<unknown>(token, `/search/code?per_page=30&q=${encodeURIComponent(query)}`, {
+      headers: { Accept: "application/vnd.github.text-match+json" },
+    });
+    return parseCodeSearch(payload as Parameters<typeof parseCodeSearch>[0], term);
+  } catch (error) {
+    if (error instanceof GithubError) throw new GithubError(explainCodeError(error.message, error.status), error.status);
     throw error;
   }
 }
