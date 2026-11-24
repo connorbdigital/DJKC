@@ -80,6 +80,12 @@ The document covers all 11 processes on the 6 shelves plus the eight steps the b
 - *Inside the projects* uses GitHub's code search across every repository the token can see, or one of them. The query is built here, not typed by hand: GitHub refuses an unscoped search, so the Studio adds `user:` or `repo:` itself. Matches are grouped by repository with the matching lines stripped of GitHub's highlight markup. The API allows roughly ten queries a minute, so a rate limit is reported as a rate limit, not as a failure.
 - *One public page* fetches a single https page through `api/site` and reports what it says about itself: title, description, one headline, Product/Offer/ReturnPolicy markup, alt text, viewport, canonical, share card, readable words and document size — each with the reason it matters. Nothing is crawled, nothing is stored, and the HTML never reaches the browser.
 
+### Reading without a token in the browser
+
+`api/github.ts` reads GitHub on the deployment's behalf when `GITHUB_TOKEN` is set on the project — the browser then never holds a credential, and the gate is not needed to browse. It is **read-only**: `GET` only, an allowlist of paths (`/user`, `/user/repos`, `/repos/<owner>/<repo>…`, `/search/code`, `/rate_limit`), no absolute URLs, no traversal, no credentials in the path, a 12-second timeout and a 4 MB ceiling. Opening a branch, a file or a pull request still asks for a token at the gate, where the person authorising it can see what they are authorising.
+
+The rules live in `src/githubProxy.ts` and are tested without a request; the handler is thin on purpose. Scope note: the deployment sits behind Vercel Authentication, so "anyone who can reach the function" means anyone you let into the Studio. If the Studio is ever made public, remove this route first.
+
 ### The site check's guard rails
 
 `src/sitecheck.ts` accepts https only, on the default port, with no credentials, and only public host names: `localhost`, `*.local`, `*.internal`, IP literals (including the decimal and hex aliases) and loopback/link-local addresses are refused before any request is made. `api/site.ts` then refuses redirects, requires `text/html`, times out after 8 seconds and stops reading at 1.5 MB, marking the report truncated.

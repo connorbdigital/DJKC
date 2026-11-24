@@ -261,14 +261,6 @@ export const TODOS: StudioTodo[] = [
     state: "next",
   },
   {
-    id: "github-proxy",
-    title: "Read GitHub through /api/github",
-    why: "The token would live in Vercel instead of a browser tab, the gate stops asking every session, and the Studio can work server-side.",
-    effort: "M",
-    where: "studio",
-    state: "next",
-  },
-  {
     id: "sitemap",
     title: "sitemap.xml and robots.txt",
     why: "The pages are generated for search and then not listed. One file each.",
@@ -362,7 +354,7 @@ export interface EnvKey {
 export const ENV_KEYS: EnvKey[] = [
   { key: "ANTHROPIC_API_KEY", project: "studio", what: "Agent drafting", without: "the Agent tab refuses" },
   { key: "STUDIO_MODEL", project: "studio", what: "Optional model override", without: "claude-sonnet-4-5 is used" },
-  { key: "GITHUB_TOKEN", project: "studio", what: "Only if the /api/github proxy is built", without: "the gate asks for a token instead" },
+  { key: "GITHUB_TOKEN", project: "studio", what: "The /api/github proxy: browse without pasting a token", without: "the gate asks for one, as before" },
   { key: "KV_REST_API_URL", project: "djkc", what: "Storage, address", without: "bookings and sign-ups fail" },
   { key: "KV_REST_API_TOKEN", project: "djkc", what: "Storage, token", without: "bookings and sign-ups fail" },
   { key: "ADMIN_TOKEN", project: "djkc", what: "The booking desk", without: "the desk stays locked" },
