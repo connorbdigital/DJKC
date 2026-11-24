@@ -6,7 +6,10 @@ import {
   PROJECTS,
   SITES,
   TOUR,
+  auditAtlas,
+  customProjectId,
   hashForNode,
+  parseCustomProjects,
   nodeFromHash,
   responsiveFov,
   bestMatch,
@@ -161,6 +164,78 @@ describe("searching the space", () => {
 
   it("measures the jump in metres", () => {
     expect(distance([0, 0, 0], [3, 4, 0])).toBe(5);
+  });
+});
+
+describe("projects you add yourself", () => {
+  it("turns anything stored into a shaped project, or drops it", () => {
+    const parsed = parseCustomProjects([
+      { label: "  Hilltop Cafe  ", line: "Menus and table bookings", href: "https://hilltop.example", stack: ["Astro", "Stripe", ""] },
+      { label: "x" },
+      { label: "Hilltop Cafe" },
+      { label: "Danger", href: "javascript:alert(1)" },
+      "not an object",
+      null,
+    ]);
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]).toMatchObject({ id: "project-own-hilltop-cafe", label: "Hilltop Cafe", href: "https://hilltop.example" });
+    expect(parsed[0].stack).toEqual(["Astro", "Stripe"]);
+    /* A URL scheme that is not http(s) is not a link. */
+    expect(parsed[1].href).toBeUndefined();
+    expect(parseCustomProjects("nonsense")).toEqual([]);
+    expect(customProjectId("  ")).toBe("project-own-project");
+  });
+
+  it("adds them to the same district without moving the authored three", () => {
+    const before = buildAtlas();
+    const after = buildAtlas([{ id: "project-own-test", label: "Test project", line: "A thing", href: "https://example.com" }]);
+    expect(after.nodes.length).toBe(before.nodes.length + 1);
+    const added = after.nodes.find((node) => node.id === "project-own-test");
+    expect(added?.district).toBe("projects");
+    expect(added?.href).toBe("https://example.com");
+    for (const original of before.nodes.filter((node) => node.district === "projects")) {
+      const same = after.nodes.find((node) => node.id === original.id);
+      expect(same?.position).toEqual(original.position);
+    }
+    /* The new node is inside the space, so you can fly to it. */
+    expect(Math.abs(added!.position[0])).toBeLessThan(200);
+    expect(Math.abs(added!.position[2])).toBeLessThan(200);
+  });
+});
+
+describe("the audit", () => {
+  it("finds nothing it cannot justify", () => {
+    const findings = auditAtlas(atlas);
+    expect(Array.isArray(findings)).toBe(true);
+    for (const finding of findings) {
+      expect(["high", "medium", "low"]).toContain(finding.severity);
+      expect(finding.title.length).toBeGreaterThan(3);
+      expect(finding.detail.length).toBeGreaterThan(20);
+      if (finding.node) expect(atlas.nodes.some((node) => node.id === finding.node)).toBe(true);
+    }
+  });
+
+  it("passes the proof check when every cited file exists", () => {
+    const findings = auditAtlas(atlas, { exists: () => true });
+    expect(findings.filter((finding) => finding.title === "Proof file is missing")).toHaveLength(0);
+  });
+
+  it("catches a missing proof, a dangling edge and a duplicate name", () => {
+    const broken = {
+      ...atlas,
+      edges: [...atlas.edges, { from: "brief-checkout-losing-money", to: "ghost", kind: "proves" as const }],
+      nodes: [
+        ...atlas.nodes,
+        { ...atlas.nodes[0]!, id: "dupe", label: atlas.nodes[0]!.label },
+      ],
+    };
+    const findings = auditAtlas(broken, { exists: (path) => path !== "commerce/src/siteModel.ts" });
+    const titles = findings.map((finding) => finding.title);
+    expect(titles).toContain("Edge to nowhere");
+    expect(titles).toContain("Two nodes with the same name");
+    expect(titles).toContain("Proof file is missing");
+    /* Worst first. */
+    expect(findings[0].severity).toBe("high");
   });
 });
 

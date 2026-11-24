@@ -34,6 +34,48 @@ interface Pickable {
   halo?: THREE.Mesh;
 }
 
+/** A radial gradient on a canvas: cheap light, no post-processing pass. */
+function nebulaTexture(): THREE.Texture {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0, "rgba(255,255,255,0.9)");
+    gradient.addColorStop(0.35, "rgba(255,255,255,0.28)");
+    gradient.addColorStop(0.7, "rgba(255,255,255,0.06)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+/** A round star with a bright core, so points are stars and not squares. */
+function starTexture(): THREE.Texture {
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.25, "rgba(255,255,255,0.85)");
+    gradient.addColorStop(0.55, "rgba(255,255,255,0.22)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 const FOV = 62;
 const SPEED = 26;
 const BOOST = 3.2;
@@ -156,7 +198,8 @@ export class AtlasEngine {
   private readonly clock = new THREE.Clock();
   private readonly handlers: EngineHandlers;
   private readonly atlas: Atlas;
-  private readonly edgeLines: { from: string; to: string; kind: string; line: THREE.LineSegments }[] = [];
+  private readonly edgeLines: { from: string; to: string; kind: string; line: THREE.LineSegments; midpoint: THREE.Vector3 }[] = [];
+  private readonly stars: { points: THREE.Points; material: THREE.PointsMaterial; speed: number; base: number; phase: number }[] = [];
   private frame = 0;
   private yaw = 0;
   private pitch = -0.13;
@@ -195,21 +238,6 @@ export class AtlasEngine {
     cssHost.appendChild(this.cssRenderer.domElement);
 
     this.scene.fog = new THREE.Fog(0x0a0512, 60, 420);
-    /* A dusting of far points so the space reads as depth, not a black wall. */
-    const dust = new Float32Array(1400 * 3);
-    for (let index = 0; index < 1400; index += 1) {
-      dust[index * 3] = (Math.random() - 0.5) * 900;
-      dust[index * 3 + 1] = Math.random() * 340 - 40;
-      dust[index * 3 + 2] = (Math.random() - 0.5) * 900;
-    }
-    const dustGeometry = new THREE.BufferGeometry();
-    dustGeometry.setAttribute("position", new THREE.Float32BufferAttribute(dust, 3));
-    this.scene.add(
-      new THREE.Points(
-        dustGeometry,
-        new THREE.PointsMaterial({ color: 0x9f8cff, size: 0.9, transparent: true, opacity: 0.5, sizeAttenuation: true, fog: false })
-      )
-    );
     this.scene.add(this.rig);
     this.rig.add(this.camera);
     this.camera.rotation.order = "YXZ";
@@ -253,26 +281,68 @@ export class AtlasEngine {
 
   /* ------------------------------------------------------------- the scene */
 
+  /**
+   * Three shells of stars, not one cloud. Near stars are bright and large, far
+   * ones are dim and small, and each shell turns at its own speed — so moving
+   * through the space changes the parallax between them, which is what reads as
+   * depth. All three are seeded, so the sky is the same on every visit.
+   */
   private buildStars() {
-    const count = 2400;
-    const positions = new Float32Array(count * 3);
-    let seed = 7;
-    const random = () => {
-      seed = (seed * 16807) % 2147483647;
-      return seed / 2147483647;
-    };
-    for (let i = 0; i < count; i++) {
-      const radius = 300 + random() * 480;
-      const theta = random() * Math.PI * 2;
-      const phi = Math.acos(2 * random() - 1);
-      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = radius * Math.cos(phi) * 0.7;
-      positions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
+    const shells = [
+      { count: 900, inner: 150, outer: 320, size: 2.2, opacity: 0.95, colour: 0xdfd2ff, speed: 0.0016 },
+      { count: 1500, inner: 320, outer: 560, size: 1.5, opacity: 0.7, colour: 0xb9a5ff, speed: 0.0009 },
+      { count: 2200, inner: 560, outer: 900, size: 1.0, opacity: 0.45, colour: 0x8fa6ff, speed: 0.0004 },
+    ];
+    const star = starTexture();
+    shells.forEach((shell, index) => {
+      let seed = 7 + index * 131;
+      const random = () => {
+        seed = (seed * 16807) % 2147483647;
+        return seed / 2147483647;
+      };
+      const positions = new Float32Array(shell.count * 3);
+      for (let i = 0; i < shell.count; i++) {
+        const radius = shell.inner + random() * (shell.outer - shell.inner);
+        const theta = random() * Math.PI * 2;
+        const phi = Math.acos(2 * random() - 1);
+        positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = radius * Math.cos(phi) * 0.62;
+        positions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      const material = new THREE.PointsMaterial({
+        map: star,
+        alphaTest: 0.02,
+        color: shell.colour,
+        size: shell.size * 1.6,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: shell.opacity,
+        depthWrite: false,
+        fog: false,
+      });
+      const points = new THREE.Points(geometry, material);
+      points.rotation.z = random() * Math.PI;
+      this.scene.add(points);
+      this.stars.push({ points, material, speed: shell.speed, base: shell.opacity, phase: index * 1.7 });
+    });
+
+    /* A soft glow behind each district so the space has light, not just points. */
+    const glow = nebulaTexture();
+    for (const [colour, position, size, opacity] of [
+      [0xff2bd6, [0, 26, -30], 220, 0.16],
+      [0x8c5bff, [-90, 40, 40], 260, 0.13],
+      [0x38bdf8, [80, 30, 70], 200, 0.1],
+      [0xffd166, [0, 60, -120], 240, 0.08],
+    ] as [number, [number, number, number], number, number][]) {
+      const sprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: glow, color: colour, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
+      );
+      sprite.position.set(...position);
+      sprite.scale.setScalar(size);
+      this.scene.add(sprite);
     }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    const material = new THREE.PointsMaterial({ color: 0xcbb6ff, size: 1.6, sizeAttenuation: true, transparent: true, opacity: 0.7 });
-    this.scene.add(new THREE.Points(geometry, material));
   }
 
   private buildDistrictLabels() {
@@ -311,7 +381,7 @@ export class AtlasEngine {
       /* The brief → process links are the busiest thing here, so they only appear
          once a post is selected: the space stays readable until you ask. */
       line.visible = edge.kind !== "proves";
-      this.edgeLines.push({ from: edge.from, to: edge.to, kind: edge.kind, line });
+      this.edgeLines.push({ from: edge.from, to: edge.to, kind: edge.kind, line, midpoint: curve.getPoint(0.5) });
       this.scene.add(line);
     }
   }
@@ -358,6 +428,22 @@ export class AtlasEngine {
       });
       const mesh = new THREE.Mesh(geometry, material);
       group.add(mesh);
+
+      /* A soft additive puff behind each node: it reads at distance and costs one
+         sprite, where a bloom pass would cost a whole render target. */
+      const glow = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: nebulaTexture(),
+          color: colour,
+          transparent: true,
+          opacity: node.kind === "project" ? 0.5 : 0.34,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          fog: false,
+        })
+      );
+      glow.scale.setScalar(node.size * (node.kind === "project" ? 4.4 : 5.2));
+      group.add(glow);
 
       const halo = new THREE.Mesh(
         new THREE.TorusGeometry(node.size * 1.34, node.size * 0.03, 8, 44),
@@ -427,8 +513,9 @@ export class AtlasEngine {
   }
 
   private onPointerDown = (event: PointerEvent) => {
-    /* A click inside a live page belongs to the page, not to the camera. */
-    if ((event.target as HTMLElement).closest?.(".atlas-panel")) return;
+    /* A click inside a live page, or on a panel laid over the world, belongs to
+       that panel — including a drag that is really a scroll. */
+    if ((event.target as HTMLElement).closest?.(".atlas-panel, .atlas-hud")) return;
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     this.handlers.onInteract?.();
     if (this.pointers.size === 2) {
@@ -743,6 +830,20 @@ export class AtlasEngine {
       const away = world.distanceTo(this.rig.position);
       const factor = clamp(away / 42, 0.55, 1.9);
       card.sprite.scale.set(card.base.x * factor, card.base.y * factor, 1);
+    }
+
+    /* Stars turn slowly and breathe; edges fade with distance so the far side of
+       the space recedes instead of drawing every wire at once. */
+    const seconds = this.clock.elapsedTime;
+    for (const star of this.stars) {
+      star.points.rotation.y += delta * star.speed;
+      star.material.opacity = star.base * (0.86 + Math.sin(seconds * 0.6 + star.phase) * 0.08);
+    }
+    for (const edge of this.edgeLines) {
+      if (!edge.line.visible) continue;
+      const material = edge.line.material as THREE.LineBasicMaterial;
+      const away = edge.midpoint.distanceTo(this.rig.position);
+      material.opacity = clamp(0.34 - away / 900, 0.03, 0.34) * (edge.kind === "proves" ? 1.1 : 1);
     }
 
     if (this.frame % 12 === 0) {

@@ -118,7 +118,69 @@ export const DISTRICTS: Atlas["districts"] = [
  */
 export const WORLD_SCALE = 0.62;
 
-export function buildAtlas(): Atlas {
+/** A project you add yourself, kept in this browser rather than in the repo. */
+export interface CustomProject {
+  id: string;
+  label: string;
+  line: string;
+  detail?: string;
+  href?: string;
+  stack?: string[];
+}
+
+export const MAX_CUSTOM_PROJECTS = 24;
+
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+}
+
+export function customProjectId(label: string): string {
+  const slug = slugify(label) || "project";
+  return `project-own-${slug}`;
+}
+
+const safeHref = (raw: unknown): string | undefined => {
+  if (typeof raw !== "string") return undefined;
+  const value = raw.trim();
+  if (!value) return undefined;
+  if (value.startsWith("/") && !value.startsWith("//")) return value;
+  if (/^https?:\/\/[^\s]+$/i.test(value)) return value;
+  return undefined;
+};
+
+/**
+ * Anything read back from storage is untrusted: it may be from an older build,
+ * or typed by someone's extension. Validate it into shape or drop it.
+ */
+export function parseCustomProjects(raw: unknown): CustomProject[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: CustomProject[] = [];
+  for (const entry of raw.slice(0, MAX_CUSTOM_PROJECTS)) {
+    if (!entry || typeof entry !== "object") continue;
+    const record = entry as Record<string, unknown>;
+    const label = typeof record.label === "string" ? record.label.trim().slice(0, 80) : "";
+    if (label.length < 2) continue;
+    const id = customProjectId(label);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const line = typeof record.line === "string" ? record.line.trim().slice(0, 200) : "";
+    const detail = typeof record.detail === "string" ? record.detail.trim().slice(0, 900) : "";
+    const stack = Array.isArray(record.stack)
+      ? record.stack.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean).slice(0, 8)
+      : [];
+    const href = safeHref(record.href);
+    out.push({ id, label, line, ...(detail ? { detail } : {}), ...(href ? { href } : {}), ...(stack.length ? { stack } : {}) });
+  }
+  return out;
+}
+
+export function buildAtlas(custom: CustomProject[] = []): Atlas {
   const nodes: AtlasNode[] = [];
   const edges: AtlasEdge[] = [];
 
@@ -157,6 +219,29 @@ export function buildAtlas(): Atlas {
       bullets: [...project.bullets],
       position: [round(92 + position[0]), position[1], round(position[2])],
       size: 4.6,
+    });
+  });
+
+  /* Projects you added yourself stand in a wider ring around the same district,
+     so the authored three keep their places and yours are obviously yours. */
+  custom.forEach((project, index) => {
+    const ring = Math.max(26, 20 + custom.length * 1.4);
+    const position = ringPoint(index, Math.max(custom.length, 3), ring, 6, Math.PI / custom.length + 0.4);
+    nodes.push({
+      id: project.id,
+      kind: "project",
+      district: "projects",
+      label: project.label,
+      line: project.line || project.stack?.join(" · ") || "Added to the space by hand.",
+      detail: project.detail || `${project.label} was added to the Atlas from this browser. It is not in the repository, so it will not appear on another machine.`,
+      bullets: [
+        ...(project.stack?.length ? [project.stack.join(" · ")] : []),
+        ...(project.href ? [project.href] : []),
+        "Added by you · kept in this browser",
+      ],
+      position: [round(92 + position[0]), round(8 + position[1]), round(position[2])],
+      size: 4.2,
+      ...(project.href ? { href: project.href } : {}),
     });
   });
 
@@ -388,4 +473,107 @@ export function responsiveFov(aspect: number, base = 62, max = 86): number {
   const horizontal = 2 * Math.atan(Math.tan((base * Math.PI) / 360) * 1.4);
   const fitted = (2 * Math.atan(Math.tan(horizontal / 2) / aspect) * 180) / Math.PI;
   return Math.min(max, Math.max(base, fitted));
+}
+
+/* ------------------------------------------------------------------ audit */
+
+export type AuditSeverity = "high" | "medium" | "low";
+
+export interface AuditFinding {
+  id: string;
+  severity: AuditSeverity;
+  title: string;
+  detail: string;
+  /** The node the finding is about, so the HUD can fly you to it. */
+  node?: string;
+}
+
+export interface AuditOptions {
+  /** Supply `fs.existsSync` outside the browser to check that proofs exist. */
+  exists?: (path: string) => boolean;
+}
+
+/**
+ * What can be checked about the space from the data alone. Deliberately
+ * mechanical: every finding is something you can act on, and the audit never
+ * invents a score.
+ */
+export function auditAtlas(atlas: Atlas, options: AuditOptions = {}): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  const push = (finding: AuditFinding) => findings.push(finding);
+
+  const ids = new Set<string>();
+  for (const node of atlas.nodes) {
+    if (ids.has(node.id)) {
+      push({ id: `dup-id-${node.id}`, severity: "high", title: "Duplicate node id", detail: `${node.label} shares its id with another node, so a deep link cannot tell them apart.`, node: node.id });
+    }
+    ids.add(node.id);
+
+    if (node.detail.trim().length < 60) {
+      push({ id: `thin-${node.id}`, severity: "low", title: "Thin description", detail: `${node.label} explains itself in ${node.detail.trim().length} characters. A node you cannot understand from the card is a node you will not use.`, node: node.id });
+    }
+    if (Math.abs(node.position[0]) > 200 || Math.abs(node.position[2]) > 200) {
+      push({ id: `bounds-${node.id}`, severity: "high", title: "Outside the space", detail: `${node.label} sits at ${node.position.join(", ")}, beyond the 300-unit flight bound, so you cannot reach it.`, node: node.id });
+    }
+    if (node.kind === "project" && node.bullets.length < 2) {
+      push({ id: `bare-project-${node.id}`, severity: "medium", title: "Project with no evidence", detail: `${node.label} has ${node.bullets.length} bullet${node.bullets.length === 1 ? "" : "s"}. A project in this space is meant to say what is in it.`, node: node.id });
+    }
+  }
+
+  const labels = new Map<string, string[]>();
+  for (const node of atlas.nodes) {
+    labels.set(node.label.toLowerCase(), [...(labels.get(node.label.toLowerCase()) ?? []), node.id]);
+  }
+  for (const [label, owners] of labels) {
+    if (owners.length > 1) {
+      push({ id: `dup-label-${slugify(label)}`, severity: "medium", title: "Two nodes with the same name", detail: `${owners.length} nodes are called “${label}”, which makes search ambiguous.`, node: owners[1] });
+    }
+  }
+
+  for (const edge of atlas.edges) {
+    if (!ids.has(edge.from) || !ids.has(edge.to)) {
+      push({ id: `dangling-${edge.from}-${edge.to}`, severity: "high", title: "Edge to nowhere", detail: `A ${edge.kind} link points at ${ids.has(edge.from) ? edge.to : edge.from}, which is not in the space.` });
+    }
+  }
+
+  /* Inventory nobody can reach: a process no pack installs and no post explains. */
+  const mentioned = new Set<string>();
+  for (const edge of atlas.edges) {
+    if (edge.to.startsWith("cap-")) mentioned.add(edge.to);
+    if (edge.from.startsWith("cap-")) mentioned.add(edge.from);
+  }
+  for (const node of atlas.nodes) {
+    if (node.kind === "capability" && !mentioned.has(node.id)) {
+      push({ id: `orphan-${node.id}`, severity: "low", title: "Process nothing points at", detail: `${node.label} is in the library but no pathway installs it and no post cites it. Either wireit up or say why it stands alone.`.replace("wireit", "wire it"), node: node.id });
+    }
+  }
+
+  for (const district of atlas.districts) {
+    if (!atlas.nodes.some((node) => node.district === district.id)) {
+      push({ id: `empty-${district.id}`, severity: "medium", title: "Empty district", detail: `${district.label} has no nodes, so the space has a room with nothing in it.` });
+    }
+  }
+
+  /* Briefs are the argument layer: weak facts here are weak claims out loud. */
+  for (const brief of BRIEFS) {
+    if (brief.facts.length < 2) {
+      push({ id: `facts-${brief.slug}`, severity: "medium", title: "Thin evidence", detail: `“${brief.title}” rests on ${brief.facts.length} fact${brief.facts.length === 1 ? "" : "s"}. Two is the floor for a post that argues from numbers.`, node: `brief-${brief.slug}` });
+    }
+    for (const fact of brief.facts) {
+      if (fact.evidence.trim().length < 8) {
+        push({ id: `evidence-${brief.slug}-${slugify(fact.point).slice(0, 24)}`, severity: "medium", title: "Fact with no source", detail: `In “${brief.title}”: “${fact.point}” has the evidence “${fact.evidence}”. That is not a source.`, node: `brief-${brief.slug}` });
+      }
+    }
+    if (options.exists) {
+      for (const proof of brief.proof) {
+        if (!options.exists(proof)) {
+          push({ id: `proof-${brief.slug}-${slugify(proof)}`, severity: "high", title: "Proof file is missing", detail: `“${brief.title}” cites ${proof}, which is not in the repository.`, node: `brief-${brief.slug}` });
+        }
+      }
+    }
+  }
+
+  /* Ordered worst first, then by what it is about, so the list reads. */
+  const rank: Record<AuditSeverity, number> = { high: 0, medium: 1, low: 2 };
+  return findings.sort((a, b) => rank[a.severity] - rank[b.severity] || a.title.localeCompare(b.title));
 }

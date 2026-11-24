@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AtlasEngine } from "../atlasEngine";
+import { checkUrl, type SiteReport } from "../sitecheck";
 import {
   TOUR,
+  auditAtlas,
   buildAtlas,
+  customProjectId,
+  parseCustomProjects,
   distance,
   hashForNode,
   kindColour,
   nodeFromHash,
   searchAtlas,
   type AtlasNode,
+  type AuditFinding,
+  type CustomProject,
   type District,
   type NodeKind,
 } from "../atlas";
@@ -33,6 +39,23 @@ const FILTERS: { id: NodeKind | "all"; label: string }[] = [
 ];
 
 const POSE_KEY = "atlas:pose";
+const PROJECTS_KEY = "atlas:projects:v1";
+
+function readProjects(): CustomProject[] {
+  try {
+    return parseCustomProjects(JSON.parse(window.localStorage.getItem(PROJECTS_KEY) ?? "[]"));
+  } catch {
+    return [];
+  }
+}
+
+function writeProjects(projects: CustomProject[]) {
+  try {
+    window.localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+  } catch {
+    /* Storage is a convenience here, never a requirement. */
+  }
+}
 
 function readPose(): [number, number, number] | null {
   try {
@@ -57,7 +80,8 @@ function readPose(): [number, number, number] | null {
  * `#atlas/<node id>` opens it looking at that node.
  */
 export function Atlas({ onClose }: { onClose?: () => void }) {
-  const atlas = useMemo(() => buildAtlas(), []);
+  const [ownProjects, setOwnProjects] = useState<CustomProject[]>(() => (typeof window === "undefined" ? [] : readProjects()));
+  const atlas = useMemo(() => buildAtlas(ownProjects), [ownProjects]);
   const host = useRef<HTMLDivElement | null>(null);
   const cssHost = useRef<HTMLDivElement | null>(null);
   const stage = useRef<HTMLDivElement | null>(null);
@@ -77,6 +101,14 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const [hovering, setHovering] = useState(false);
   const [tour, setTour] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [panel, setPanel] = useState<"none" | "projects" | "audit" | "scan">("none");
+  const [scanSite, setScanSite] = useState<AtlasNode | null>(null);
+  const [findings, setFindings] = useState<AuditFinding[] | null>(null);
+  const [siteUrl, setSiteUrl] = useState("");
+  const [siteReport, setSiteReport] = useState<SiteReport | null>(null);
+  const [siteError, setSiteError] = useState("");
+  const [siteBusy, setSiteBusy] = useState(false);
+  const [draft, setDraft] = useState({ label: "", line: "", href: "", stack: "" });
   const savedAt = useRef(0);
 
   const results = useMemo(() => (query.trim() ? searchAtlas(atlas, query, 8) : []), [atlas, query]);
@@ -208,6 +240,93 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
     }
   };
 
+  const addProject = () => {
+    const label = draft.label.trim();
+    if (label.length < 2) {
+      setStatus("Give the project a name of at least two characters.");
+      return;
+    }
+    const project: CustomProject = {
+      id: customProjectId(label),
+      label,
+      line: draft.line.trim(),
+      stack: draft.stack
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      ...(draft.href.trim() ? { href: draft.href.trim() } : {}),
+    };
+    const next = [...ownProjects.filter((entry) => entry.id !== project.id), project];
+    setOwnProjects(next);
+    writeProjects(next);
+    setDraft({ label: "", line: "", href: "", stack: "" });
+    setPanel("none");
+    setStatus(`${label} is in the projects district. It lives in this browser, not the repository.`);
+  };
+
+  const removeProject = (id: string) => {
+    const next = ownProjects.filter((project) => project.id !== id);
+    setOwnProjects(next);
+    writeProjects(next);
+    if (selected?.id === id) closeDetail();
+  };
+
+  const openAudit = () => {
+    setFindings(auditAtlas(atlas));
+    setPanel("audit");
+  };
+
+  const openScan = (node: AtlasNode) => {
+    setScanSite(node);
+    setSiteUrl(node.href ?? "");
+    setSiteReport(null);
+    setSiteError("");
+    setPanel("scan");
+  };
+
+  useEffect(() => {
+    if (panel === "none") return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPanel("none");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panel]);
+
+  const runSiteAudit = async () => {
+    setSiteError("");
+    setSiteReport(null);
+    const verdict = checkUrl(siteUrl);
+    if (!verdict.ok || !verdict.url) {
+      setSiteError(verdict.reason ?? "That URL cannot be checked.");
+      return;
+    }
+    setSiteBusy(true);
+    try {
+      const response = await fetch("/api/site", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: verdict.url.toString() }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { ok: true; report: SiteReport }
+        | { ok: false; error: string }
+        | null;
+      if (!data) throw new Error(`The audit endpoint answered ${response.status}.`);
+      if (!data.ok) throw new Error(data.error);
+      setSiteReport(data.report);
+    } catch (problem) {
+      const message = problem instanceof Error ? problem.message : "The page could not be audited.";
+      setSiteError(
+        /404|405|unexpected token|failed to fetch|not found/i.test(message)
+          ? "The audit runs on the deployed Studio (/api/site), not the dev server. Open the deployed URL to audit a page."
+          : message
+      );
+    } finally {
+      setSiteBusy(false);
+    }
+  };
+
   const enterVr = async () => {
     if (!engine.current) return;
     try {
@@ -272,6 +391,24 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             title="A guided six-stop flythrough"
           >
             {tour === null ? "Tour" : "Stop tour"}
+          </button>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={() => setPanel(panel === "projects" ? "none" : "projects")}
+            aria-expanded={panel === "projects"}
+            title="Add one of your own projects to the space"
+          >
+            ＋ Project
+          </button>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={() => (panel === "audit" ? setPanel("none") : openAudit())}
+            aria-expanded={panel === "audit"}
+            title="Check the space and any site for real problems"
+          >
+            Audit
           </button>
           <button
             className="btn ghost"
@@ -453,9 +590,14 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
               Fly to it
             </button>
             {selected.kind === "site" && (
-              <button className="btn" type="button" onClick={() => engine.current?.loadSite(selected.id)}>
-                Load the live page
-              </button>
+              <>
+                <button className="btn" type="button" onClick={() => engine.current?.loadSite(selected.id)}>
+                  Load in the space
+                </button>
+                <button className="btn" type="button" onClick={() => openScan(selected)}>
+                  Scan it
+                </button>
+              </>
             )}
             <button className="btn ghost" type="button" onClick={() => void copyLink(selected)}>
               {copied ? "Copied" : "Copy link"}
@@ -467,6 +609,186 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             )}
           </div>
         </aside>
+      )}
+
+      {panel === "projects" && (
+        <section className="atlas-hud atlas-panel-sheet" aria-label="Add a project">
+          <div className="atlas-sheet-head">
+            <h2>Add a project</h2>
+            <button className="btn ghost" type="button" onClick={() => setPanel("none")} aria-label="Close">
+              ×
+            </button>
+          </div>
+          <p className="atlas-sheet-note">
+            These live in <strong>this browser</strong>, not in the repository — so they appear here and nowhere else, and
+            nobody else sees them. The three built-in projects stay where they are.
+          </p>
+          <div className="atlas-form">
+            <label>
+              Name
+              <input value={draft.label} onChange={(event) => setDraft({ ...draft, label: event.target.value })} placeholder="Hilltop Cafe" maxLength={80} />
+            </label>
+            <label>
+              What it is
+              <input value={draft.line} onChange={(event) => setDraft({ ...draft, line: event.target.value })} placeholder="Menus, table bookings, a deposit taken at the door" maxLength={200} />
+            </label>
+            <label>
+              Link (optional)
+              <input value={draft.href} onChange={(event) => setDraft({ ...draft, href: event.target.value })} placeholder="https://hilltop.example" inputMode="url" />
+            </label>
+            <label>
+              Stack (optional, comma separated)
+              <input value={draft.stack} onChange={(event) => setDraft({ ...draft, stack: event.target.value })} placeholder="Astro, Stripe, Cloudflare" />
+            </label>
+            <button className="btn" type="button" onClick={addProject}>
+              Put it in the space
+            </button>
+          </div>
+          {ownProjects.length > 0 && (
+            <ul className="atlas-own">
+              {ownProjects.map((project) => (
+                <li key={project.id}>
+                  <button type="button" className="atlas-own-go" onClick={() => jump(atlas.nodes.find((node) => node.id === project.id) ?? atlas.nodes[0]!)}>
+                    {project.label}
+                  </button>
+                  <button type="button" className="btn ghost" onClick={() => removeProject(project.id)} aria-label={`Remove ${project.label}`}>
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {panel === "audit" && (
+        <section className="atlas-hud atlas-panel-sheet atlas-audit" aria-label="Audit">
+          <div className="atlas-sheet-head">
+            <h2>Audit</h2>
+            <button className="btn ghost" type="button" onClick={() => setPanel("none")} aria-label="Close">
+              ×
+            </button>
+          </div>
+
+          <div className="atlas-audit-block">
+            <p className="atlas-sheet-note">
+              <strong>The space.</strong> Mechanical checks over the same data the scene is built from: missing sources,
+              dangling links, thin nodes, duplicate names, unreachable positions, and — on a machine with the repository —
+              whether each post's proof file exists.
+            </p>
+            <p className="atlas-audit-tally">
+              {findings === null
+                ? "Not run."
+                : findings.length === 0
+                  ? "Nothing found."
+                  : `${findings.filter((finding) => finding.severity === "high").length} high · ${findings.filter((finding) => finding.severity === "medium").length} medium · ${findings.filter((finding) => finding.severity === "low").length} low`}
+            </p>
+            {findings && findings.length > 0 && (
+              <ul className="atlas-findings">
+                {findings.map((finding) => (
+                  <li key={finding.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (finding.node) {
+                          const node = atlas.nodes.find((entry) => entry.id === finding.node);
+                          if (node) jump(node);
+                        }
+                      }}
+                    >
+                      <span className={`severity is-${finding.severity}`}>{finding.severity}</span>
+                      <strong>{finding.title}</strong>
+                      <small>{finding.detail}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="atlas-audit-block">
+            <p className="atlas-sheet-note">
+              <strong>A page.</strong> Reads one public URL through <code>/api/site</code> and reports what it says about
+              itself — title, description, one clear headline, structured data, alt text, viewport, canonical, share card
+              and readable words. Nothing is crawled and nothing is stored.
+            </p>
+            <div className="atlas-scan-bar">
+              <input
+                value={siteUrl}
+                onChange={(event) => setSiteUrl(event.target.value)}
+                placeholder="https://example.co.uk"
+                aria-label="URL to audit"
+                inputMode="url"
+              />
+              <button className="btn" type="button" onClick={() => void runSiteAudit()} disabled={siteBusy}>
+                {siteBusy ? "Reading…" : "Audit it"}
+              </button>
+            </div>
+            {siteError && <p className="atlas-error">{siteError}</p>}
+            {siteReport && (
+              <div className="atlas-report">
+                <p className="atlas-report-head">
+                  <strong>{siteReport.title || "(no title)"}</strong> — {siteReport.words} words
+                </p>
+                <p className="atlas-sheet-note">{siteReport.description || "No meta description."}</p>
+                <ul className="atlas-checks">
+                  {siteReport.checks.map((check) => (
+                    <li key={check.id} className={`is-${check.status}`}>
+                      <span>{check.status === "pass" ? "✓" : check.status === "warn" ? "!" : "✕"}</span>
+                      <div>
+                        <strong>{check.label}</strong>
+                        <small>{check.detail}</small>
+                        {check.status !== "pass" && <small className="atlas-because">{check.because}</small>}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <p className="atlas-sheet-note">{siteReport.verdict}</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {panel === "scan" && scanSite && (
+        <section className="atlas-hud atlas-scan" aria-label={`Scanning ${scanSite.label}`}>
+          <div className="atlas-sheet-head">
+            <span className="swatch" style={{ background: kindColour[scanSite.kind] }} />
+            <h2>{scanSite.label}</h2>
+            <a className="btn ghost" href={scanSite.href} target="_blank" rel="noopener noreferrer">
+              Open in a tab
+            </a>
+            <button className="btn ghost" type="button" onClick={() => setPanel("none")} aria-label="Close">
+              ×
+            </button>
+          </div>
+          <p className="atlas-sheet-note">
+            Scroll the page here, the way a visitor would. Sites that send <code>X-Frame-Options</code> or a
+            <code> frame-ancestors</code> rule stay blank — that is the site refusing to be framed, not a broken reader,
+            and the tab link is the way in.
+          </p>
+          {scanSite.href ? (
+            <iframe className="atlas-scan-frame" src={scanSite.href} title={scanSite.label} loading="lazy" referrerPolicy="no-referrer" />
+          ) : (
+            <p className="atlas-error">This site has no address recorded.</p>
+          )}
+          <div className="atlas-scan-actions">
+            <button className="btn" type="button" onClick={() => void runSiteAudit()}>
+              Audit this page
+            </button>
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={() => {
+                setSiteUrl(scanSite.href ?? "");
+                setPanel("audit");
+                setStatus("Run “Audit it” to check that page.");
+              }}
+            >
+              Open the audit panel
+            </button>
+          </div>
+        </section>
       )}
 
       {!ready && !failed && <div className="atlas-hud atlas-loading">Building the space…</div>}

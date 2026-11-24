@@ -227,3 +227,130 @@ studio/src/components/Atlas.tsx  the HUD: search, filters, detail card, minimap
 studio/src/atlas.test.ts     23 tests, no three.js needed
 studio/scripts/write-briefs.mts  renders BRIEFS.md
 ```
+
+## Second pass, same day: depth, your own projects, and tools inside the space
+
+Four things were asked for after the first round: stars that read as depth, a
+way to put **your own** projects into the space, a scan whose page you can
+scroll, and tools inside the Atlas — an audit named explicitly.
+
+### The sky now has a near and a far
+
+The old field was one flat cloud of square points. It is now **three shells** at
+different radii, each with its own size, brightness, colour and drift:
+
+| shell | stars | radius | size | opacity | drift |
+| --- | --- | --- | --- | --- | --- |
+| near | 900 | 150–320 | 2.4–4.2 | 0.95 | 0.0016 |
+| mid | 1500 | 320–560 | 1.6–3.0 | 0.70 | 0.0009 |
+| far | 2200 | 560–900 | 1.0–2.0 | 0.45 | 0.0004 |
+
+Each star is drawn from a generated round sprite, not a default square point —
+`PointsMaterial` with no `map` is a square, which is what the first pass
+actually rendered. Opacity breathes per star, and each shell rotates at its own
+speed, so parallax comes from the sky itself rather than only from the camera.
+Four additive nebula sprites (magenta, violet, sky, gold) sit behind everything,
+and every node carries an additive glow sprite so a lit node has a halo instead
+of a flat disc. Edges fade with distance from the camera
+(`clamp(0.34 − distance / 900, 0.03, 0.34)`) so far links stop looking stitched
+on.
+
+### Your own projects
+
+**＋ Project** in the header takes a name, a line about what it is, an optional
+link and an optional stack. It lands in the projects district on a ring outside
+the three built-in projects (radius `max(26, 20 + n × 1.4)`, `y = 8`) and gets
+the same treatment as everything else: searchable, flyable-to, deep-linkable,
+with a card that says plainly that it is *yours* and *temporary*.
+
+- Stored in `localStorage["atlas:projects:v1"]`, ids `project-own-<slug>`, capped
+  at 24.
+- It lives in that browser only — not in the repository, not visible to anyone
+  else. The panel says so, and so does the status line, because a space that
+  silently keeps someone's data would be a lie about what it is.
+- A link is only accepted if it is `/`-relative or `http(s)`; `javascript:` is
+  dropped. Duplicate names replace the earlier entry rather than stacking up.
+- Removing one removes its node, its edges and the card if it is open.
+
+![Your own projects, listed in the panel](atlas-projects-2026-11-20.png)
+
+### The audit
+
+**Audit** in the header runs mechanical checks over the same data the scene is
+built from — no network, no guessing:
+
+| check | severity |
+| --- | --- |
+| duplicate node ids | high |
+| a node placed outside the world bounds | high |
+| an edge pointing at a node that does not exist | high |
+| two nodes with the same name | medium |
+| a project or process with no path onto it | medium |
+| a capability no process claims | low |
+| a post whose brief is too thin, or whose evidence is one bare word | medium |
+| a fact with no source at all | medium |
+| a district with nothing in it | low |
+| a post whose proof file is missing from the repository | high |
+
+Findings sort worst-first, carry a severity tag, and clicking one flies you to
+the node it is about. Each finding names one thing to do, not a category.
+
+Run on the real data it returns **one low finding** — the capability
+"Section-following browser colour" is in the library but no pathway installs it
+and no post cites it. That one is left standing deliberately: it is a real gap,
+and an audit that reported nothing would be an audit you would stop reading.
+The same pass found seven unsourced facts earlier in the day; those were fixed
+in `atlasBriefs.ts` by naming what each source actually is rather than writing
+"Baymard" and moving on.
+
+![The audit panel](atlas-audit-2026-11-20.png)
+
+### Scanning a site, and scrolling it
+
+Every site card now has **Scan it**, which opens the page in a panel laid over
+the space. It scrolls like a page — the frame keeps `pan-y`, and the panel is
+capped so the world is still visible around it. Sites that send
+`X-Frame-Options` or `frame-ancestors` stay blank; the panel says why and offers
+the tab link, because a blank frame with no explanation reads as a broken tool.
+
+The same panel holds the URL audit: `POST /api/site` reads one public page and
+reports title, description, one clear headline, structured data, alt text,
+viewport, canonical, share card and readable words. It runs on the deployed
+Studio — the static preview has no server, so it says so instead of failing
+silently.
+
+### Two bugs the scroll work exposed
+
+Worth naming, because both were invisible until a thumb was used:
+
+1. `.atlas-stage { touch-action: none }` covered the whole Atlas, HUD included,
+   so no panel could be dragged with a finger. The rule now applies to the
+   canvas only; the panels keep `pan-y`.
+2. The camera's `pointerdown` listened on the stage and only excluded
+   `.atlas-panel`, so a drag that started on any panel dragged the world behind
+   it. It now ignores `.atlas-hud` too.
+
+The sheet's header was also bleeding its own content above the top edge (a
+sticky header inside a padded scrollport), fixed by moving the padding onto the
+header and giving it an opaque background.
+
+### Checks
+
+- `npx tsc --noEmit`: clean. `npx vitest run` in `studio`: **110 passed**.
+- Chromium 1440 × 900, real data: **＋ Project** adds a node (chip count 49 →
+  50, Projects 3 → 4), the node is flyable-to and its card opens; **Audit**
+  returns 0 high / 0 medium / 1 low; **Scan it** opens a 511 × 286 frame.
+- The report boxes were exercised against a stubbed `/api/site` response (the
+  preview is static, so the real endpoint is not there): sheet
+  `clientHeight 638 / scrollHeight 876`, report box `412 / 625`, and the sheet
+  scrolled to 213 by script.
+- Chromium 390 × 844 with touch, raw CDP touch drags (not `synthesizeScrollGesture`,
+  which does nothing in this build): a thumb drag scrolls the sheet to **254**,
+  then a second drag inside the report scrolls the report itself to **410**.
+  Sheet `pan-y`, report `pan-y`, both with `-webkit-overflow-scrolling`.
+- `mob3.mjs` (phone walk: thumbstick, pinch, chips, bottom sheet, tour) still
+  reports **ALL OK**; no console or page errors on either size.
+
+**Still not verified:** a physical phone, VR on hardware, and the real
+`/api/site` against a live third party from this sandbox (the sandbox cannot
+reach arbitrary hosts; the deployed Studio can).

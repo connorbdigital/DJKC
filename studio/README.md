@@ -92,6 +92,14 @@ On a phone it is a different instrument rather than a shrunken one: a thumbstick
 
 Two things are honest by design. Many sites refuse to be framed, so a gallery panel loads its live page only when you ask and says so plainly when the frame stays blank — nothing is proxied. And Chromium does not hit-test CSS3D content, so the panels in the world are display-only: the buttons that load a page live in the HUD.
 
+Three tools live in the same header.
+
+- **＋ Project** puts *your* projects into the space: a name, a line about what it is, an optional link and an optional stack. They sit in the projects district on a ring outside the three built-in ones, are searchable and flyable-to like anything else, and are stored in `localStorage["atlas:projects:v1"]` — in that browser, not the repository, and the panel says so. Links must be `/`-relative or `http(s)`; duplicates replace rather than stack; 24 at most.
+- **Audit** runs mechanical checks over the data the scene is built from: duplicate ids, duplicate names, nodes outside the world, dangling edges, orphans in either direction, empty districts, thin briefs, facts with no source, and — when the repository is present — posts whose proof file is missing. Findings sort worst-first and each one flies you to the node it is about. On today's data it reports one low finding, deliberately left open.
+- **Scan it**, on any site card, loads that page in a panel laid over the space so you can scroll it the way a visitor would, and audits the same URL through `api/site`. Sites that refuse framing stay blank and the panel says why.
+
+The sky is three seeded shells of stars (900 near, 1,500 mid, 2,200 far) drawn from a generated round sprite with per-star breathing and per-shell drift, four additive nebula sprites behind them, a glow sprite on every node, and edges that fade with distance — so depth comes from the field itself, not only from the camera.
+
 The blog plan is real content, not demo data — `src/atlasBriefs.ts` holds 14 briefs (about 19,200 words) for `sitebuildup.co.uk`, each with its target query, audience, service, outline, facts with a source, and the capability it demonstrates. `npm run briefs` renders them to [BRIEFS.md](BRIEFS.md). See [../docs/atlas-round-2026-11-20.md](../docs/atlas-round-2026-11-20.md).
 
 **Agent** — write a brief, tick the features it may reuse, optionally attach real source files, and get a proposal as whole files. Nothing is written until you press the second button, and the pull request says, in its own body, that it was model-drafted and must be reviewed.
