@@ -12,6 +12,7 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [../commerce/SUPPLIERS.md](../commerce/SUPPLIERS.md) | Where product feeds come from, what each contains, what it costs, and the vetting questions |
 | [../commerce/GAPS.md](../commerce/GAPS.md) | What a real shop has that this one does not, ranked, with effort estimates |
 | [../studio/PROCESSES.md](../studio/PROCESSES.md) | Every process the Studio can generate, including the product-catalogue one |
+| [anything-2026-11-20.md](anything-2026-11-20.md) | Anything.com: the API's real auth, the read-only proxy, and the two key names it accepts |
 | [../studio/README.md](../studio/README.md) | The Studio: inventory, feature library, draft → PR → checks → merge gate, and the Shelf (todo, sourcing links, keys) |
 | [../README.md](../README.md) | The DJKC site itself and the two products that live beside it |
 | [split-pr-2026-11-20.md](split-pr-2026-11-20.md) | *Process note:* how to split PR #18 into two PRs, with the commands that were tested and the coupling that argues against it |
@@ -32,6 +33,9 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [atlas-tour-2026-11-20.png](atlas-tour-2026-11-20.png) | The guided tour, with its caption, between two stops |
 | [atlas-mobile-2026-11-20.png](atlas-mobile-2026-11-20.png) | 390px: compact bar, chip rail, thumbstick, lift/boost pads, tappable map |
 | [atlas-mobile-brief-2026-11-20.png](atlas-mobile-brief-2026-11-20.png) | 390px: a node's detail as a sheet, with its actions stuck to the bottom |
+| [anything-projects-2026-11-20.png](anything-projects-2026-11-20.png) | The Anything tab: your projects, credits left, and the filter |
+| [anything-not-connected-2026-11-20.png](anything-not-connected-2026-11-20.png) | The Anything tab before the key exists: it names the variable and reads nothing |
+| [anything-phone-2026-11-20.png](anything-phone-2026-11-20.png) | 390px: the same list, stacked, no sideways scroll |
 
 ## Generated, not stored
 
