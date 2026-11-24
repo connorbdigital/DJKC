@@ -8,6 +8,7 @@ import type { Capability } from "./types";
 export const CAPABILITIES: Capability[] = [
   {
     id: "booking-form-deposits",
+    version: "1.0.0",
     name: "Booking form with Stripe deposits",
     summary:
       "A priced enquiry form: package selection, suggested budget, deposit or pay-in-full choice, Stripe Checkout, and a verified confirmation on return.",
@@ -28,6 +29,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "storage-kv",
+    version: "1.0.0",
     name: "Vercel KV storage layer",
     summary:
       "Thin wrapper over the KV REST API used by every other data feature: command(), hash pairing and constant-time token comparison. Each storage feature needs this first.",
@@ -39,6 +41,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "booking-desk",
+    version: "1.0.0",
     name: "Token-gated admin desk",
     summary:
       "A private single-page desk for requests and sign-ups: unlock with a token, search, change status, export CSV, manage blocked dates.",
@@ -56,6 +59,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "mailing-list",
+    version: "1.0.0",
     name: "Database-backed mailing list",
     summary:
       "Subscribe endpoint with validation and rate limiting, a read/export/delete endpoint for the desk, and a delayed sign-up card for the site.",
@@ -74,6 +78,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "booking-chat",
+    version: "1.0.0",
     name: "Booking chat",
     summary:
       "A themed chat panel that answers booking questions and hands off to the enquiry form, with a serverless endpoint that rates-limits and fails safe.",
@@ -88,6 +93,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "blocked-dates",
+    version: "1.0.0",
     name: "Blocked dates",
     summary: "Block holidays and holds so the public availability check steers enquiries elsewhere, managed from the desk.",
     source: "connorbdigital/DJKC",
@@ -101,6 +107,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "notifications",
+    version: "1.0.0",
     name: "Email notifications",
     summary: "Emails the desk when an enquiry lands, with reply-to set to the enquirer. Never blocks storage if mail fails.",
     source: "connorbdigital/DJKC",
@@ -111,6 +118,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "calendar-feed",
+    version: "1.0.0",
     name: "Public calendar feed",
     summary: "A read-only iCalendar feed of upcoming dates, so the owner can subscribe to their own gig list.",
     source: "connorbdigital/DJKC",
@@ -121,6 +129,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "static-seo-pages",
+    version: "1.0.0",
     name: "Crawlable static pages",
     summary:
       "Builds real HTML pages — prices, FAQs, dates, coverage — plus sitemap.xml and llms.txt from your data file, so search engines and answer bots can read the site without running JavaScript.",
@@ -139,6 +148,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "sticky-cta-bar",
+    version: "1.0.0",
     name: "Sticky booking bar",
     summary: "Phone-only bottom bar that appears past the hero, steps aside at the form, and preselects the deposit on tap.",
     source: "connorbdigital/DJKC",
@@ -152,6 +162,7 @@ export const CAPABILITIES: Capability[] = [
   },
   {
     id: "theme-colour",
+    version: "1.0.0",
     name: "Section-following browser colour",
     summary: "Updates the address-bar colour to the section in view, without touching the logo or favicon.",
     source: "connorbdigital/DJKC",
