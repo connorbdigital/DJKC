@@ -16,12 +16,19 @@ commerce/
 ├── src/csv.ts        supplier CSV in, CSV out: quotes, BOMs, ragged rows, odd headers
 ├── src/importProducts.ts  four supplier column maps, price/stock coercion, per-row issues
 ├── src/exportFeed.ts Google Merchant feed, products.json, sitemap
+├── src/feedSource.ts feed URL checks, redaction, "what arrived in this file"
 └── src/fixtures.ts   two example products: one complete, one deliberately thin
 
 catalogue/
 ├── products.csv          twelve demo products in a trade-feed shape
 ├── scripts/build-catalogue.mts  CSV → static pages, JSON-LD, feed, llms.txt
 └── dist/                 generated: 1 index + 1 page per product + assets
+
+feeds/                    downloaded supplier files (git-ignored) + a redacted manifest
+scripts/fetch-feed.mts    npm run feed — fetch, date, hash and describe a supplier feed
+COMMISSION.md             margin, marketplace commission and affiliate rates, worked out
+SUPPLIERS.md              where the CSVs come from, with links
+GAPS.md                   what a real store has that this does not
 ```
 
 Pure TypeScript, no runtime dependencies, no React. `npm test` runs 81 tests; `npm run typecheck` is clean.
@@ -32,9 +39,15 @@ Pure TypeScript, no runtime dependencies, no React. `npm test` runs 81 tests; `n
 
 ```bash
 cd commerce
-npm run catalogue                # catalogue/dist from catalogue/products.csv
+npm run feed -- --url "<the URL from your supplier portal>" --name supplier
+npm run catalogue -- feeds/supplier-2026-11-20.csv
 npm run serve:catalogue          # http://localhost:4300
 ```
+
+`npm run feed` refuses plain HTTP and an account hidden in the URL, dates the file,
+records a SHA-256 and a redacted URL in `feeds/manifest.json`, and tells you which
+supplier profile it recognises. Credentials come from `FEED_AUTH_HEADER`,
+`FEED_USER`/`FEED_PASS` or the environment — never from a committed file.
 
 The demo images are generated placeholders; the products are invented. The importer, the feed exporter and the pages are not.
 

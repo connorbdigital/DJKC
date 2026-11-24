@@ -3,3 +3,7 @@ dist/
 coverage/
 .env*
 !.env.example
+
+# Supplier feeds are account data, not source
+commerce/feeds/*
+!commerce/feeds/README.md

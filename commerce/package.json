@@ -8,7 +8,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "catalogue": "tsx scripts/build-catalogue.mts",
-    "serve:catalogue": "node catalogue/scripts/serve.mjs"
+    "serve:catalogue": "node catalogue/scripts/serve.mjs",
+    "feed": "tsx scripts/fetch-feed.mts"
   },
   "devDependencies": {
     "@types/node": "22.19.17",
