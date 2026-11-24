@@ -342,3 +342,50 @@ export const compass = (yaw: number) => {
   return points[Math.round(degrees / 45) % 8]!;
 };
 
+
+/* --------------------------------------------------------------- journeys */
+
+/**
+ * A tour is the shortest honest answer to "what is this place": six stops, one
+ * per district, each with a sentence you can read while the camera is moving.
+ */
+export interface TourStop {
+  district: District;
+  caption: string;
+  /** Optional node to end on, so a stop can be more than a district centre. */
+  node?: string;
+}
+
+export const TOUR: TourStop[] = [
+  { district: "library", caption: "Thirteen processes we can install, each one something that has already shipped." },
+  { district: "packs", caption: "Four pathways: several processes, resolved in dependency order, opened as one pull request." },
+  { district: "builder", caption: "The eight steps every build goes through — the reasons, not just the tasks." },
+  { district: "projects", caption: "The work itself: this site, the shop, and the build behind them." },
+  { district: "content", caption: "Fourteen posts for sitebuildup.co.uk, each arguing from a number we can show.", node: "brief-checkout-losing-money" },
+  { district: "gallery", caption: "Live sites as panels you can fly up to and open, when they allow being framed." },
+];
+
+/** `#atlas/<node id>` opens the space already looking at that node. */
+export function hashForNode(id: string): string {
+  return `#atlas/${id}`;
+}
+
+export function nodeFromHash(hash: string, atlas: Atlas): AtlasNode | null {
+  const cleaned = hash.replace(/^#/, "").trim();
+  if (!cleaned) return null;
+  const id = cleaned.startsWith("atlas/") ? cleaned.slice("atlas/".length) : cleaned;
+  return atlas.nodes.find((node) => node.id === id) ?? null;
+}
+
+/**
+ * Portrait phones have a very narrow horizontal field of view at the desktop
+ * vertical FOV, which makes the whole space read as a speck. Widen vertically
+ * as the aspect ratio narrows, but stop before the projection turns to jelly.
+ */
+export function responsiveFov(aspect: number, base = 62, max = 86): number {
+  if (!Number.isFinite(aspect) || aspect <= 0) return base;
+  if (aspect >= 1.4) return base;
+  const horizontal = 2 * Math.atan(Math.tan((base * Math.PI) / 360) * 1.4);
+  const fitted = (2 * Math.atan(Math.tan(horizontal / 2) / aspect) * 180) / Math.PI;
+  return Math.min(max, Math.max(base, fitted));
+}

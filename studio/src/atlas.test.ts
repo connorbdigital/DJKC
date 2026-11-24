@@ -5,6 +5,10 @@ import { BRIEFS, briefsByService, briefsMarkdown } from "./atlasBriefs";
 import {
   PROJECTS,
   SITES,
+  TOUR,
+  hashForNode,
+  nodeFromHash,
+  responsiveFov,
   bestMatch,
   buildAtlas,
   compass,
@@ -118,6 +122,41 @@ describe("searching the space", () => {
     /* "affiliate" opens the post about affiliate commission, not the shop that
        happens to mention it in its body. */
     expect(searchAtlas(atlas, "affiliate")[0].id).toBe("brief-affiliate-vs-resell");
+  });
+
+  it("opens on a node from the URL", () => {
+    const link = hashForNode("brief-affiliate-vs-resell");
+    expect(link).toBe("#atlas/brief-affiliate-vs-resell");
+    expect(nodeFromHash(link, atlas)?.id).toBe("brief-affiliate-vs-resell");
+    /* A bare id is accepted too: people paste what the HUD shows. */
+    expect(nodeFromHash("#brief-affiliate-vs-resell", atlas)?.id).toBe("brief-affiliate-vs-resell");
+    expect(nodeFromHash("", atlas)).toBeNull();
+    expect(nodeFromHash("#atlas/not-a-node", atlas)).toBeNull();
+    expect(nodeFromHash("#", atlas)).toBeNull();
+  });
+
+  it("widens the field of view for portrait screens, within limits", () => {
+    expect(responsiveFov(16 / 9)).toBe(62);
+    expect(responsiveFov(1.6)).toBe(62);
+    const portrait = responsiveFov(390 / 844);
+    expect(portrait).toBeGreaterThan(62);
+    expect(portrait).toBeLessThanOrEqual(86);
+    expect(responsiveFov(0)).toBe(62);
+    expect(responsiveFov(Number.NaN)).toBe(62);
+    /* Wider never regresses as the phone gets narrower. */
+    expect(responsiveFov(0.7)).toBeGreaterThanOrEqual(responsiveFov(0.9));
+  });
+
+  it("tours every district, and the tour's node stops exist", () => {
+    const districts = new Set(atlas.districts.map((district) => district.id));
+    expect(TOUR.length).toBeGreaterThanOrEqual(5);
+    for (const stop of TOUR) {
+      expect(districts.has(stop.district)).toBe(true);
+      expect(stop.caption.length).toBeGreaterThan(20);
+      if (stop.node) expect(atlas.nodes.some((node) => node.id === stop.node)).toBe(true);
+    }
+    /* One stop per district keeps the tour a tour, not a playlist. */
+    expect(new Set(TOUR.map((stop) => stop.district)).size).toBe(TOUR.length);
   });
 
   it("measures the jump in metres", () => {

@@ -137,6 +137,86 @@ tested, the session path is guarded and typed, and a headset has not been tried.
   flies to a post, a site's panel loads a live page, the district chips travel,
   `W` moves, and **zero console or page errors**.
 
+## Second pass: phones, and more to do in the space
+
+![The tour, mid-flight](atlas-tour-2026-11-20.png)
+
+### What was actually broken on a phone
+
+An audit at 390 × 844 with touch emulation found five real faults, not a
+cosmetic one among them:
+
+1. **An old `max-width: 720px` block hid the title and the minimap outright**,
+   left over from a previous round and never revisited.
+2. **The header wrapped into three rows that overlapped**: the action buttons sat
+   on top of the search field and the filter chips cut through both.
+3. **There was no way to move.** The space answered `WASD`, `Q`/`E` and `Shift`
+   and nothing else, so on a phone you could look around and that was all.
+4. **Portrait framing was wrong.** At the desktop 62° vertical FOV, a 390 px wide
+   window sees a 31° horizontal slice: the whole atlas became a speck in a tall
+   black screen.
+5. **The detail card covered the world** and its buttons fell below the fold.
+
+### What the space does now
+
+| Touch | Does |
+| --- | --- |
+| Thumbstick (bottom left) | Move, in the direction you push |
+| Drag anywhere else | Look |
+| Pinch | Dolly forward and back |
+| Tap a node | Inspect it |
+| ↑ / ↓ pads | Rise and drop |
+| ⚡ pad | Boost |
+
+- **Portrait gets its own framing**: `responsiveFov()` widens the vertical field
+  of view as the aspect narrows (capped at 86°), the start pose becomes an
+  angled overview at `(0, 52, 104)` instead of the desktop entrance, and the
+  pixel ratio is capped at 1.5 on coarse pointers.
+- **The HUD is rebuilt for small screens**: one compact bar, a scrollable chip
+  rail, the detail card as a bottom sheet with sticky actions, and a smaller
+  minimap with each district tappable.
+- **The dock is the instruction manual** — "drag to look, pinch to zoom, tap a
+  node" replaces the keyboard legend, which is meaningless on glass.
+
+### And more to do, on both
+
+- **A guided tour**: six stops, one per district, each with a sentence; any input
+  hands control straight back.
+- **Deep links**: `#atlas/brief-affiliate-vs-resell` opens the space looking at
+  that node, and every card has a **Copy link** button.
+- **Search you can see**: matched nodes pulse and glow in the world while the
+  query is live, not just in the list.
+- **A working map**: district dots on the minimap are buttons that fly you there,
+  and the dot for where you are standing is drawn larger.
+- **Your place is remembered**: the camera position is written to
+  `localStorage` every second and restored on return — not on tab close, because
+  a page unload does not reliably run React's cleanup.
+- **A pointer that knows**: hovering a node changes the cursor and lifts the node
+  under it (desktop only).
+- **Bounded, everywhere**: the flight clamp now runs in one place, so pinch and
+  the thumbstick cannot push you outside the space either.
+
+![Mobile, on arrival](atlas-mobile-2026-11-20.png)
+
+![Mobile, inspecting a node](atlas-mobile-brief-2026-11-20.png)
+
+### Checks
+
+- `npx vitest run` in `studio`: **105 passed** — three new tests cover the FOV
+  curve, the deep-link parser and the tour's integrity (every stop a real
+  district, every named node real, no district twice).
+- `npm run build`: 279.64 kB main chunk, `Atlas` 604.62 kB lazy.
+- Chromium at 390 × 844 with touch: gate → space, thumbstick moves the camera,
+  a real two-finger pinch dollies it (z 104 → 85), a chip flies to its district,
+  a result opens the bottom sheet, the tour captions advance, deep links open,
+  and **zero console or page errors**.
+- Chromium at 1400 × 900: the desktop layout is unchanged apart from the new
+  Tour button and Copy link action.
+
+**Not verified:** a physical iOS or Android device, and VR on hardware. The walk
+above is emulated touch in desktop Chromium; it exercises the same pointer events
+a phone sends, but it is not a phone.
+
 ## Files
 
 ```

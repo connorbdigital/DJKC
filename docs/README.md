@@ -29,6 +29,9 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [atlas-brief-2026-11-20.png](atlas-brief-2026-11-20.png) | A blog brief opened from its card: promise, outline, facts with sources |
 | [atlas-blog-plan-2026-11-20.png](atlas-blog-plan-2026-11-20.png) | The blog plan filtered to its own district — 14 posts, two rows |
 | [atlas-gallery-2026-11-20.png](atlas-gallery-2026-11-20.png) | The gallery with a live page requested, and the note that says when a site refuses framing |
+| [atlas-tour-2026-11-20.png](atlas-tour-2026-11-20.png) | The guided tour, with its caption, between two stops |
+| [atlas-mobile-2026-11-20.png](atlas-mobile-2026-11-20.png) | 390px: compact bar, chip rail, thumbstick, lift/boost pads, tappable map |
+| [atlas-mobile-brief-2026-11-20.png](atlas-mobile-brief-2026-11-20.png) | 390px: a node's detail as a sheet, with its actions stuck to the bottom |
 
 ## Generated, not stored
 

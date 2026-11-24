@@ -14,10 +14,14 @@
 import * as THREE from "three";
 import { CSS3DObject, CSS3DRenderer } from "three/examples/jsm/renderers/CSS3DRenderer.js";
 import type { Atlas, AtlasNode, District, NodeKind } from "./atlas";
-import { compass, kindColour, nearestDistrict, nearestNode } from "./atlas";
+import { compass, kindColour, nearestDistrict, nearestNode, responsiveFov } from "./atlas";
 
 export interface EngineHandlers {
   onSelect: (node: AtlasNode | null) => void;
+  /** Pointer hovering a node, desktop only. */
+  onHover?: (node: AtlasNode | null) => void;
+  /** Any deliberate movement — used to cancel a guided tour. */
+  onInteract?: () => void;
   onTick: (info: { position: [number, number, number]; district: District; heading: string; near: string | null }) => void;
   onStatus: (message: string) => void;
 }
@@ -138,6 +142,12 @@ export class AtlasEngine {
   private readonly pickables: Pickable[] = [];
   private readonly labels: { sprite: THREE.Sprite; kind: NodeKind; base: THREE.Vector3 }[] = [];
   private readonly cards: { sprite: THREE.Sprite; base: THREE.Vector3 }[] = [];
+  /** Touch joystick input, merged with the keyboard in applyKeys(). */
+  private touch = { forward: 0, strafe: 0, lift: 0, boost: false };
+  private readonly pointers = new Map<number, { x: number; y: number }>();
+  private pinchDistance = 0;
+  private highlight = new Set<string>();
+  private highlightUntil = 0;
   private readonly panels = new Map<string, HTMLElement>();
   private readonly velocity = new THREE.Vector3();
   private readonly keys = new Set<string>();
@@ -163,13 +173,17 @@ export class AtlasEngine {
     private readonly cssHost: HTMLElement,
     private readonly stage: HTMLElement,
     atlas: Atlas,
-    handlers: EngineHandlers
+    handlers: EngineHandlers,
+    start?: [number, number, number] | null
   ) {
     this.atlas = atlas;
     this.handlers = handlers;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    /* Phones have enough pixels already: uncapped devicePixelRatio costs frames
+       and buys nothing on a 6-inch screen. */
+    const coarse = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2));
     this.renderer.setSize(host.clientWidth || 1, host.clientHeight || 1);
     this.renderer.setClearColor(0x0a0512, 1);
     this.renderer.xr.enabled = true;
@@ -199,7 +213,19 @@ export class AtlasEngine {
     this.scene.add(this.rig);
     this.rig.add(this.camera);
     this.camera.rotation.order = "YXZ";
-    this.rig.position.set(0, 30, 132);
+    /* Portrait needs a wider vertical FOV and a longer view, or the whole
+       space reads as a speck in the middle of a tall black screen. */
+    this.fitCamera();
+    if (start) {
+      this.rig.position.set(start[0], start[1], start[2]);
+    } else if (this.camera.aspect < 0.85) {
+      /* Portrait gets an overview: from down here the space is a horizontal
+         band in a tall black screen. */
+      this.rig.position.set(0, 52, 104);
+      this.pitch = -0.33;
+    } else {
+      this.rig.position.set(0, 30, 132);
+    }
     cameraLook(this.rig, this.camera, this.yaw, this.pitch);
 
     this.scene.add(new THREE.AmbientLight(0xb9a5ff, 0.9));
@@ -403,14 +429,48 @@ export class AtlasEngine {
   private onPointerDown = (event: PointerEvent) => {
     /* A click inside a live page belongs to the page, not to the camera. */
     if ((event.target as HTMLElement).closest?.(".atlas-panel")) return;
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    this.handlers.onInteract?.();
+    if (this.pointers.size === 2) {
+      /* Two fingers: pinch to dolly, and stop looking while they do it. */
+      this.pinchDistance = this.pinchSpan();
+      this.dragging = false;
+      return;
+    }
     this.dragging = true;
     this.dragDistance = 0;
     this.last = { x: event.clientX, y: event.clientY };
     (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
   };
 
+  private pinchSpan() {
+    const [a, b] = [...this.pointers.values()];
+    if (!a || !b) return 0;
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
   private onPointerMove = (event: PointerEvent) => {
-    if (!this.dragging) return;
+    if (this.pointers.has(event.pointerId)) this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (this.pointers.size === 2) {
+      const span = this.pinchSpan();
+      if (this.pinchDistance > 0 && span > 0) {
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.rig.quaternion);
+        this.flight = null;
+        this.rig.position.addScaledVector(forward, (span - this.pinchDistance) * 0.12);
+        this.clampRig();
+      }
+      this.pinchDistance = span;
+      return;
+    }
+
+    if (!this.dragging) {
+      /* Desktop nicety: the pointer tells you what is under it before you click. */
+      if (event.pointerType === "mouse" && this.handlers.onHover) {
+        this.handlers.onHover(this.nodeAt(event.clientX, event.clientY));
+      }
+      return;
+    }
     const dx = event.clientX - this.last.x;
     const dy = event.clientY - this.last.y;
     this.last = { x: event.clientX, y: event.clientY };
@@ -420,20 +480,13 @@ export class AtlasEngine {
     cameraLook(this.rig, this.camera, this.yaw, this.pitch);
   };
 
-  private onPointerUp = (event: PointerEvent) => {
-    const wasDragging = this.dragging;
-    this.dragging = false;
-    if (!wasDragging || this.dragDistance > 6) return;
+  private nodeAt(clientX: number, clientY: number): AtlasNode | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
-    this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
+    this.pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const visible = this.pickables.filter((entry) => entry.mesh.visible);
-    const hits = this.raycaster.intersectObjects(visible.map((entry) => entry.mesh), true);
-    const hit = hits[0];
-    if (!hit) {
-      this.select(null);
-      return;
-    }
+    const hit = this.raycaster.intersectObjects(visible.map((entry) => entry.mesh), true)[0];
+    if (!hit) return null;
     const owner = visible.find((entry) => {
       let object: THREE.Object3D | null = hit.object;
       while (object) {
@@ -442,7 +495,21 @@ export class AtlasEngine {
       }
       return false;
     });
-    if (owner) this.select(owner.node.id);
+    return owner?.node ?? null;
+  }
+
+  private onPointerUp = (event: PointerEvent) => {
+    this.pointers.delete(event.pointerId);
+    if (this.pointers.size < 2) this.pinchDistance = 0;
+    const wasDragging = this.dragging;
+    this.dragging = false;
+    if (!wasDragging || this.dragDistance > 6) return;
+    const node = this.nodeAt(event.clientX, event.clientY);
+    if (!node) {
+      this.select(null);
+      return;
+    }
+    this.select(node.id);
   };
 
   private onKeyDown = (event: KeyboardEvent) => {
@@ -480,6 +547,35 @@ export class AtlasEngine {
       }
     }
     this.handlers.onSelect(node);
+  }
+
+  /** Thumbstick, buttons and anything else that is not a keyboard key. */
+  setMoveInput(input: Partial<{ forward: number; strafe: number; lift: number; boost: boolean }>) {
+    this.touch = { ...this.touch, ...input };
+    if (input.forward || input.strafe || input.lift) {
+      this.flight = null;
+      this.handlers.onInteract?.();
+    }
+  }
+
+  /** Pulse a set of nodes — used when a search result should be findable in the dark. */
+  highlightNodes(ids: string[]) {
+    this.highlight = new Set(ids);
+    this.highlightUntil = performance.now() + 6000;
+  }
+
+  clearHighlight() {
+    this.highlight.clear();
+    this.highlightUntil = 0;
+  }
+
+  /** Where the visitor is, so the space can be resumed rather than restarted. */
+  getPose(): [number, number, number] {
+    return [this.rig.position.x, this.rig.position.y, this.rig.position.z];
+  }
+
+  stopFlight() {
+    this.flight = null;
   }
 
   /** Put a live page inside its gallery panel. The click has to come from real
@@ -568,10 +664,21 @@ export class AtlasEngine {
     this.scene.add(grip);
   }
 
+  /** Narrow screens get a wider vertical field of view and a touch more tilt. */
+  private fitCamera() {
+    const width = this.host.clientWidth || 1;
+    const height = this.host.clientHeight || 1;
+    const aspect = width / height;
+    this.camera.aspect = aspect;
+    this.camera.fov = responsiveFov(aspect);
+    this.camera.updateProjectionMatrix();
+  }
+
   resize = () => {
     const width = this.host.clientWidth || 1;
     const height = this.host.clientHeight || 1;
     this.camera.aspect = width / height;
+    this.camera.fov = responsiveFov(this.camera.aspect);
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.cssRenderer.setSize(width, height);
@@ -605,11 +712,20 @@ export class AtlasEngine {
       this.applyKeys(delta);
     }
 
-    /* Gentle drift so the space never looks like a still image. */
+    /* Gentle drift so the space never looks like a still image; searched-for
+       nodes breathe harder until the highlight expires. */
+    const hot = this.highlight.size > 0 && this.highlightUntil > performance.now();
+    if (!hot && this.highlight.size) this.highlight.clear();
     for (const entry of this.pickables) {
       entry.mesh.rotation.y += delta * (entry.node.kind === "project" ? 0.12 : 0.05);
       const pulse = 1 + Math.sin(this.frame * 0.02 + entry.mesh.position.x) * 0.03;
-      entry.mesh.scale.setScalar(entry.node.id === this.selected ? 1.18 : pulse);
+      const beat = 1 + Math.sin(this.frame * 0.11) * 0.09;
+      const scale = entry.node.id === this.selected ? 1.18 : hot && this.highlight.has(entry.node.id) ? beat : pulse;
+      entry.mesh.scale.setScalar(scale);
+      if ("emissiveIntensity" in entry.material) {
+        const material = entry.material as THREE.MeshStandardMaterial;
+        material.emissiveIntensity = hot && this.highlight.has(entry.node.id) ? 2.1 : entry.node.kind === "project" ? 1.1 : 0.8;
+      }
     }
 
     /* Labels keep a readable size on screen instead of shrinking into pixels. */
@@ -652,11 +768,16 @@ export class AtlasEngine {
     if (this.keys.has("s") || this.keys.has("arrowdown")) direction.sub(forward);
     if (this.keys.has("d") || this.keys.has("arrowright")) direction.add(right);
     if (this.keys.has("a") || this.keys.has("arrowleft")) direction.sub(right);
+    /* The thumbstick is an input like any other, not a second code path. */
+    if (this.touch.forward) direction.addScaledVector(forward, this.touch.forward);
+    if (this.touch.strafe) direction.addScaledVector(right, this.touch.strafe);
     if (this.keys.has("e") || this.keys.has(" ")) direction.y += 1;
     if (this.keys.has("q")) direction.y -= 1;
+    if (this.touch.lift) direction.y += this.touch.lift;
 
     if (direction.lengthSq() > 0) direction.normalize();
-    const boost = this.keys.has("shift") ? BOOST : 1;
+    const boost = this.keys.has("shift") || this.touch.boost ? BOOST : 1;
+    if (direction.lengthSq() > 0) this.handlers.onInteract?.();
     this.velocity.lerp(direction.multiplyScalar(SPEED * boost), Math.min(1, delta * 9));
     this.rig.position.addScaledVector(this.velocity, delta);
 
@@ -666,8 +787,12 @@ export class AtlasEngine {
       this.yaw += turn * delta * 1.6;
       cameraLook(this.rig, this.camera, this.yaw, this.pitch);
     }
-    const floor = EYE_HEIGHT;
-    if (this.rig.position.y < floor) this.rig.position.y = floor;
+    this.clampRig();
+  }
+
+  /** Keep the visitor inside the space, in every input path. */
+  private clampRig() {
+    if (this.rig.position.y < EYE_HEIGHT) this.rig.position.y = EYE_HEIGHT;
     if (this.rig.position.y > 160) this.rig.position.y = 160;
     const radius = Math.hypot(this.rig.position.x, this.rig.position.z);
     if (radius > 300) {
@@ -680,8 +805,9 @@ export class AtlasEngine {
   dispose() {
     this.disposed = true;
     this.renderer.setAnimationLoop(null);
-    this.renderer.domElement.removeEventListener("pointerdown", this.onPointerDown);
-    this.renderer.domElement.removeEventListener("pointermove", this.onPointerMove);
+    this.stage.removeEventListener("pointerdown", this.onPointerDown);
+    this.stage.removeEventListener("pointermove", this.onPointerMove);
+    this.stage.removeEventListener("wheel", this.onWheel);
     window.removeEventListener("pointerup", this.onPointerUp);
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);

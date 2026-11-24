@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AtlasEngine } from "../atlasEngine";
-import { buildAtlas, distance, kindColour, searchAtlas, type AtlasNode, type District, type NodeKind } from "../atlas";
+import {
+  TOUR,
+  buildAtlas,
+  distance,
+  hashForNode,
+  kindColour,
+  nodeFromHash,
+  searchAtlas,
+  type AtlasNode,
+  type District,
+  type NodeKind,
+} from "../atlas";
 
-const KIND_DISTRICT: Record<NodeKind, "library" | "projects" | "builder" | "packs" | "content" | "gallery"> = {
+const KIND_DISTRICT: Record<NodeKind, District> = {
   capability: "library",
   pack: "packs",
   step: "builder",
@@ -21,12 +32,29 @@ const FILTERS: { id: NodeKind | "all"; label: string }[] = [
   { id: "site", label: "Sites" },
 ];
 
+const POSE_KEY = "atlas:pose";
+
+function readPose(): [number, number, number] | null {
+  try {
+    const raw = window.localStorage.getItem(POSE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed) && parsed.length === 3 && parsed.every((value) => typeof value === "number" && Number.isFinite(value))) {
+      return parsed as [number, number, number];
+    }
+  } catch {
+    /* Storage is a convenience here, never a requirement. */
+  }
+  return null;
+}
+
 /**
  * The Atlas — one space holding the projects, the process library, the packs
  * that install them, the blog plan for sitebuildup.co.uk, and live site panels.
  *
  * It is deliberately usable without a GitHub token: the structure is local data,
  * so a client can be given a link to the space before anyone has signed in.
+ * `#atlas/<node id>` opens it looking at that node.
  */
 export function Atlas({ onClose }: { onClose?: () => void }) {
   const atlas = useMemo(() => buildAtlas(), []);
@@ -45,25 +73,59 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const [near, setNear] = useState<string | null>(null);
   const [heading, setHeading] = useState("S");
   const [vr, setVr] = useState<"unknown" | "ready" | "none">("unknown");
+  const [touch, setTouch] = useState(false);
+  const [hovering, setHovering] = useState(false);
+  const [tour, setTour] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
+  const savedAt = useRef(0);
 
   const results = useMemo(() => (query.trim() ? searchAtlas(atlas, query, 8) : []), [atlas, query]);
 
   useEffect(() => {
+    setTouch(window.matchMedia?.("(pointer: coarse)").matches ?? false);
+  }, []);
+
+  useEffect(() => {
     if (!host.current || !cssHost.current || !stage.current) return;
     let instance: AtlasEngine | null = null;
+    const fromHash = nodeFromHash(window.location.hash, atlas);
     try {
-      instance = new AtlasEngine(host.current, cssHost.current, stage.current, atlas, {
-        onSelect: (node) => setSelected(node),
-        onTick: (info) => {
-          setPosition(info.position);
-          setDistrict(info.district);
-          setNear(info.near);
-          setHeading(info.heading);
+      instance = new AtlasEngine(
+        host.current,
+        cssHost.current,
+        stage.current,
+        atlas,
+        {
+          onSelect: (node) => setSelected(node),
+          onHover: (node) => setHovering(Boolean(node)),
+          onInteract: () => setTour(null),
+          onTick: (info) => {
+            setPosition(info.position);
+            setDistrict(info.district);
+            setNear(info.near);
+            setHeading(info.heading);
+            /* A page unload does not always run a React cleanup, so the pose is
+               written while you fly rather than only when the tab closes. */
+            const now = Date.now();
+            if (now - savedAt.current > 1000) {
+              savedAt.current = now;
+              try {
+                window.localStorage.setItem(POSE_KEY, JSON.stringify(info.position.map((value) => Math.round(value))));
+              } catch {
+                /* Storage is a convenience here, never a requirement. */
+              }
+            }
+          },
+          onStatus: (message) => setStatus(message),
         },
-        onStatus: (message) => setStatus(message),
-      });
+        fromHash ? null : readPose()
+      );
       engine.current = instance;
       setReady(true);
+      if (fromHash) {
+        instance.flyToId(fromHash.id);
+        setSelected(fromHash);
+      }
     } catch (problem) {
       setFailed(
         problem instanceof Error
@@ -76,6 +138,13 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
       .then((supported) => setVr(supported ? "ready" : "none"))
       .catch(() => setVr("none"));
     return () => {
+      /* Come back to where you were, not to the entrance. */
+      try {
+        const pose = instance?.getPose();
+        if (pose) window.localStorage.setItem(POSE_KEY, JSON.stringify(pose.map((value) => Math.round(value))));
+      } catch {
+        /* Private browsing, quota, a locked-down WebView: none of it is fatal. */
+      }
       instance?.dispose();
       engine.current = null;
     };
@@ -85,13 +154,58 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
     engine.current?.setFilter(filter);
   }, [filter]);
 
+  /* A search should be visible in the dark, not just listed in the HUD. */
+  useEffect(() => {
+    if (!ready) return;
+    if (results.length) engine.current?.highlightNodes(results.map((node) => node.id));
+    else engine.current?.clearHighlight();
+  }, [results, ready]);
+
+  /* The tour: six stops, one sentence each, and any input hands control back. */
+  useEffect(() => {
+    if (tour === null) return;
+    const stop = TOUR[tour];
+    if (!stop) {
+      setTour(null);
+      return;
+    }
+    const centre = atlas.districts.find((place) => place.id === stop.district)?.centre;
+    if (stop.node) engine.current?.flyToId(stop.node);
+    else if (centre) engine.current?.focusDistrict(centre, stop.district === "content" ? 46 : 62);
+    const timer = window.setTimeout(() => setTour((current) => (current === null ? null : current + 1)), 4200);
+    return () => window.clearTimeout(timer);
+  }, [tour, atlas]);
+
   const flyTo = useCallback((id: string) => {
     engine.current?.flyToId(id);
   }, []);
 
+  const remember = (node: AtlasNode | null) => {
+    const next = node ? `${window.location.pathname}${window.location.search}${hashForNode(node.id)}` : `${window.location.pathname}${window.location.search}`;
+    window.history.replaceState(null, "", next);
+  };
+
   const jump = (node: AtlasNode) => {
     flyTo(node.id);
     setSelected(node);
+    remember(node);
+  };
+
+  const closeDetail = () => {
+    setSelected(null);
+    remember(null);
+  };
+
+  const copyLink = async (node: AtlasNode) => {
+    const url = `${window.location.origin}${window.location.pathname}${hashForNode(node.id)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setStatus(`Copied ${url}`);
+      window.setTimeout(() => setCopied(false), 2200);
+    } catch {
+      setStatus(url);
+    }
   };
 
   const enterVr = async () => {
@@ -104,6 +218,11 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
     }
   };
 
+  const goToDistrict = (id: District) => {
+    const centre = atlas.districts.find((place) => place.id === id)?.centre;
+    if (centre) engine.current?.focusDistrict(centre, id === "content" ? 34 : 58);
+  };
+
   const districtInfo = atlas.districts.find((entry) => entry.id === district);
   const counts = atlas.nodes.reduce<Record<string, number>>((totals, node) => {
     totals[node.kind] = (totals[node.kind] ?? 0) + 1;
@@ -111,7 +230,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   }, {});
 
   return (
-    <div className="atlas">
+    <div className={`atlas${touch ? " is-touch" : ""}${hovering ? " is-hovering" : ""}`}>
       <div className="atlas-stage" ref={stage}>
         <div ref={host} className="atlas-webgl" />
         <div ref={cssHost} className="atlas-css-host" />
@@ -137,11 +256,23 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search the space — a process, a pack, a blog post, a site…"
             aria-label="Search the atlas"
+            enterKeyHint="go"
           />
-          <button className="btn" type="submit">Fly to</button>
+          <button className="btn" type="submit">
+            Fly to
+          </button>
         </form>
 
         <div className="atlas-actions">
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={() => setTour(tour === null ? 0 : null)}
+            aria-pressed={tour !== null}
+            title="A guided six-stop flythrough"
+          >
+            {tour === null ? "Tour" : "Stop tour"}
+          </button>
           <button
             className="btn ghost"
             type="button"
@@ -169,11 +300,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             onClick={() => {
               setFilter(entry.id);
               /* A chip is also a way of travelling: pick the district, go there. */
-              const district = entry.id === "all" ? null : KIND_DISTRICT[entry.id];
-              if (district) {
-                const centre = atlas.districts.find((place) => place.id === district)?.centre;
-                if (centre) engine.current?.focusDistrict(centre, entry.id === "brief" ? 34 : 58);
-              }
+              if (entry.id !== "all") goToDistrict(KIND_DISTRICT[entry.id]);
             }}
           >
             {entry.label}
@@ -182,7 +309,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         ))}
       </div>
 
-      {query.trim() && (
+      {query.trim() && !(touch && selected) && (
         <div className="atlas-hud atlas-results">
           {results.length === 0 && <p className="muted">Nothing matches “{query.trim()}”.</p>}
           {results.map((node) => (
@@ -198,12 +325,16 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         </div>
       )}
 
-      <div className="atlas-hud atlas-map" aria-hidden="true">
-        <svg viewBox="-240 -240 480 480" role="presentation">
+      <div className="atlas-hud atlas-map">
+        <svg viewBox="-240 -240 480 480" role="group" aria-label="Map of the space — choose a district">
           <circle cx="0" cy="0" r="230" className="ring" />
           {atlas.districts.map((entry) => (
-            <g key={entry.id}>
-              <circle cx={entry.centre[0]} cy={entry.centre[2]} r="10" className="district" />
+            <g key={entry.id} className="atlas-map-stop" onClick={() => goToDistrict(entry.id)} role="button" tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") goToDistrict(entry.id);
+              }}>
+              <title>{entry.label}</title>
+              <circle cx={entry.centre[0]} cy={entry.centre[2]} r={district === entry.id ? 13 : 10} className={`district${district === entry.id ? " is-here" : ""}`} />
               <text x={entry.centre[0] + 16} y={entry.centre[2] + 4} className="district-label">
                 {entry.label}
               </text>
@@ -228,10 +359,71 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         </p>
       </div>
 
+      {tour !== null && TOUR[tour] && (
+        <div className="atlas-hud atlas-tour" role="status">
+          <p className="eyebrow">
+            Tour · {tour + 1}/{TOUR.length}
+          </p>
+          <p>{TOUR[tour].caption}</p>
+          <div className="atlas-tour-actions">
+            <button className="btn ghost" type="button" onClick={() => setTour(tour + 1)}>
+              Next
+            </button>
+            <button className="btn ghost" type="button" onClick={() => setTour(null)}>
+              Stop
+            </button>
+          </div>
+        </div>
+      )}
+
+      {touch && (
+        <div className="atlas-dock">
+          <Thumbstick onChange={(vector) => engine.current?.setMoveInput(vector)} />
+          <div className="atlas-dock-buttons">
+            <button
+              className="atlas-pad"
+              type="button"
+              aria-label="Rise"
+              onPointerDown={() => engine.current?.setMoveInput({ lift: 1 })}
+              onPointerUp={() => engine.current?.setMoveInput({ lift: 0 })}
+              onPointerLeave={() => engine.current?.setMoveInput({ lift: 0 })}
+            >
+              ↑
+            </button>
+            <button
+              className="atlas-pad"
+              type="button"
+              aria-label="Drop"
+              onPointerDown={() => engine.current?.setMoveInput({ lift: -1 })}
+              onPointerUp={() => engine.current?.setMoveInput({ lift: 0 })}
+              onPointerLeave={() => engine.current?.setMoveInput({ lift: 0 })}
+            >
+              ↓
+            </button>
+            <button
+              className="atlas-pad is-boost"
+              type="button"
+              aria-label="Boost"
+              onPointerDown={() => engine.current?.setMoveInput({ boost: true })}
+              onPointerUp={() => engine.current?.setMoveInput({ boost: false })}
+              onPointerLeave={() => engine.current?.setMoveInput({ boost: false })}
+            >
+              ⚡
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="atlas-hud atlas-help">
         <p>
-          <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> fly · <kbd>Q</kbd><kbd>E</kbd> down/up · <kbd>Shift</kbd> boost ·
-          drag to look · click a node to inspect · <kbd>F</kbd> fly to it · <kbd>Z</kbd><kbd>C</kbd> turn
+          {touch ? (
+            <>Drag to look · pinch to zoom · tap a node to inspect</>
+          ) : (
+            <>
+              <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> fly · <kbd>Q</kbd><kbd>E</kbd> down/up · <kbd>Shift</kbd> boost ·
+              drag to look · click a node to inspect · <kbd>F</kbd> fly to it · <kbd>Z</kbd><kbd>C</kbd> turn
+            </>
+          )}
         </p>
         {near && <p className="near">Near: {near}</p>}
         {status && <p className="atlas-status">{status}</p>}
@@ -243,7 +435,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           <div className="atlas-detail-head">
             <span className="swatch" style={{ background: kindColour[selected.kind] }} />
             <p className="eyebrow">{selected.kind}</p>
-            <button className="btn ghost" type="button" onClick={() => setSelected(null)} aria-label="Close details">
+            <button className="btn ghost" type="button" onClick={closeDetail} aria-label="Close details">
               ×
             </button>
           </div>
@@ -265,6 +457,9 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
                 Load the live page
               </button>
             )}
+            <button className="btn ghost" type="button" onClick={() => void copyLink(selected)}>
+              {copied ? "Copied" : "Copy link"}
+            </button>
             {selected.href && (
               <a className="btn ghost" href={selected.href} target="_blank" rel="noopener noreferrer">
                 Open
@@ -275,6 +470,55 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
       )}
 
       {!ready && !failed && <div className="atlas-hud atlas-loading">Building the space…</div>}
+    </div>
+  );
+}
+
+/** A thumbstick that reports the vector it is being pushed towards. */
+function Thumbstick({ onChange }: { onChange: (vector: { forward: number; strafe: number }) => void }) {
+  const pad = useRef<HTMLDivElement | null>(null);
+  const [knob, setKnob] = useState({ x: 0, y: 0 });
+  const active = useRef(false);
+
+  const update = (clientX: number, clientY: number) => {
+    const box = pad.current?.getBoundingClientRect();
+    if (!box) return;
+    const radius = box.width / 2;
+    let x = (clientX - (box.left + radius)) / radius;
+    let y = (clientY - (box.top + radius)) / radius;
+    const length = Math.hypot(x, y);
+    if (length > 1) {
+      x /= length;
+      y /= length;
+    }
+    setKnob({ x: x * radius * 0.62, y: y * radius * 0.62 });
+    onChange({ forward: -y, strafe: x });
+  };
+
+  const release = () => {
+    active.current = false;
+    setKnob({ x: 0, y: 0 });
+    onChange({ forward: 0, strafe: 0 });
+  };
+
+  return (
+    <div
+      ref={pad}
+      className="atlas-thumb"
+      role="group"
+      aria-label="Move — drag the stick"
+      onPointerDown={(event) => {
+        active.current = true;
+        (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+        update(event.clientX, event.clientY);
+      }}
+      onPointerMove={(event) => {
+        if (active.current) update(event.clientX, event.clientY);
+      }}
+      onPointerUp={release}
+      onPointerCancel={release}
+    >
+      <span className="atlas-thumb-knob" style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }} />
     </div>
   );
 }
