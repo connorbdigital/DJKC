@@ -21,8 +21,9 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [draft, setDraft] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState<{ id: string } | null>(null);
-  const [slot, setSlot] = useState<"idle" | "checking" | "open" | "requested" | "booked" | "unknown">("idle");
+  const [sent, setSent] = useState<{ id: string; depositUrl?: string | null } | null>(null);
+  const [slot, setSlot] = useState<"idle" | "checking" | "open" | "requested" | "booked" | "blocked" | "unknown">("idle");
+  const [deposit, setDeposit] = useState<{ id: string; amount: number } | null>(null);
 
   const set = (k: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -42,7 +43,7 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
         const response = await fetch(`/api/availability?date=${form.date}`, { signal: controller.signal });
         const data = response.ok ? await response.json() : null;
         if (controller.signal.aborted) return;
-        setSlot(["open", "requested", "booked"].includes(data?.status) ? data.status : "unknown");
+        setSlot(["open", "requested", "booked", "blocked"].includes(data?.status) ? data.status : "unknown");
       } catch {
         if (!controller.signal.aborted) setSlot("unknown");
       }
@@ -52,6 +53,20 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
       window.clearTimeout(timer);
     };
   }, [form.date]);
+
+  /* Returning from Stripe: ask the server to verify the session before claiming a payment. */
+  useEffect(() => {
+    const session = new URLSearchParams(window.location.search).get("deposit");
+    if (!session) return;
+    let cancelled = false;
+    fetch(`/api/deposit?session_id=${encodeURIComponent(session)}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.paid) setDeposit({ id: String(data.id ?? ""), amount: Number(data.amount ?? 0) });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -74,7 +89,7 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
       });
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.ok) throw new Error("not stored");
-      setSent({ id: String(result.id) });
+      setSent({ id: String(result.id), depositUrl: typeof result.depositUrl === "string" ? result.depositUrl : null });
       setSlot("requested");
     } catch {
       /* No booking store reachable: hand over the email draft instead of claiming success. */
@@ -86,6 +101,7 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
 
   const reset = () => {
     setSent(null);
+    setDeposit(null);
     setDraft(false);
     setForm({ name: "", email: "", venue: "", area: "", date: "", message: "" });
     setSlot("idle");
@@ -167,7 +183,25 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
 
         <Reveal delay={200} scale>
           <div className="ring-grad rounded-[2rem] p-6 sm:p-9">
-            {sent ? (
+            {deposit ? (
+              <div className="space-y-5">
+                <span className="inline-block rounded-full bg-mint/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-mint">
+                  Deposit received
+                </span>
+                <h3 className="font-display text-xl font-bold">Thank you — the deposit is paid.</h3>
+                <p className="text-sm leading-relaxed text-dim">
+                  {deposit.amount > 0 ? `We received £${deposit.amount.toLocaleString("en-GB")}. ` : ""}
+                  {deposit.id ? <>Your booking reference is <strong className="text-ink">{deposit.id}</strong>. </> : null}
+                  KC will confirm the date and send the short contract next. Keep this reference for any questions.
+                </p>
+                <a
+                  className="btn-primary inline-block rounded-full px-5 py-3 font-bold text-white"
+                  href={`mailto:${BOOKING_EMAIL}?subject=${encodeURIComponent(`Deposit paid — ${deposit.id}`)}`}
+                >
+                  Email KC about this booking
+                </a>
+              </div>
+            ) : sent ? (
               <div className="space-y-5">
                 <span className="inline-block rounded-full bg-mint/10 px-3 py-1.5 font-mono text-[9px] uppercase tracking-widest text-mint">
                   Request received
@@ -177,6 +211,18 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                   Your reference is <strong className="text-ink">{sent.id}</strong>. KC replies within 24 hours to confirm
                   the date, fee and travel. Nothing is booked until she confirms in writing.
                 </p>
+                {sent.depositUrl && (
+                  <div className="rounded-2xl border border-magenta/40 bg-magenta/[0.07] p-4">
+                    <p className="text-sm font-semibold text-ink">Want to hold the date now?</p>
+                    <p className="mt-1 text-sm text-dim">
+                      A holding deposit is the fastest way to secure it. Refund terms are set out in the contract KC sends
+                      before anything is final.
+                    </p>
+                    <a className="btn-primary mt-3 inline-block rounded-full px-5 py-2.5 text-sm font-bold text-white" href={sent.depositUrl}>
+                      Pay the holding deposit
+                    </a>
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-4">
                   <a
                     className="btn-primary rounded-full px-5 py-3 font-bold text-white"
@@ -270,13 +316,14 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                     {errors.date && <p id="bk-date-error" role="alert" className="mt-1.5 text-xs text-danger">{errors.date}</p>}
                     {!errors.date && slot !== "idle" && (
                       <p
-                        className={`mt-1.5 text-xs ${slot === "booked" ? "text-amber" : slot === "open" ? "text-mint" : "text-dim"}`}
+                        className={`mt-1.5 text-xs ${slot === "booked" || slot === "blocked" ? "text-amber" : slot === "open" ? "text-mint" : "text-dim"}`}
                         role="status"
                       >
                         {slot === "checking" && "Checking that date…"}
                         {slot === "open" && "That date looks open — KC confirms after your request."}
                         {slot === "requested" && "Another enquiry is already in for this date; KC can still fit you in."}
                         {slot === "booked" && "KC already has a confirmed show that day — send your enquiry for alternatives."}
+                        {slot === "blocked" && "KC is unavailable that date (booked or away) — pick another or ask for alternatives."}
                       </p>
                     )}
                   </div>

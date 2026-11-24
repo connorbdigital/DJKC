@@ -114,6 +114,7 @@
         <div class="tabs" role="tablist">
           <button class="btn tab" role="tab" id="tab-bookings" aria-selected="true" aria-controls="panel-bookings">Bookings</button>
           <button class="btn tab" role="tab" id="tab-list" aria-selected="false" aria-controls="panel-list">Mailing list</button>
+          <button class="btn tab" role="tab" id="tab-blocked" aria-selected="false" aria-controls="panel-blocked">Blocked dates</button>
         </div>
 
         <section id="panel-bookings" role="tabpanel" aria-labelledby="tab-bookings">
@@ -127,6 +128,7 @@
             </select>
             <button id="export-bookings" class="btn small">Download CSV</button>
             <button id="refresh" class="btn small ghost">Refresh</button>
+            <a class="btn small ghost" href="/api/calendar">Calendar feed</a>
           </div>
           <div class="card" style="padding:0">
             <table>
@@ -147,12 +149,33 @@
           </div>
           <div class="card" style="padding:0">
             <table>
-              <thead><tr><th>Email</th><th>Joined</th></tr></thead>
+              <thead><tr><th>Email</th><th>Joined</th><th>Actions</th></tr></thead>
               <tbody id="list-rows"></tbody>
             </table>
             <div id="list-empty" class="empty" hidden>No sign-ups yet.</div>
           </div>
           <p class="note" id="list-note"></p>
+        </section>
+        <section id="panel-blocked" role="tabpanel" aria-labelledby="tab-blocked" hidden>
+          <form id="block-form" class="toolbar" style="align-items:flex-end">
+            <div>
+              <label for="block-date">Date to close</label>
+              <input id="block-date" type="date" required />
+            </div>
+            <div>
+              <label for="block-reason">Reason (optional)</label>
+              <input id="block-reason" type="text" maxlength="120" placeholder="Holiday, travel day, hold…" />
+            </div>
+            <button class="btn primary small" type="submit">Block date</button>
+          </form>
+          <div class="card" style="padding:0">
+            <table>
+              <thead><tr><th>Date</th><th>Reason</th><th>Actions</th></tr></thead>
+              <tbody id="blocked-rows"></tbody>
+            </table>
+            <div id="blocked-empty" class="empty" hidden>No blocked dates. Add one above to hide it from booking requests.</div>
+          </div>
+          <p class="note">Blocked dates show as unavailable in the public availability check. They are separate from confirmed bookings.</p>
         </section>
       </main>
 
@@ -162,7 +185,7 @@
     <script>
       const $ = (selector, root = document) => root.querySelector(selector);
       const tokenKey = "kc-desk-token";
-      const state = { token: sessionStorage.getItem(tokenKey) || "", bookings: [], subscribers: null, filter: "all", search: "", listSearch: "" };
+      const state = { token: sessionStorage.getItem(tokenKey) || "", bookings: [], subscribers: null, blocked: [], filter: "all", search: "", listSearch: "" };
 
       const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
       const prettyDate = (iso) => {
@@ -204,7 +227,14 @@
             ? "This token cannot read the mailing list. Add ADMIN_TOKEN to Vercel (or allow SUBSCRIBERS_TOKEN) to see sign-ups here."
             : "The mailing list could not be loaded.";
         }
+        try {
+          const blocked = await (await api("/api/blocked")).json();
+          state.blocked = blocked.blocked || [];
+        } catch {
+          state.blocked = [];
+        }
         renderList();
+        renderBlocked();
         renderStats();
       }
 
@@ -231,6 +261,7 @@
             <td data-label="Event">
               <strong>${escapeHtml(b.venue)}</strong>
               <div class="muted">${escapeHtml(b.package)}${b.area ? " · " + escapeHtml(b.area) : ""}</div>
+              ${b.depositPaid ? `<div class="pill ok" style="margin-top:.35rem;display:inline-block">Deposit paid${b.depositAmount ? " · £" + b.depositAmount.toLocaleString("en-GB") : ""}</div>` : ""}
               ${b.message ? `<div class="muted" style="margin-top:.3rem">${escapeHtml(b.message)}</div>` : ""}
             </td>
             <td data-label="Contact">
@@ -256,6 +287,17 @@
           <tr>
             <td data-label="Email"><a href="mailto:${encodeURIComponent(s.email)}">${escapeHtml(s.email)}</a></td>
             <td data-label="Joined" class="muted">${escapeHtml(new Date(s.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }))}</td>
+            <td data-label="Actions"><button class="btn small ghost" data-remove="${escapeHtml(s.email)}">Remove</button></td>
+          </tr>`).join("");
+      }
+
+      function renderBlocked() {
+        $("#blocked-empty").hidden = state.blocked.length > 0;
+        $("#blocked-rows").innerHTML = state.blocked.map((b) => `
+          <tr>
+            <td data-label="Date">${escapeHtml(prettyDate(b.date))}</td>
+            <td data-label="Reason" class="muted">${escapeHtml(b.reason || "—")}</td>
+            <td data-label="Actions"><button class="btn small ghost" data-unblock="${escapeHtml(b.date)}">Reopen</button></td>
           </tr>`).join("");
       }
 
@@ -334,6 +376,51 @@
         }
       });
 
+      $("#block-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const date = $("#block-date").value;
+        const reason = $("#block-reason").value.trim();
+        if (!date) return;
+        try {
+          await api("/api/blocked", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date, reason }) });
+          $("#block-form").reset();
+          await load();
+          toast(`${prettyDate(date)} is now blocked.`);
+        } catch (error) {
+          toast(error.message);
+        }
+      });
+
+      $("#blocked-rows").addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-unblock]");
+        if (!button) return;
+        button.disabled = true;
+        try {
+          await api("/api/blocked", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: button.dataset.unblock }) });
+          await load();
+          toast("Date reopened for requests.");
+        } catch (error) {
+          toast(error.message);
+          button.disabled = false;
+        }
+      });
+
+      $("#list-rows").addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-remove]");
+        if (!button) return;
+        const email = button.dataset.remove;
+        if (!confirm(`Remove ${email} from the mailing list? This cannot be undone.`)) return;
+        button.disabled = true;
+        try {
+          await api("/api/subscribers", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+          await load();
+          toast(`${email} removed.`);
+        } catch (error) {
+          toast(error.message);
+          button.disabled = false;
+        }
+      });
+
       $("#search").addEventListener("input", (event) => { state.search = event.target.value; render(); });
       $("#filter").addEventListener("change", (event) => { state.filter = event.target.value; render(); });
       $("#list-search").addEventListener("input", (event) => { state.listSearch = event.target.value; renderList(); });
@@ -341,7 +428,7 @@
       $("#export-bookings").addEventListener("click", () => download("/api/bookings", "dj-kc-bookings.csv"));
       $("#export-list").addEventListener("click", () => download("/api/subscribers", "dj-kc-mailing-list.csv"));
 
-      const tabs = [["tab-bookings", "panel-bookings"], ["tab-list", "panel-list"]];
+      const tabs = [["tab-bookings", "panel-bookings"], ["tab-list", "panel-list"], ["tab-blocked", "panel-blocked"]];
       tabs.forEach(([tab, panel]) => {
         $("#" + tab).addEventListener("click", () => {
           tabs.forEach(([t, p]) => {

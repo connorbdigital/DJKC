@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { AREA_GROUPS, TIERS } from '../src/data.js';
 import { command, pairsFromHash, sameToken, store } from './store.js';
+import { createDeposit } from './deposit.js';
+import { notifyDesk } from './notify.js';
 
 export const BOOKINGS_KEY = 'kc:bookings';
 export const STATUSES = ['requested', 'confirmed', 'declined'] as const;
@@ -19,6 +21,10 @@ export interface Booking {
   status: BookingStatus;
   createdAt: string;
   updatedAt?: string;
+  notified?: boolean;
+  depositPaid?: boolean;
+  depositAmount?: number;
+  paidAt?: string;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -80,8 +86,12 @@ export default async function bookings(req: IncomingMessage & { body?: unknown }
       createdAt: new Date().toISOString(),
     };
     try {
-      await command(client, ['HSET', BOOKINGS_KEY, booking.id, JSON.stringify(booking)]);
-      return send(201, { ok: true, id: booking.id, status: booking.status });
+      const settled = await command(client, ['HSET', BOOKINGS_KEY, booking.id, JSON.stringify(booking)]);
+      if (settled.result === undefined && !('result' in settled)) throw new Error('not stored');
+      const notified = await notifyDesk(booking);
+      const tier = TIERS.find((t) => t.name === booking.package);
+      const depositUrl = tier ? await createDeposit(booking, tier.price) : null;
+      return send(201, { ok: true, id: booking.id, status: booking.status, notified, depositUrl });
     } catch {
       return send(503, { error: 'Bookings unavailable' });
     }
