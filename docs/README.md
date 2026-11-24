@@ -14,6 +14,15 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [../studio/README.md](../studio/README.md) | The Studio: inventory, feature library, draft → PR → checks → merge gate |
 | [../README.md](../README.md) | The DJKC site itself and the two products that live beside it |
 
+## Screenshots of this round's build (20 Nov 2026)
+
+| File | What it shows |
+| --- | --- |
+| [shop-home-2026-11-20.png](shop-home-2026-11-20.png) | The full home page: hero, trust band, twelve department tiles, reductions, under-£25 edits, promises, FAQs |
+| [shop-product-2026-11-20.png](shop-product-2026-11-20.png) | A product page: price, delivery before the click, stock, basket, accordions, key facts |
+| [shop-basket-2026-11-20.png](shop-basket-2026-11-20.png) | The basket with two lines, and the checkout that says it is not connected |
+| [shop-mobile-2026-11-20.png](shop-mobile-2026-11-20.png) | 390px: compact header, scrolling department rail, stacked calls to action |
+
 ## Generated, not stored
 
 `commerce/catalogue/dist/` is built by `npm run site` and is git-ignored:
