@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { branchName, installBody, targetPath } from "./installer";
+import { branchName, extractImports, installBody, resolveImport, targetPath } from "./installer";
 import { capabilityById } from "./features";
 
 describe("installer", () => {
@@ -26,5 +26,49 @@ describe("installer", () => {
     expect(body).toContain("STRIPE_SECRET_KEY");
     expect(body).toContain("Do not merge until");
     expect(body).toContain("Copied from `connorbdigital/DJKC`");
+  });
+});
+
+describe("preflight helpers", () => {
+  it("finds relative imports and ignores packages", () => {
+    const source = [
+      'import { useMemo } from "react";',
+      'import { TIERS } from "../data";',
+      "import { Reveal } from './Reveal';",
+      'const lazy = import("./panel");',
+    ].join("\n");
+    expect(extractImports(source).sort()).toEqual(["../data", "./Reveal", "./panel"].sort());
+  });
+
+  it("resolves an import against the importing file, with extensions", () => {
+    const candidates = resolveImport("src/components/Booking.tsx", "../data");
+    expect(candidates).toContain("src/data");
+    expect(candidates).toContain("src/data.ts");
+    expect(candidates).toContain("src/data.tsx");
+  });
+
+  it("handles parent chains without wandering above the repo", () => {
+    const candidates = resolveImport("api/bookings.ts", "./store.js");
+    expect(candidates[0]).toBe("api/store.js");
+    expect(resolveImport("a.ts", "../../../etc/passwd")[0]).toBe("etc/passwd");
+  });
+
+  it("writes the check results into the pull request body", () => {
+    const capability = capabilityById("booking-form-deposits")!;
+    const body = installBody(capability, {
+      source: "connorbdigital/DJKC",
+      prefix: "feature",
+      paths: ["feature/api/bookings.ts"],
+      preflight: {
+        files: [{ source: "api/bookings.ts", destination: "feature/api/bookings.ts", bytes: 4200, exists: false }],
+        collisions: ["feature/api/bookings.ts"],
+        unresolved: [{ file: "src/components/Booking.tsx", specifier: "../data" }],
+        missingDependencies: ["storage-kv"],
+      },
+    });
+    expect(body).toContain("Checked before writing");
+    expect(body).toContain("Overwrote an existing file");
+    expect(body).toContain("../data");
+    expect(body).toContain("storage-kv");
   });
 });

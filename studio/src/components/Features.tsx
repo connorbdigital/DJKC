@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CAPABILITIES, capabilityById } from "../features";
-import { installFeature, type InstallResult } from "../installer";
+import { installFeature, preflight, type InstallResult, type Preflight } from "../installer";
 import type { Repo } from "../types";
 
 export function Features({ token, repos }: { token: string; repos: Repo[] }) {
@@ -11,8 +11,31 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
   const [result, setResult] = useState<InstallResult | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [check, setCheck] = useState<Preflight | null>(null);
+  const [query, setQuery] = useState("");
 
   const capability = capabilityById(openId);
+  const shown = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return term
+      ? CAPABILITIES.filter((entry) => `${entry.name} ${entry.summary}`.toLowerCase().includes(term))
+      : CAPABILITIES;
+  }, [query]);
+
+  const runCheck = async () => {
+    if (!capability || !target) return;
+    setBusy(true);
+    setError("");
+    setResult(null);
+    setCheck(null);
+    try {
+      setCheck(await preflight({ token, capability, target, prefix }));
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : "The check failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const install = async () => {
     if (!capability || !target) return;
@@ -27,6 +50,7 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
         capability,
         target,
         prefix,
+        preflight: check ?? undefined,
         onStep: (message) => setLog((lines) => [...lines, message]),
       });
       setResult(outcome);
@@ -40,8 +64,15 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
   return (
     <div className="split">
       <div className="col">
+        <input
+          className="input"
+          aria-label="Search features"
+          placeholder="Search the library"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
         <ul className="list">
-          {CAPABILITIES.map((entry) => (
+          {shown.map((entry) => (
             <li key={entry.id}>
               <button className={`list-item${entry.id === openId ? " is-on" : ""}`} onClick={() => setOpenId(entry.id)}>
                 <span className="list-title">{entry.name}</span>
@@ -49,6 +80,7 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
               </button>
             </li>
           ))}
+          {!shown.length && <li className="muted">Nothing matches that yet.</li>}
         </ul>
       </div>
 
@@ -108,9 +140,39 @@ export function Features({ token, repos }: { token: string; repos: Repo[] }) {
                   <input value={prefix} onChange={(event) => setPrefix(event.target.value)} placeholder="e.g. src/features" />
                 </label>
               </div>
-              <button className="btn primary" onClick={install} disabled={busy || !target}>
-                {busy ? "Working…" : "Copy files and open a pull request"}
-              </button>
+              <div className="actions">
+                <button className="btn" onClick={runCheck} disabled={busy || !target}>
+                  {busy ? "Checking…" : "Check against target"}
+                </button>
+                <button className="btn primary" onClick={install} disabled={busy || !target}>
+                  {busy ? "Working…" : "Copy files and open a pull request"}
+                </button>
+              </div>
+
+              {check && (
+                <div className="check-result">
+                  <p className="muted small">
+                    {check.files.length} file{check.files.length === 1 ? "" : "s"} read · {check.files.reduce((total, file) => total + file.bytes, 0).toLocaleString("en-GB")} bytes
+                  </p>
+                  {check.collisions.length > 0 && (
+                    <p className="warn-line">Will overwrite: {check.collisions.join(", ")}</p>
+                  )}
+                  {check.missingDependencies.length > 0 && (
+                    <p className="warn-line">Install first: {check.missingDependencies.join(", ")}</p>
+                  )}
+                  {check.unresolved.length > 0 ? (
+                    <ul className="unresolved">
+                      {check.unresolved.map((entry) => (
+                        <li key={`${entry.file}-${entry.specifier}`}>
+                          <code>{entry.file}</code> imports <code>{entry.specifier}</code> — not in the target yet
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="ok small">Every relative import resolves inside the files being copied.</p>
+                  )}
+                </div>
+              )}
               <p className="muted small">
                 Files are copied byte-for-byte from <code>{capability.source}</code>. The pull request lists what still needs
                 editing — usually imports and copy. Nothing is merged.

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { requestDraft } from "../agent";
 import { CAPABILITIES } from "../features";
-import { createBranch, defaultBranch, openPull, writeFile } from "../github";
+import { createBranch, defaultBranch, openPull, readFile, writeFile } from "../github";
 import { branchName, targetPath } from "../installer";
 import type { DraftPlan, Repo } from "../types";
 
@@ -14,6 +14,8 @@ export function Draft({ token, repos }: { token: string; repos: Repo[] }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [prUrl, setPrUrl] = useState("");
+  const [context, setContext] = useState<{ path: string; excerpt: string }[]>([]);
+  const [pathToAttach, setPathToAttach] = useState("");
   const [log, setLog] = useState<string[]>([]);
 
   const toggle = (id: string) =>
@@ -25,12 +27,32 @@ export function Draft({ token, repos }: { token: string; repos: Repo[] }) {
     setPrUrl("");
     setPlan(null);
     try {
-      const result = await requestDraft({ brief, repo: target, features: reuse });
+      const result = await requestDraft({ brief, repo: target, features: reuse, context });
       setPlan(result);
     } catch (problem) {
       setError(problem instanceof Error ? problem.message : "The agent did not answer.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const attach = async () => {
+    const path = pathToAttach.trim();
+    if (!path || !target) return;
+    setError("");
+    try {
+      const content = await readFile(token, target, path);
+      if (content === null) {
+        setError(`${path} is not in ${target}.`);
+        return;
+      }
+      setContext((current) => [
+        ...current.filter((entry) => entry.path !== path),
+        { path, excerpt: content.slice(0, 4000) },
+      ]);
+      setPathToAttach("");
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : "Could not read that file.");
     }
   };
 
@@ -105,6 +127,37 @@ export function Draft({ token, repos }: { token: string; repos: Repo[] }) {
           <input value={prefix} onChange={(event) => setPrefix(event.target.value)} placeholder="e.g. src/pages" />
         </label>
       </div>
+
+      <label htmlFor="attach">Give the agent real code (optional)</label>
+      <div className="attach-row">
+        <input
+          id="attach"
+          value={pathToAttach}
+          onChange={(event) => setPathToAttach(event.target.value)}
+          placeholder="src/components/Booking.tsx"
+        />
+        <button className="btn" onClick={attach} disabled={!pathToAttach.trim()}>Attach file</button>
+      </div>
+      {!!context.length && (
+        <ul className="attached">
+          {context.map((entry) => (
+            <li key={entry.path}>
+              <code>{entry.path}</code>
+              <span className="muted small"> · {entry.excerpt.length.toLocaleString("en-GB")} chars</span>
+              <button
+                className="link"
+                onClick={() => setContext((current) => current.filter((item) => item.path !== entry.path))}
+              >
+                remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="muted small">
+        Up to a few files, first 4,000 characters each. Files are read at draft time from the selected project's default
+        branch.
+      </p>
 
       <fieldset className="reuse">
         <legend>Reuse these features as context</legend>

@@ -94,3 +94,15 @@ button.btn, a.btn {
 .gate button { width: 100%; justify-content: center; }
 .foot { margin-top: 2.5rem; border-top: 1px solid var(--line); padding-top: 1rem; }
 .foot p { color: var(--dim); font-size: .78rem; margin: 0; }
+
+.actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+.check-result { margin-top: .9rem; border: 1px solid var(--line); border-radius: 12px; padding: .7rem .85rem; background: #ffffff05; }
+.warn-line { color: var(--warn); font-size: .82rem; margin: .35rem 0; }
+.unresolved { font-size: .8rem; color: var(--dim); margin: .4rem 0 0; padding-left: 1.1rem; }
+.unresolved li { margin: .2rem 0; }
+.attach-row { display: flex; gap: .5rem; align-items: center; }
+.attach-row input { flex: 1; }
+.attach-row .btn { margin-top: 0; }
+.attached { list-style: none; padding: 0; margin: .5rem 0 0; display: grid; gap: .3rem; font-size: .82rem; }
+.attached li { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.link { background: none; border: 0; color: var(--pink); cursor: pointer; font: inherit; font-size: .78rem; padding: 0; }
