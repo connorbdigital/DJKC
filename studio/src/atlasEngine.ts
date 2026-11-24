@@ -32,6 +32,8 @@ interface Pickable {
   /** The thing whose opacity changes on selection: a mesh material or a card sprite. */
   material: THREE.Material & { opacity: number };
   halo?: THREE.Mesh;
+  /** Suns carry their own brightness uniform; this is how selection dims one. */
+  fade?: (value: number) => void;
 }
 
 /** A radial gradient on a canvas: cheap light, no post-processing pass. */
@@ -74,6 +76,107 @@ function starTexture(): THREE.Texture {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
+}
+
+
+/**
+ * A sun, not a sphere.
+ *
+ * The photosphere is a shader: two octaves of value noise churn across the
+ * surface, limb darkening keeps the middle hot, and a thin bright rim does the
+ * work a bloom pass would — light that spills past the edge instead of stopping
+ * at it. Nothing here needs a render target, so it costs the same on a phone.
+ */
+function sunMaterial(colour: THREE.Color, seed: number) {
+  const hot = colour.clone().lerp(new THREE.Color(0xffffff), 0.28);
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColour: { value: colour.clone() },
+      uHot: { value: hot },
+      uSeed: { value: seed },
+      uFade: { value: 1 },
+      uHeat: { value: 1 },
+    },
+    vertexShader: `
+      varying vec3 vNormal;
+      varying vec3 vView;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vNormal = normalize(normalMatrix * normal);
+        vView = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: `
+      uniform float uTime;
+      uniform vec3 uColour;
+      uniform vec3 uHot;
+      uniform float uSeed;
+      uniform float uFade;
+      uniform float uHeat;
+      varying vec3 vNormal;
+      varying vec3 vView;
+
+      float hash(vec3 p) {
+        return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123);
+      }
+      float noise(vec3 p) {
+        vec3 i = floor(p);
+        vec3 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float n000 = hash(i);
+        float n100 = hash(i + vec3(1.0, 0.0, 0.0));
+        float n010 = hash(i + vec3(0.0, 1.0, 0.0));
+        float n110 = hash(i + vec3(1.0, 1.0, 0.0));
+        float n001 = hash(i + vec3(0.0, 0.0, 1.0));
+        float n101 = hash(i + vec3(1.0, 0.0, 1.0));
+        float n011 = hash(i + vec3(0.0, 1.0, 1.0));
+        float n111 = hash(i + vec3(1.0, 1.0, 1.0));
+        return mix(
+          mix(mix(n000, n100, f.x), mix(n010, n110, f.x), f.y),
+          mix(mix(n001, n101, f.x), mix(n011, n111, f.x), f.y),
+          f.z
+        );
+      }
+      float fbm(vec3 p) {
+        float v = 0.0;
+        float a = 0.55;
+        for (int i = 0; i < 4; i++) {
+          v += a * noise(p);
+          p *= 2.07;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main() {
+        float facing = clamp(dot(vNormal, vView), 0.0, 1.0);
+        float churn = uTime * 0.03;
+
+        /* Fine granulation over slow convection: rice-grain cells, not continents.
+           Two frequencies because one alone reads as camouflage up close. */
+        float fine = fbm(vNormal * 46.0 + vec3(uSeed, churn, -churn));
+        float mid = fbm(vNormal * 15.0 - vec3(churn * 0.6, uSeed, churn * 0.3));
+        float cells = smoothstep(0.34, 0.74, fine) * 0.78 + smoothstep(0.46, 0.82, mid) * 0.22;
+
+        vec3 surface = mix(uColour * 0.86, uHot, clamp(cells, 0.0, 1.0) * 0.72);
+
+        /* Sunspots: a few darker, slower patches — the thing that tells you a
+           disc is a body turning and not a texture on a billboard. */
+        float spot = smoothstep(0.74, 0.93, fbm(vNormal * 3.4 + vec3(uSeed * 1.7, 0.0, churn * 0.25)));
+        surface = mix(surface, uColour * 0.28, spot * 0.6);
+
+        /* Limb darkening is what makes a disc read as a sphere: the middle burns,
+           the edge falls away, and a thin hot rim carries the corona. */
+        float limb = pow(facing, 1.45);
+        float rim = pow(1.0 - facing, 6.0);
+        vec3 lit = surface * (0.36 + 1.0 * limb) + uHot * rim * 0.95;
+        lit *= 1.1 * uHeat;
+        gl_FragColor = vec4(lit * uFade, 1.0);
+      }
+    `,
+  });
 }
 
 const FOV = 62;
@@ -200,6 +303,7 @@ export class AtlasEngine {
   private readonly atlas: Atlas;
   private readonly edgeLines: { from: string; to: string; kind: string; line: THREE.LineSegments; midpoint: THREE.Vector3 }[] = [];
   private readonly stars: { points: THREE.Points; material: THREE.PointsMaterial; speed: number; base: number; phase: number }[] = [];
+  private readonly suns: { id: string; material: THREE.ShaderMaterial; mesh: THREE.Mesh; spin: number }[] = [];
   private frame = 0;
   private yaw = 0;
   private pitch = -0.13;
@@ -398,7 +502,16 @@ export class AtlasEngine {
 
   private buildNodes() {
     for (const node of this.atlas.nodes) {
+      /* Every sun is its kind's colour, with a few degrees of hue drift of its
+         own — a district of identical spheres reads as a diagram, and the same
+         district with a little variation reads as a sky. */
       const colour = new THREE.Color(kindColour[node.kind]);
+      if (node.kind !== "site") {
+        const drift = ((node.id.charCodeAt(node.id.length - 1) * 37) % 11) / 11 - 0.5;
+        const hsl = { h: 0, s: 0, l: 0 };
+        colour.getHSL(hsl);
+        colour.setHSL((hsl.h + drift * 0.05 + 1) % 1, Math.min(1, hsl.s * (1 + Math.abs(drift) * 0.2)), hsl.l);
+      }
       const group = new THREE.Group();
       group.position.set(...node.position);
 
@@ -416,33 +529,65 @@ export class AtlasEngine {
         continue;
       }
 
-      const geometry = node.kind === "site" ? new THREE.BoxGeometry(node.size * 1.7, node.size * 1.1, 0.14) : new THREE.IcosahedronGeometry(node.size, node.kind === "project" ? 2 : 1);
-      const material = new THREE.MeshStandardMaterial({
-        color: colour,
-        emissive: colour,
-        emissiveIntensity: node.kind === "project" ? 1.1 : 0.8,
-        roughness: 0.35,
-        metalness: 0.15,
-        transparent: true,
-        opacity: 0.95,
-      });
+      /* Sites stay screens: a framed box reads as a page, and a sphere would not.
+         Everything else is a sun. */
+      const isSite = node.kind === "site";
+      const geometry = isSite
+        ? new THREE.BoxGeometry(node.size * 1.7, node.size * 1.1, 0.14)
+        : new THREE.SphereGeometry(node.size * 1.18, node.kind === "project" || node.kind === "pack" ? 64 : 40, node.kind === "project" || node.kind === "pack" ? 48 : 28);
+      const material = isSite
+        ? new THREE.MeshStandardMaterial({
+            color: colour,
+            emissive: colour,
+            emissiveIntensity: 1.1,
+            roughness: 0.35,
+            metalness: 0.15,
+            transparent: true,
+            opacity: 0.95,
+          })
+        : sunMaterial(colour, node.id.length * 0.37 + node.position[0] * 0.11);
       const mesh = new THREE.Mesh(geometry, material);
       group.add(mesh);
+      if (!isSite) {
+        this.suns.push({
+          id: node.id,
+          material: material as THREE.ShaderMaterial,
+          mesh,
+          spin: node.kind === "project" ? 0.05 : node.kind === "pack" ? 0.04 : 0.028,
+        });
+      }
 
-      /* A soft additive puff behind each node: it reads at distance and costs one
-         sprite, where a bloom pass would cost a whole render target. */
-      const glow = new THREE.Sprite(
+      /* Bloom, tuned rather than cranked. Two sprites per sun: a tight hot
+         corona that belongs to the star, and a wide faint one that is the light
+         it throws into the dark. The wide one used to be twice this bright,
+         which smeared every node into a pink bruise at distance. */
+      const coronaColour = colour.clone().lerp(new THREE.Color(0xffffff), 0.5);
+      const corona = new THREE.Sprite(
         new THREE.SpriteMaterial({
           map: nebulaTexture(),
-          color: colour,
+          color: coronaColour,
           transparent: true,
-          opacity: node.kind === "project" ? 0.5 : 0.34,
+          opacity: isSite ? 0.16 : 0.34,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
           fog: false,
         })
       );
-      glow.scale.setScalar(node.size * (node.kind === "project" ? 4.4 : 5.2));
+      corona.scale.setScalar(node.size * (isSite ? 3.6 : 3.1));
+      group.add(corona);
+
+      const glow = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: nebulaTexture(),
+          color: colour,
+          transparent: true,
+          opacity: isSite ? 0.2 : 0.14,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          fog: false,
+        })
+      );
+      glow.scale.setScalar(node.size * (isSite ? 5.4 : 6.6));
       group.add(glow);
 
       const halo = new THREE.Mesh(
@@ -461,7 +606,17 @@ export class AtlasEngine {
       }
 
       this.scene.add(group);
-      this.pickables.push({ node, mesh, material, halo });
+      this.pickables.push({
+        node,
+        mesh,
+        material: isSite ? material : (glow.material as THREE.SpriteMaterial),
+        halo,
+        fade: isSite ? undefined : (value: number) => {
+          const sun = material as THREE.ShaderMaterial;
+          sun.uniforms.uFade!.value = 0.35 + value * 0.65;
+          (corona.material as THREE.SpriteMaterial).opacity = (isSite ? 0.16 : 0.34) * value;
+        },
+      });
     }
   }
 
@@ -596,7 +751,10 @@ export class AtlasEngine {
       this.select(null);
       return;
     }
-    this.select(node.id);
+    /* First click frames the star; clicking the same star again flies inside
+       its corona, which is where the surface detail lives. */
+    if (node.id === this.selected) this.diveTo(node.id);
+    else this.flyTo(node);
   };
 
   private onKeyDown = (event: KeyboardEvent) => {
@@ -628,7 +786,9 @@ export class AtlasEngine {
     const node = id ? this.atlas.nodes.find((entry) => entry.id === id) ?? null : null;
     this.updateEdges();
     for (const entry of this.pickables) {
-      entry.material.opacity = !node || entry.node.id === node.id ? 1 : 0.5;
+      const bright = !node || entry.node.id === node.id;
+      entry.material.opacity = bright ? 1 : 0.5;
+      entry.fade?.(bright ? 1 : 0.5);
       if (entry.halo && entry.halo.material instanceof THREE.MeshBasicMaterial) {
         entry.halo.material.opacity = entry.node.id === node?.id ? 0.6 : 0;
       }
@@ -684,6 +844,34 @@ export class AtlasEngine {
     const node = this.atlas.nodes.find((entry) => entry.id === id);
     if (!node) return;
     this.flyTo(node);
+  }
+
+  /**
+   * Fly inside the corona. Close enough that the sun fills the view and you can
+   * see the granulation move, not so close that the surface clips the near
+   * plane. A site opens its live preview on the way in; that is the only node
+   * kind with a page to show.
+   */
+  diveTo(id: string) {
+    const node = this.atlas.nodes.find((entry) => entry.id === id);
+    if (!node) return;
+    const target = new THREE.Vector3(...node.position);
+    const direction = new THREE.Vector3().subVectors(this.rig.position, target);
+    if (direction.lengthSq() < 0.01) direction.set(0, 0.25, 1);
+    direction.normalize();
+    const distance = Math.max(node.size * (node.kind === "site" ? 5.2 : 3.7), 9);
+    const stop = target.clone().addScaledVector(direction, distance);
+    /* Stay above the grid, and look slightly down on the star rather than
+       dead-level with its equator. */
+    stop.y = Math.max(stop.y, target.y + node.size * 0.35);
+    this.flight = { from: this.rig.position.clone(), to: stop, look: target, t: 0 };
+    this.select(node.id);
+    if (node.kind === "site") this.loadSite(node.id);
+    this.handlers.onStatus(
+      node.kind === "site"
+        ? `${node.label}: up close, with its page requested.`
+        : `${node.label}: up close.`
+    );
   }
 
   flyTo(node: AtlasNode) {
@@ -835,6 +1023,16 @@ export class AtlasEngine {
     /* Stars turn slowly and breathe; edges fade with distance so the far side of
        the space recedes instead of drawing every wire at once. */
     const seconds = this.clock.elapsedTime;
+    for (const sun of this.suns) {
+      sun.material.uniforms.uTime!.value = seconds;
+      sun.mesh.rotation.y += delta * sun.spin;
+      sun.mesh.rotation.x = Math.sin(seconds * 0.12 + sun.spin * 30) * 0.06;
+      /* A searched-for sun burns hotter than its neighbours, and the selected
+         one keeps a little extra heat so it still reads once the camera is
+         inside its corona. */
+      sun.material.uniforms.uHeat!.value =
+        (hot && this.highlight.has(sun.id) ? 1.5 : 1) + (sun.id === this.selected ? 0.25 : 0);
+    }
     for (const star of this.stars) {
       star.points.rotation.y += delta * star.speed;
       star.material.opacity = star.base * (0.86 + Math.sin(seconds * 0.6 + star.phase) * 0.08);

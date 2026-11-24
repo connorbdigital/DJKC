@@ -589,10 +589,13 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             <button className="btn" type="button" onClick={() => flyTo(selected.id)}>
               Fly to it
             </button>
+            <button className="btn" type="button" onClick={() => engine.current?.diveTo(selected.id)}>
+              Zoom in
+            </button>
             {selected.kind === "site" && (
               <>
-                <button className="btn" type="button" onClick={() => engine.current?.loadSite(selected.id)}>
-                  Load in the space
+                <button className="btn ghost" type="button" onClick={() => engine.current?.loadSite(selected.id)}>
+                  Preview in the space
                 </button>
                 <button className="btn" type="button" onClick={() => openScan(selected)}>
                   Scan it

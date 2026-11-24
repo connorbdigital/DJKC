@@ -354,3 +354,84 @@ header and giving it an opaque background.
 **Still not verified:** a physical phone, VR on hardware, and the real
 `/api/site` against a live third party from this sandbox (the sandbox cannot
 reach arbitrary hosts; the deployed Studio can).
+
+## Third pass: the nodes are suns, and you can go inside them
+
+What the first two passes drew as spheres were meant to be stars. They are now
+actually stars: a **photosphere shader** rather than a lit ball, a corona, and a
+zoom that takes you inside it.
+
+### What a sun is made of
+
+Each node that is not a site or a brief is a sphere with a shader on it:
+
+- **Granulation** at two frequencies — fine rice-grain cells (`fbm(normal × 46)`)
+  over slower convection (`fbm(normal × 15)`). One frequency alone reads as
+  camouflage when you get close; two read as a surface that is moving.
+- **Limb darkening** (`pow(facing, 1.45)`): the middle burns, the edge falls
+  away. This is the single thing that makes a disc read as a ball rather than a
+  circle, and it is the reason the close-up works at all.
+- **A hot rim** (`pow(1 − facing, 6)`) — a thin bright edge where light escapes.
+- **Sunspots** — a few slow, darker patches, so the body reads as turning.
+- **Churn** — the whole surface drifts on a 0.03/s clock, and each sphere rotates
+  on its own axis at its own rate.
+
+Colours are the districts' own, unchanged: gold for packs, pink for
+capabilities, mint for builder steps, orange for sites, violet for projects,
+sky for posts. Each sun gets a few degrees of hue drift of its own, so the
+library is a cluster of pinks rather than eleven identical discs.
+
+### Bloom, reset
+
+The second pass added a soft additive puff per node. At distance it smeared into
+a pink bruise. It is now two sprites doing two different jobs:
+
+| layer | scale | opacity | colour |
+| --- | --- | --- | --- |
+| corona | × 3.1 of the node | 0.34 | the kind colour lifted 28% toward white |
+| thrown light | × 6.6 of the node | 0.14 | the kind colour, untouched |
+
+The corona belongs to the star and is tight; the wide one is only the light it
+throws into the room, and is less than half as bright as it was. The nebula
+clouds behind everything are untouched — that is the glow at a distance, and it
+stays.
+
+### Click, then fly inside
+
+- A **click** frames the star (~17 units out).
+- A **second click on the same star** — or **Zoom in** on its card — dives to
+  about `3.7 × size` from its surface, close enough to see the granulation move
+  和 the limb darken.
+- **Fly to it** steps back out to the framed view.
+- Diving into a **site** requests its page in the gallery panel on the way in,
+  so the preview is already there when you arrive.
+
+Nothing new needs a render target: the "bloom" is geometry and sprites, which is
+why it still runs in software WebGL (and will run on a phone).
+
+![The space, with its suns](atlas-suns-2026-11-20.png)
+
+![A capability, up close](atlas-sun-close-2026-11-20.png)
+
+![A pack, up close](atlas-sun-gold-2026-11-20.png)
+
+![The same sky on a phone](atlas-suns-mobile-2026-11-20.png)
+
+### Checks
+
+- `npx tsc --noEmit` clean, `npx vitest run` in `studio`: **110 passed**.
+- Chromium 1200 × 800 and 1440 × 900: gate → space, five dives (violet project,
+  pink capability, gold pack, mint step, site) each land on the surface with the
+  card open, a site dive also fills its preview frame (`iframe` present), and
+  **zero console or page errors**.
+- `atlas1.mjs` (canvas + no errors) and `mob3.mjs` (phone: thumbstick, pinch,
+  chips, bottom sheet, tour) still report **ALL OK** at 390 × 844.
+- Flights look slow in the captures above: headless Chromium here renders in
+  software at roughly three frames a second, and the flight is time-based, so a
+  1.15-second flight takes about twenty real seconds to photograph. On a GPU it
+  is the same 1.15 seconds.
+
+**Still not verified:** a physical phone or headset, and frame rate on real
+mobile hardware with all 49 suns on screen. If it needs to be cheaper, the first
+lever is the sphere segments (64 × 48 for projects and packs, 40 × 28 for the
+rest) and the second is dropping `fbm` to three octaves.
