@@ -50,7 +50,7 @@ Environment (so the command does not end up in your shell history with a token)
   FEED_URL, FEED_NAME, FEED_AUTH_HEADER, FEED_USER, FEED_PASS
 
 Then
-  npm run catalogue -- feeds/<file>.csv
+  npm run site -- feeds/<file>.csv
 `;
 
 const die = (message: string): never => {
@@ -128,7 +128,7 @@ const run = async () => {
     console.log("warning   no obvious product columns. A stock or order file needs the product file alongside it.");
   }
   console.log(`sha256    ${entry.sha256.slice(0, 16)}…`);
-  console.log(`\nnext      npm run catalogue -- feeds/${file}`);
+  console.log(`\nnext      npm run site -- feeds/${file}`);
 };
 
 run().catch((error: unknown) => die(error instanceof Error ? `Download failed: ${error.message}` : "Download failed."));

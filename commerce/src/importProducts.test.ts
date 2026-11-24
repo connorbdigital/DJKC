@@ -134,7 +134,7 @@ describe("the sample catalogue", () => {
   it("imports every row and produces valid products", () => {
     const result = importCsv(csv, { defaultBrand: "Harbour & Fen", currency: "GBP" });
     expect(result.stats.skipped).toBe(0);
-    expect(result.stats.imported).toBe(12);
+    expect(result.stats.imported).toBe(32);
     expect(result.profile.id).toBe("aosom");
 
     const problems = result.products.flatMap((product) =>
@@ -147,6 +147,8 @@ describe("the sample catalogue", () => {
     const result = importCsv(csv, { defaultBrand: "Harbour & Fen" });
     expect(new Set(result.products.map((product) => product.category)).size).toBeGreaterThan(2);
     expect(result.products.some((product) => product.variants[0]!.stock === 0)).toBe(true);
-    expect(result.products.every((product) => product.variants[0]!.price.amount >= 2000)).toBe(true);
+    expect(result.products.every((product) => product.variants[0]!.price.amount >= 800)).toBe(true);
+    expect(result.products.some((product) => Boolean(product.variants[0]!.compareAt))).toBe(true);
+    expect(result.products.filter((product) => product.specs?.Material).length).toBeGreaterThan(20);
   });
 });

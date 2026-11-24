@@ -58,10 +58,10 @@ month or more).
 | Variant picker | Size/colour swatches, per-variant stock and image | Variants modelled with options, stock, GTIN, compare-at | **Partial** | The model is there; no UI selects a variant | S–M |
 | Gallery / zoom | Multiple images, alt text, zoom | Images are a list with alt text; the built pages show one | **Partial** | Product image is the LCP element on most product pages | S |
 | Reviews and ratings | Star summary, photos, Q&A, moderation | — | **Missing** | Reviews (20+, 4.2+) are the most universal signal in AI-shopping recommendations, and `aggregateRating` is a required-ish schema field | M |
-| Recommendations | Related, bought-together, recently viewed | — | **Missing** | Basket-size work, not conversion work | M |
+| Recommendations | Related, bought-together, recently viewed | `relatedProducts()` puts same-department items on every product page | **Partial** | Basket-size work, not conversion work | M |
 | Bundles / kits | "Frequently bought together" pricing | — | **Missing** | — | M |
 | Wishlist / compare | Save for later, compare table | — | **Missing** | Small, cheap, useful if you sell considered purchases | S |
-| Stock messaging | "Only 2 left", back-in-stock alerts | `availability()` and stock numbers exist | **Partial** | Honest scarcity is fine; fake countdowns are not | S |
+| Stock messaging | "Only 2 left", back-in-stock alerts | `stockLabel()` prints "Only 3 left" and "Out of stock — back soon" from the supplier file; no back-in-stock alert | **Have** (messaging) | Honest scarcity is fine; fake countdowns are not | S for the alert |
 | Size guides / specs | Tables, fit notes | `pageMeta` and specs exist in the catalogue pages | **Have** | — | — |
 | Rich product schema | Product, Offer, ReturnPolicy, shipping, GTIN | `seo.ts` builds Product/Offer/ReturnPolicy; catalogue emits it | **Have** | Complete markup is ~6× more likely to be quoted by AI agents | — |
 
@@ -71,7 +71,7 @@ month or more).
 | --- | --- | --- | --- | --- | --- |
 | Typo-tolerant text search | Synonyms, stemming, "did you mean" | `search.ts`: typo tolerance, never dead-ends | **Have** | 70% of searches fail on synonyms; search users convert several times better | — |
 | Facets and filters | Category, price, size, colour, brand | — | **Missing** | Faceted navigation is absent on a large share of mid-size shops | M |
-| Category / collection pages | Landing pages, sorting, pagination | The catalogue groups by category on one page | **Partial** | Category pages are what rank for commercial queries | S |
+| Category / collection pages | Landing pages, sorting, pagination | Twelve department pages with their own title, description, `CollectionPage` schema and FAQs; no facets or pagination yet | **Have** (pages) | Category pages are what rank for commercial queries | M for facets |
 | Zero-result reporting | Log the searches that found nothing | — | **Missing** | It is the cheapest merchandising research you will ever get | S |
 | Autocomplete | Suggestions as you type | Only ~34% of shops have useful autocomplete; not here either | **Missing** | — | S |
 | Personalisation | Recently viewed, tailored order | — | **Missing** | — | L |
@@ -87,7 +87,7 @@ month or more).
 | Reviews/email automation | Klaviyo-style flows | — | **Missing** | — | L |
 | Analytics + consent | GA4, server-side events, cookie banner | — | **Missing** | You cannot audit a checkout you do not measure; consent is a legal requirement in the UK/EU | M |
 | Feed destinations | Google, Meta, TikTok, Pinterest | Google Merchant feed written and validated | **Partial** | One format done properly; Meta/TikTok are near-copies | S each |
-| Affiliate / referral | Codes and tracking | — | **Missing** | — | M |
+| Affiliate / referral | Codes and tracking | `src/affiliate.ts` holds the rates, caps and gates for Amazon, AliExpress, eBay and Aosom, plus `routeFor()`. No link cloaking, no click logging, no attribution | **Partial** | Referring out is the cheapest route to first revenue when there is no stock and no checkout | M for the wiring |
 
 ## 7. Money, tax and law
 
@@ -133,6 +133,11 @@ month or more).
    signal every AI shopping agent looks for.
 5. **Faceted category pages and zero-result logging.** Turns the catalogue into
    something browsable, and tells you what to stock next.
+
+If a shopper can pay yet is not the plan, the order changes: **wire the affiliate
+links first.** `src/affiliate.ts` already says which programmes pay what, and a
+catalogue of crawlable pages is a legitimate referral asset without a card
+processor behind it — but only if the clicks are tracked, which they are not.
 
 ## Things not to build
 

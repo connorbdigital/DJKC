@@ -102,7 +102,7 @@ FEED_AUTH_HEADER="Authorization: Bearer …" \
 npm run feed -- --name supplier
 
 # an FTP drop or a portal export: put the file in feeds/ and continue
-npm run catalogue -- feeds/dropforyou-2026-11-20.csv
+npm run site -- feeds/dropforyou-2026-11-20.csv
 ```
 
 What lands:
@@ -169,8 +169,8 @@ slug) are reported too. Nothing is dropped in silence.
 
 ```bash
 cd commerce
-npm run catalogue                      # builds catalogue/dist from catalogue/products.csv
-npm run catalogue -- ~/aosom-feed.csv  # or any other supplier file
+npm run site                           # builds catalogue/dist from catalogue/products.csv
+npm run site -- ~/aosom-feed.csv        # or any other supplier file
 npm run serve:catalogue                # http://localhost:4300
 ```
 

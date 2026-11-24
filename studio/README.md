@@ -18,7 +18,11 @@ studio/
 ├── src/processDoc.ts     the why-layer: reasons, consequences, the builder's own steps
 ├── src/sitecheck.ts      URL guard and the HTML audit behind the site check
 ├── src/agent.ts          browser → /api/draft
-└── src/components/       Gate, Projects, Packs, Features, Search, Draft, Checks
+├── src/atlas.ts          the space as data: 49 nodes, 6 districts, edges, search, compass
+├── src/atlasBriefs.ts    the 14 blog briefs for sitebuildup.co.uk, facts with evidence
+├── src/atlasEngine.ts    three.js: scene, flight, picking, labels, CSS3D site panels, WebXR
+├── scripts/write-briefs.mts  renders atlasBriefs.ts → BRIEFS.md
+└── src/components/       Gate, Projects, Packs, Features, Search, Draft, Checks, Atlas
 ```
 
 ## Run it
@@ -46,7 +50,7 @@ which broke the Vercel build until it was pinned — leave the file and the lock
 
 The Studio has **no database**. Your GitHub token is typed in and kept in that tab's `sessionStorage`; closing the tab locks it. Reads and writes go straight from the browser to `api.github.com`. The only server-side secret is the model key.
 
-## The five tabs
+## The six tabs
 
 **Projects** — every repository the token can see, newest first, with commits and pull requests merged into one history, and a **What is in it** panel that reads the repo itself: detected stack, file/route/page/component/test counts, which library features have evidence in the code and which of those are unrecorded in `studio/features.json`, the routes and pages it serves, the env vars it expects, and the notes worth knowing (no CI, no tests, no docs, truncated tree). "Copy a summary for a brief" turns it into a paragraph. This is the answer to "what's been on this project", without needing anything from Arena: Arena's work arrives here as branches and pull requests.
 
@@ -81,6 +85,12 @@ The document covers all 11 processes on the 6 shelves plus the eight steps the b
 `src/sitecheck.ts` accepts https only, on the default port, with no credentials, and only public host names: `localhost`, `*.local`, `*.internal`, IP literals (including the decimal and hex aliases) and loopback/link-local addresses are refused before any request is made. `api/site.ts` then refuses redirects, requires `text/html`, times out after 8 seconds and stops reading at 1.5 MB, marking the report truncated.
 
 That is a best-effort guard, **not a security boundary**: a hostname can resolve to a private address after the check. Run the function with restricted egress if that matters, and do not extend it into a crawler.
+
+**Atlas (3D)** — the whole Studio as a place you can fly through: the 13 capabilities on their sphere, the 4 packs above them, the 8 builder steps, the 3 projects, the 14 blog posts and 7 live sites, in six districts. `WASD` to move, `Q`/`E` for height, drag to look, click a node to inspect, `F` to fly to it, `Z`/`C` to turn. The district chips filter **and** travel; the search box ranks a title match above a passing mention; the minimap tells you which district you are standing in. `Enter VR` asks for a WebXR session and says **No headset** when there is none.
+
+Two things are honest by design. Many sites refuse to be framed, so a gallery panel loads its live page only when you ask and says so plainly when the frame stays blank — nothing is proxied. And Chromium does not hit-test CSS3D content, so the panels in the world are display-only: the buttons that load a page live in the HUD.
+
+The blog plan is real content, not demo data — `src/atlasBriefs.ts` holds 14 briefs (about 19,200 words) for `sitebuildup.co.uk`, each with its target query, audience, service, outline, facts with a source, and the capability it demonstrates. `npm run briefs` renders them to [BRIEFS.md](BRIEFS.md). See [../docs/atlas-round-2026-11-20.md](../docs/atlas-round-2026-11-20.md).
 
 **Agent** — write a brief, tick the features it may reuse, optionally attach real source files, and get a proposal as whole files. Nothing is written until you press the second button, and the pull request says, in its own body, that it was model-drafted and must be reviewed.
 

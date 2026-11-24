@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { listRepos, whoami } from "./github";
 import { clearToken, getToken, setToken } from "./token";
 import type { Repo } from "./types";
@@ -8,8 +8,10 @@ import { Features } from "./components/Features";
 import { Packs } from "./components/Packs";
 import { Search } from "./components/Search";
 import { Draft } from "./components/Draft";
+/* three.js is ~700kB; nobody pays for it until they ask for the space. */
+const Atlas = lazy(() => import("./components/Atlas").then((module) => ({ default: module.Atlas })));
 
-type Tab = "projects" | "packs" | "features" | "search" | "draft";
+type Tab = "projects" | "packs" | "features" | "search" | "draft" | "atlas";
 
 const TABS: { id: Tab; label: string; blurb: string }[] = [
   { id: "projects", label: "Projects", blurb: "Everything on the account, newest first, with its history." },
@@ -17,6 +19,11 @@ const TABS: { id: Tab; label: string; blurb: string }[] = [
   { id: "features", label: "Feature library", blurb: "What already ships, ready to copy into another project." },
   { id: "search", label: "Search", blurb: "Look inside every project, and at one public page outside them." },
   { id: "draft", label: "Agent", blurb: "Describe the change; the agent drafts files; you review and open the pull request." },
+  {
+    id: "atlas",
+    label: "Atlas (3D)",
+    blurb: "Fly through every project, process, pathway and blog post at once. Works with the keyboard, and in a headset where one is attached.",
+  },
 ];
 
 export function App() {
@@ -26,6 +33,7 @@ export function App() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>("projects");
+  const [preview, setPreview] = useState(false);
 
   const load = useCallback(async (value: string) => {
     setLoading(true);
@@ -60,7 +68,14 @@ export function App() {
     setLogin("");
   };
 
-  if (!token) return <Gate onSubmit={unlock} error={error} />;
+  if (!token && preview)
+    return (
+      <Suspense fallback={<p className="atlas-boot">Loading the space…</p>}>
+        <Atlas onClose={() => setPreview(false)} />
+      </Suspense>
+    );
+
+  if (!token) return <Gate onSubmit={unlock} error={error} onPreview={() => setPreview(true)} />;
 
   const active = TABS.find((t) => t.id === tab)!;
 
@@ -100,6 +115,11 @@ export function App() {
       {repos && tab === "features" && <Features token={token} repos={repos} />}
       {repos && tab === "search" && <Search token={token} repos={repos} login={login} />}
       {repos && tab === "draft" && <Draft token={token} repos={repos} />}
+      {tab === "atlas" && (
+        <Suspense fallback={<p className="atlas-boot">Loading the space…</p>}>
+          <Atlas onClose={() => setTab("projects")} />
+        </Suspense>
+      )}
 
       <footer className="foot">
         <p>

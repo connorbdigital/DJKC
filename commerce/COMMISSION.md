@@ -27,11 +27,11 @@ trade numbers for a UK homeware dropshipper and follow the £49.99 to the bottom
 | **Net revenue** | **£41.66** | |
 | Trade cost of the goods | −£32.00 | A typical trade price is 60–70% of a supplier's RRP |
 | Carriage to the customer | −£4.50 | "Free delivery" is free to the shopper, not to you |
-| Card / wallet fees (≈1.5% + 20p) | −£0.82 | |
+| Card / wallet fees (≈1.5% + 20p) | −£0.95 | Charged on the gross £49.99, VAT included — the card processor does not care what you owe HMRC |
 | Returns provision (4% of orders, ~£12 each all-in) | −£0.50 | Resealed goods, return postage, the occasional write-off |
-| **Left over** | **£3.84** | **9.2% of net revenue, 7.7% of the retail price** |
+| **Left over** | **£3.71** | **8.9% of net revenue, 7.4% of the retail price** |
 
-That £3.84 has to pay for advertising, the site, and your time. At a £0.60
+That £3.71 has to pay for advertising, the site, and your time. At a £0.60
 cost-per-click and a 3% conversion rate, one sale costs about £20 in ads — which
 is **five times the entire margin**. That is the trap: the maths works only if
 traffic is free (search, social, a list) or the margin is much fatter.
@@ -107,6 +107,112 @@ products people actually want before you buy stock or take on a feed.
 
 ---
 
+---
+
+## 4. The four routes people actually ask about
+
+Alibaba, AliExpress, Amazon and eBay get used as if they were the same thing.
+They are four different businesses:
+
+| You are… | The route | What you are paid |
+| --- | --- | --- |
+| Buying at trade price and shipping it yourself | **Alibaba** — a factory directory, not a programme | No commission at all. Your margin, after freight, duty and VAT at import |
+| Sending a shopper to a marketplace with your link | **AliExpress Portals / Amazon Associates / eBay Partner Network** | A percentage of the order, capped per sale, on a cookie that expires |
+| Selling on someone else's marketplace | **Amazon / eBay / The Range as a seller** | The sale price minus a referral fee of roughly 11–15% |
+
+### The rates, in one table (checked November 2026)
+
+| Programme | Route | Rate | Cookie | Per-sale cap |
+| --- | --- | --- | --- | --- |
+| Amazon UK Associates | refer | 2.5–5% | 1 day | none |
+| AliExpress Portals | refer | 1.8–5.4% | 3 days | US$50 per sale, converted at 0.79 — the cap is the programme's, the conversion is ours |
+| eBay Partner Network | refer | 1–4% | 1 day | US$100 per transaction at the bottom of the published US$100–550 range, converted at 0.79 |
+| Aosom UK affiliate (via Awin) | refer | 6–10% | 30 days | none |
+| Alibaba (sourcing, not affiliate) | resell | margin, not commission | n/a | none |
+| eBay UK (as a seller) | marketplace | 10.9–11.9% | n/a | none |
+| Amazon UK (as a seller) | marketplace | 15% | n/a | none |
+| The Range Marketplace | marketplace | 11–14% | n/a | none |
+
+Every figure above lives in [`src/affiliate.ts`](src/affiliate.ts) as a typed
+object with its source URL, the date it was checked, the gates that must be
+passed before it pays, and the catch the marketing page leaves out. The doc is
+generated from the same objects the tests assert against, so the two cannot
+drift:
+
+```bash
+cd commerce
+npx tsx -e "import('./src/affiliate.ts').then(m => console.log(m.routeTable()))"
+```
+
+### Alibaba: no commission, which is the point and the problem
+
+Alibaba is a directory of factories. You do not "earn a commission"; you agree a
+trade price, usually with a minimum order quantity per colour or size, and then
+pay freight, duty and 20% import VAT before the goods reach a UK shelf. The
+trade price is **not** the landed cost, and for a single-unit order the landed
+cost is usually higher than the retail price on Amazon. It is the right route
+for a short own-brand range bought in hundreds, and the wrong route for a shop
+that sells thirty-two different things.
+
+### AliExpress: 1.8–5.4% in the UK, 3-day cookie, US$50 cap
+
+The headline rates quoted by affiliate blogs (9% on home and garden, up to 50%
+on "hot products") are not the UK rates. UK traffic is paid at the bottom of the
+range, the cookie is three days, and the commission is **capped at US$50 per
+sale** — about £39. On a £900 sofa the cap turns 5.4% into 4.3%; on a £2,000
+order it turns it into 2%. Payout is monthly, after roughly 60 days of
+validation, with a minimum threshold.
+
+The other cost is time: AliExpress delivery is measured in weeks, so return
+rates are higher, and returns are deducted from commission. The honest use is
+accessories and small goods under about £40, where the cap never bites.
+
+### Amazon UK Associates: 3–4.5% on home, 24-hour cookie, and an API gate
+
+Amazon pays a fixed rate by category — around 4% for home, kitchen, garden and
+DIY, less for electronics, more for fashion and luxury beauty. The cookie lasts
+**24 hours**, the shortest of the three. The Product Advertising API, which is
+the only sustainable way to keep prices and stock accurate across thousands of
+products, requires **three qualifying sales in 180 days** before it will answer
+you at all. Until then you are hand-building links, which is exactly the work the
+catalogue pipeline in this repo exists to avoid.
+
+### eBay Partner Network: 1–4%, 24-hour cookie, US$100–550 per-transaction cap
+
+eBay pays less per sale than Amazon and caps each transaction (about £79 at the
+bottom of the published US$100–550 range). A separate, invite-only **Ambassador**
+programme pays a flat 7.5% on selected categories to approved creators; it is not
+available to a new account and should not be planned around. eBay is a good
+second link on a page, and a poor primary business for considered purchases.
+
+### What this means for a shop like this one
+
+A £49.99 sale earns:
+
+- **£4.00** as an Aosom affiliate at 8% on a 30-day cookie, with no stock;
+- **£3.71** net as a reseller, after VAT, trade cost, carriage, card fees and a
+  returns provision — and you carry the stock and the returns.
+
+Referral wins at this price, by 28p, with none of the risk. The same comparison at
+a £180 garden furniture basket, where a referral is capped and the resale margin
+is 3.4×, reverses. That is the whole decision, and it is why `routeFor()` in
+`src/affiliate.ts` keys on basket size and markup rather than on the commission
+percentage alone.
+
+```ts
+import { compareRoute, programmeById, routeFor } from "./src/affiliate";
+
+compareRoute(programmeById("aosom-affiliate"), {
+  retail: money(4999), trade: money(3200), carriage: money(450), category: "home",
+});
+// { referred: 399, resold: 371, winner: "refer", difference: 28 }
+
+routeFor({ averageOrder: money(4999), markupMultiple: 3.2, hasFreeTraffic: true });
+// { route: "refer", because: "Under a £60 basket … referral carries no stock risk." }
+```
+
+---
+
 ## Which one to pick
 
 | Your situation | Route | Why |
@@ -139,7 +245,7 @@ products people actually want before you buy stock or take on a feed.
    ```bash
    cd commerce
    npm run feed -- --url "<the feed URL from your supplier portal>" --name supplier
-   npm run catalogue -- feeds/supplier-<date>.csv
+   npm run site -- feeds/supplier-<date>.csv
    ```
    Read the issues list. Every "no GTIN", "no image" and "repaired" line is a
    product that would have failed silently later.

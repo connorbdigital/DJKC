@@ -17,12 +17,16 @@ commerce/
 ├── src/importProducts.ts  four supplier column maps, price/stock coercion, per-row issues
 ├── src/exportFeed.ts Google Merchant feed, products.json, sitemap
 ├── src/feedSource.ts feed URL checks, redaction, "what arrived in this file"
+├── src/siteModel.ts  delivery promises, stock labels, key facts, related items, titles, FAQs
+├── src/affiliate.ts  affiliate and marketplace rates as data: payout with caps, the route decision
 └── src/fixtures.ts   two example products: one complete, one deliberately thin
 
 catalogue/
-├── products.csv          twelve demo products in a trade-feed shape
-├── scripts/build-catalogue.mts  CSV → static pages, JSON-LD, feed, llms.txt
-└── dist/                 generated: 1 index + 1 page per product + assets
+├── site.ts               the brand, the delivery promises and twelve departments with aliases
+├── render.ts             the CSS, the basket JavaScript and every page component
+├── products.csv          32 demo products across eight departments, twelve spec columns
+├── scripts/build-site.mts  the whole shop: pages, schema, feed, llms.txt, sitemap, robots
+└── dist/                 generated: 45 HTML pages, 33 SVGs, feed, JSON, llms.txt
 
 feeds/                    downloaded supplier files (git-ignored) + a redacted manifest
 scripts/fetch-feed.mts    npm run feed — fetch, date, hash and describe a supplier feed
@@ -31,16 +35,16 @@ SUPPLIERS.md              where the CSVs come from, with links
 GAPS.md                   what a real store has that this does not
 ```
 
-Pure TypeScript, no runtime dependencies, no React. `npm test` runs 81 tests; `npm run typecheck` is clean.
+Pure TypeScript, no runtime dependencies, no React. `npm test` runs 119 tests; `npm run typecheck` is clean.
 
 **What is still missing** is [`GAPS.md`](GAPS.md): every row compared against what Amazon, Argos, Wayfair and a default Shopify theme do — payments, order records, returns, reviews, facets, tax, analytics — with the five things to build next and four things not to build at all.
 
-**Sourcing and the catalogue:** [`SUPPLIERS.md`](SUPPLIERS.md) lists the supplier feeds worth having (Aosom, BigBuy, Avasam, Matterhorn and the rest), what each sends you, and what it costs. `npm run catalogue` builds a working store catalogue from any of those files:
+**Sourcing and the catalogue:** [`SUPPLIERS.md`](SUPPLIERS.md) lists the supplier feeds worth having (Aosom, BigBuy, Avasam, Matterhorn and the rest), what each sends you, and what it costs. `npm run site` builds a working store from any of those files (default: `catalogue/products.csv`):
 
 ```bash
 cd commerce
 npm run feed -- --url "<the URL from your supplier portal>" --name supplier
-npm run catalogue -- feeds/supplier-2026-11-20.csv
+npm run site -- feeds/supplier-2026-11-20.csv
 npm run serve:catalogue          # http://localhost:4300
 ```
 
@@ -50,6 +54,23 @@ supplier profile it recognises. Credentials come from `FEED_AUTH_HEADER`,
 `FEED_USER`/`FEED_PASS` or the environment — never from a committed file.
 
 The demo images are generated placeholders; the products are invented. The importer, the feed exporter and the pages are not.
+
+**What `npm run site` produces** — one command, no framework, no build server:
+
+| Output | Why it exists |
+| --- | --- |
+| `index.html`, `shop.html`, `search.html` | A home page that answers before it sells, the full grid, and a client-side search that reads `products.json` |
+| `department/<id>.html` × 12 | The full taxonomy — home, kitchen, garden, lighting, bedding, storage, pets, DIY, toys, electricals, beauty, office — including the four shelves that are honest about being empty |
+| `product/<slug>.html` × 32 | Price, delivery cost before the click, stock from the file, key facts, delivery/returns/care accordions, related products |
+| `pages/{delivery-returns,about,contact}.html` | The policies an affiliate network or a payments provider asks for, written to be read |
+| `products.json`, `google-feed.csv` | The catalogue as data: for the search box, for Merchant Center, for anything else |
+| `llms.txt`, `llms-full.txt` | The shop's facts in the shape answer engines ask for, with a canonical URL per line |
+| `sitemap.xml`, `robots.txt` | `robots.txt` explicitly allows GPTBot, OAI-SearchBot, ClaudeBot, PerplexityBot, Google-Extended and CCBot — being absent from an answer is a choice, not an accident |
+| `assets/*.svg` × 33 | Deterministic placeholders, labelled as placeholders in the alt text |
+
+Schema.org emitted: `OnlineStore`, `WebSite` with `SearchAction`, `ItemList`, `CollectionPage`, `Product` with `Offer`, `MerchantReturnPolicy`, `OfferShippingDetails` (the real £3.95, not a zero), `BreadcrumbList` and `FAQPage`.
+
+**The money, in code:** [`src/affiliate.ts`](src/affiliate.ts) holds Amazon UK Associates, AliExpress Portals, eBay Partner Network, the Aosom/Awin programme and the marketplace seller fees as typed objects — rate by category, cookie length, per-sale cap, the gates that must be passed, and the catch. `payout()` applies the cap; `compareRoute()` puts the affiliate commission and the resale net on the same £49.99 sale; `routeFor()` makes the decision from basket size, markup and whether the traffic is yours. [`COMMISSION.md`](COMMISSION.md) renders the same numbers, including why Alibaba is not a commission route at all.
 
 ---
 

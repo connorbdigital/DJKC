@@ -137,7 +137,9 @@ export function productsJson(products: Product[], linkBase: string): string {
 }
 
 /** sitemap.xml for the catalogue, so the pages are discoverable on day one. */
-export function sitemap(urls: string[]): string {
-  const entries = urls.map((url) => `  <url><loc>${url}</loc></url>`).join("\n");
+export function sitemap(urls: string[], lastmod?: string): string {
+  const entries = urls
+    .map((url) => `  <url><loc>${url}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}</url>`)
+    .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
 }
