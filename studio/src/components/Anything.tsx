@@ -69,6 +69,12 @@ export function Anything() {
         <h2>Not connected</h2>
         <p className="muted">{state.reason}</p>
         <p className="muted small">
+          <a href="/api/anything?probe=1" target="_blank" rel="noreferrer">
+            What each stored key answers
+          </a>{" "}
+          — the diagnostic names the variables, their lengths and what Anything says about them, and never prints a key.
+        </p>
+        <p className="muted small">
           The key goes in Vercel → project <strong>studio</strong> → Settings → Environment Variables as{" "}
           <code>ANYTHING_API_KEY</code> (or <code>Anything_Key</code>), type Sensitive, then redeploy. It is read as a
           read-only credential: this tab only ever lists projects and reads what is inside one, it never creates,

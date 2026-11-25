@@ -1,5 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { ANYTHING_KEYS, ME_PATH, PROJECTS_PATH, anythingTarget, basicAuth } from "../src/anything.js";
+import {
+  ANYTHING_KEYS,
+  ME_PATH,
+  PROJECTS_PATH,
+  anythingTarget,
+  basicAuth,
+  keyCandidates,
+  keyDiagnosis,
+  type KeyCandidate,
+} from "../src/anything.js";
 
 /**
  * Lists the Anything projects this account can open, without the key ever
@@ -20,14 +29,12 @@ const json = (res: ServerResponse, status: number, body: unknown) => {
   res.end(JSON.stringify(body));
 };
 
-/** First variable that exists wins; the canonical name is preferred. */
-const keyOf = (): string => {
-  for (const name of ANYTHING_KEYS) {
-    const value = process.env[name];
-    if (value) return value;
-  }
-  return "";
-};
+/**
+ * Every configured key, canonical name first. Two variables holding different
+ * keys is the common way a 401 happens: the wrong one used to win silently, so
+ * now each is tried in turn and the answer says which one Anything accepted.
+ */
+const keys = (): KeyCandidate[] => keyCandidates(process.env);
 
 interface Attempt {
   path: string;
@@ -129,15 +136,63 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
      Studio says "500" this is the page that says whether the function exists,
      whether it can see the key, and which Node it is running under. */
   if (req.method === "GET") {
-    json(res, 200, {
-      ok: true,
+    const configured = keys();
+    const base = {
+      ok: true as const,
       bridge: "alive",
-      key: keyOf() ? "set" : "missing",
-      keyNames: ANYTHING_KEYS,
+      key: configured.length ? "set" : "missing",
+      /* What is actually configured, not what the bridge looks for: the two were
+         reported as one list, which read as though both names were set. */
+      keyNames: configured.map((candidate) => candidate.name),
+      keyNamesLookedFor: ANYTHING_KEYS,
       node: process.version,
       readOnly: true,
       forwards: [ME_PATH, PROJECTS_PATH, `${PROJECTS_PATH}/{id}`],
-    });
+    };
+
+    /* ?probe=1 is the diagnostic: ask Anything about each stored key and report
+       the answer, with lengths and shapes but never the key. Opening one URL in
+       a browser then explains a 401, which is the only thing a status code was
+       ever good for. */
+    if (new URL(req.url ?? "/", "https://studio.invalid").searchParams.get("probe")) {
+      if (!configured.length) {
+        json(res, 200, { ...base, probe: { verdict: `No key is set. Add ${ANYTHING_KEYS[0]} to this project.`, keys: [] } });
+        return;
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      try {
+        const results = [];
+        for (const candidate of configured) {
+          const answer = await read(candidate.value, ME_PATH, controller.signal);
+          results.push({
+            name: candidate.name,
+            shape: keyDiagnosis(candidate.name, process.env[candidate.name] ?? ""),
+            status: answer.ok ? answer.status : answer.attempt.status,
+            accepted: answer.ok,
+            detail: answer.ok ? "" : answer.attempt.detail,
+          });
+        }
+        const working = results.find((entry) => entry.accepted);
+        json(res, 200, {
+          ...base,
+          probe: {
+            keys: results,
+            working: working ? working.name : null,
+            verdict: working
+              ? `${working.name} is accepted by Anything${results.length > 1 ? ", so the other stored key is the one that was being used before and can be removed" : ""}.`
+              : `Anything accepted none of the ${results.length} stored key${results.length === 1 ? "" : "s"}. ${results
+                  .map((entry) => `${entry.name} answered ${entry.status || "nothing"}${entry.detail ? ` (${entry.detail})` : ""}`)
+                  .join("; ")}. A key is created in Anything under Settings → API keys and starts anything_.`,
+          },
+        });
+        return;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    json(res, 200, base);
     return;
   }
   if (req.method !== "POST") {
@@ -145,8 +200,8 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     return;
   }
 
-  const key = keyOf();
-  if (!key) {
+  const candidates = keys();
+  if (!candidates.length) {
     json(res, 503, {
       ok: false,
       error: `Set ${ANYTHING_KEYS[0]} on this project to list Anything projects. Nothing is read until then.`,
@@ -174,35 +229,50 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   if (!asked.startsWith(PROJECTS_PATH.split("?")[0]!) || asked.startsWith("/v0/api/projects/")) {
     /* Everything but the list is a single read: no shape to try instead. */
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS * Math.max(1, candidates.length));
     try {
-      const only = await read(key, asked, controller.signal);
-      if (!only.ok) {
-        const status = only.attempt.status === 401 ? 401 : 502;
-        json(res, status, {
-          ok: false,
-          status: only.attempt.status,
-          error:
-            only.attempt.status === 401
-              ? "Anything rejected that key. Check it is an API key, not a session token."
-              : `Anything answered ${only.attempt.status || "nothing"} on ${asked}: ${only.attempt.detail}.`,
-        });
-        return;
+      const rejected: Attempt[] = [];
+      for (const candidate of candidates) {
+        const only = await read(candidate.value, asked, controller.signal);
+        if (only.ok) {
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "application/json; charset=utf-8");
+          res.setHeader("Cache-Control", "no-store");
+          res.setHeader("X-Anything-Key", candidate.name);
+          res.end(only.text);
+          return;
+        }
+        rejected.push({ ...only.attempt, path: `${candidate.name} → ${only.attempt.path}` });
       }
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.setHeader("Cache-Control", "no-store");
-      res.end(only.text);
+      const last = rejected[rejected.length - 1]!;
+      const unauthorised = rejected.every((attempt) => attempt.status === 401);
+      json(res, unauthorised ? 401 : 502, {
+        ok: false,
+        status: last.status,
+        attempts: rejected,
+        error: unauthorised
+          ? `Anything rejected ${rejected.length === 1 ? "the stored key" : `both stored keys`} (${keys()
+              .map((candidate) => keyDiagnosis(candidate.name, process.env[candidate.name] ?? ""))
+              .join("; ")}). Open /api/anything?probe=1 for what each one answers, and replace them with a key from Anything → Settings → API keys.`
+          : `Anything answered ${last.status || "nothing"} on ${asked}: ${last.detail}.`,
+      });
+      return;
     } finally {
       clearTimeout(timer);
     }
-    return;
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS * 3);
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS * 3 * Math.max(1, candidates.length));
   try {
-    const result = await listAttempts(key, asked, controller.signal);
+    let result = await listAttempts(candidates[0]!.value, asked, controller.signal);
+    for (const candidate of candidates.slice(1)) {
+      if (result.ok) break;
+      /* A 401 means the key was refused, not that the list is unreadable: the
+         next stored key is worth a try before telling anyone it failed. */
+      if (!result.attempts.every((attempt) => attempt.status === 401)) break;
+      result = await listAttempts(candidate.value, asked, controller.signal);
+    }
     if (result.ok) {
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -221,7 +291,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
         `${statuses} on ${PROJECTS_PATH}: ${last.detail}. ` +
         (result.email
           ? `The key itself works — it belongs to ${result.email}, which can see ${result.organizations} organization${result.organizations === 1 ? "" : "s"}.`
-          : "The key could not be checked either."),
+          : `The stored key${candidates.length === 1 ? "" : "s"} could not be checked against ${ME_PATH} either. Open /api/anything?probe=1 for what each one answers.`),
     });
   } finally {
     clearTimeout(timer);

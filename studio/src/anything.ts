@@ -101,3 +101,74 @@ export function anythingTarget(rawPath: unknown): AnythingTarget {
 export function basicAuth(key: string): string {
   return `Basic ${btoa(`${key}:`)}`;
 }
+
+/**
+ * A key pasted into a dashboard usually arrives with something attached: a
+ * newline from the clipboard, quotes from a chat message, a leading space from a
+ * double-click. Anything then answers 401 and the key looks fine, which is the
+ * worst kind of wrong. Trim, and take one layer of quotes off.
+ */
+export function cleanKey(raw: string): string {
+  const value = raw.trim().replace(/^["'`]|["'`]$/g, "").trim();
+  return (
+    value
+      /* A key pasted from a wrapped line arrives with a space in the middle. */
+      .replace(/\s+/g, "")
+      /* Anything's docs print the example as `anything_xxx:` because Basic auth
+         adds the colon. Pasting it with the colon sends two, and 401s. */
+      .replace(/:+$/, "")
+  );
+}
+
+export interface KeyCandidate {
+  /** The environment variable's name — never the key itself. */
+  name: string;
+  value: string;
+}
+
+/** Every configured key, canonical name first, duplicates dropped. */
+export function keyCandidates(env: Record<string, string | undefined> = {}): KeyCandidate[] {
+  const seen = new Set<string>();
+  const found: KeyCandidate[] = [];
+  for (const name of ANYTHING_KEYS) {
+    const raw = env[name];
+    if (!raw) continue;
+    const value = cleanKey(raw);
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    found.push({ name, value });
+  }
+  return found;
+}
+
+/** What can be said about a key without saying the key. */
+export function keyShape(raw: string): {
+  length: number;
+  anythingPrefix: boolean;
+  hadWhitespace: boolean;
+  hadQuotes: boolean;
+  hadColon: boolean;
+  looksLikeJwt: boolean;
+} {
+  const value = cleanKey(raw);
+  return {
+    length: value.length,
+    anythingPrefix: /^anything_/.test(value),
+    hadWhitespace: raw !== raw.trim() || /\s/.test(raw.trim()),
+    hadQuotes: /^["'`]|["'`]$/.test(raw.trim()),
+    hadColon: /:*$/.test(raw),
+    looksLikeJwt: value.split(".").length === 3 && value.length > 80,
+  };
+}
+
+/** One sentence about a key's shape, for a 401 that has to be actionable. */
+export function keyDiagnosis(name: string, raw: string): string {
+  const shape = keyShape(raw);
+  const notes: string[] = [`${name} is ${shape.length} characters`];
+  if (!shape.anythingPrefix) notes.push("it does not start with anything_");
+  if (shape.hadWhitespace) notes.push("it had a space or newline in it, which is now stripped");
+  if (shape.hadQuotes) notes.push("it arrived inside quotes, which are now stripped");
+  if (shape.hadColon) notes.push("it ended with a colon — the one Basic auth adds — which is now stripped");
+  if (shape.looksLikeJwt) notes.push("it looks like a signed token, not an API key");
+  return notes.join("; ");
+}

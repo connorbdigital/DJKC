@@ -166,6 +166,10 @@ footer.site ul a{display:inline-flex;align-items:center;min-height:28px;padding:
 .basket-line img{width:56px;height:56px;border-radius:8px;border:1px solid var(--line)}
 .basket-line .t{flex:1;font-size:.88rem;font-weight:600}
 .basket-foot{padding:1rem 1.1rem;border-top:1px solid var(--line);background:#fcf8f4}
+.basket-line-total{display:flex;justify-content:space-between;margin:.2rem 0;font-size:.92rem;font-variant-numeric:tabular-nums}
+.basket-line-total.is-grand{font-weight:700;font-size:1.05rem;margin:.45rem 0 .7rem}
+.basket-foot .notice{margin:.5rem 0 0;font-size:.78rem}
+.basket-foot .notice.is-bad{color:#8c2f2f}
 .basket-line{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:.7rem;align-items:center;padding:.65rem 1.1rem;border-bottom:1px solid var(--line)}
 .basket-line img{border-radius:8px;display:block}
 .basket-line .t{display:grid;gap:.25rem;font-weight:600;font-size:.92rem;line-height:1.3}
@@ -263,10 +267,40 @@ export const CLIENT_JS = `
       paint();render();
       return;
     }
+    if(event.target.closest("[data-checkout]")){event.preventDefault();checkout(event.target);return}
     if(event.target.closest("[data-basket-open]")){event.preventDefault();open();return}
     if(event.target.closest("[data-basket-close]")){if(dialog)dialog.close()}
     if(event.target.closest("[data-clear]")){write([]);paint();render();}
   });
+  /* The price is the server's, not this page's: the basket sends ids and counts,
+     and the sentence that comes back is what the customer reads. */
+  function checkout(button){
+    var note=dialog&&dialog.querySelector("[data-checkout-note]");
+    var lines=read();
+    if(!lines.length){if(note){note.textContent="The basket is empty.";note.className="notice is-bad"}return}
+    if(button){button.disabled=true;button.textContent="Taking you to payment…"}
+    var done=function(message){
+      if(button){button.disabled=false;button.textContent="Checkout"}
+      if(note&&message){note.textContent=message;note.className="notice is-bad"}
+    };
+    fetch("/api/checkout",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({items:lines.map(function(l){return {id:l.id,qty:l.qty}})})
+    }).then(function(response){
+      return response.json().catch(function(){return null}).then(function(data){
+        if(!response.ok||!data||!data.ok){
+          done((data&&data.error)||("Checkout answered "+response.status+" with no message."));
+          return;
+        }
+        if(data.url){location.href=data.url;return}
+        done("Checkout answered without a payment link.");
+      });
+    }).catch(function(){
+      done("The payment step could not be reached. Nothing has been charged — try again, or email us and we will take the order by hand.");
+    });
+  }
+
   function open(){if(!dialog)return;render();if(dialog.showModal)dialog.showModal()}
   function render(){
     var body=dialog&&dialog.querySelector("[data-basket-body]");
@@ -283,7 +317,12 @@ export const CLIENT_JS = `
         +'<span class="line-total">'+pounds(pennies(l.price)*l.qty)+'</span></div>'
     }).join("")}
     var sum=lines.reduce(function(n,l){return n+pennies(l.price)*l.qty},0);
+    var delivery=lines.length?(sum>=FREE_OVER?0:SHIP):0;
     if(total){total.textContent=(sum/100).toFixed(2)}
+    var deliveryBox=dialog.querySelector("[data-basket-delivery]");
+    var grand=dialog.querySelector("[data-basket-grand]");
+    if(deliveryBox){deliveryBox.textContent=(delivery/100).toFixed(2)}
+    if(grand){grand.textContent=((sum+delivery)/100).toFixed(2)}
     if(ship){
       if(!lines.length){ship.innerHTML=''}
       else if(sum>=FREE_OVER){ship.innerHTML='<p class="ship-note">Free delivery applied. Order before 2pm for dispatch today.</p><div class="ship-bar"><span style="width:100%"></span></div>'}
@@ -421,7 +460,7 @@ ${options.jsonLd.map((data) => `<script type="application/ld+json">${JSON.string
 </div></div>
 <header class="site">
   <div class="head">
-    <a class="brand" href="${p}index.html">Exomm<span>eece</span></a>
+    <a class="brand" href="${p}index.html">Hearth <span>&amp; Grain</span></a>
     <form class="search" action="${p}search.html" method="get" role="search">
       <label class="visually-hidden" for="q">Search products</label>
       <input id="q" type="search" name="q" placeholder="Search 32 products — try “oak” or “planter”" data-search-input>
@@ -504,9 +543,11 @@ ${options.body}
   <div class="basket-body" data-basket-body></div>
   <div class="basket-foot">
     <div data-basket-ship></div>
-    <p style="display:flex;justify-content:space-between;margin:.5rem 0 .6rem;font-weight:700"><span>Subtotal</span><span>£<span data-basket-total>0.00</span></span></p>
-    <button class="btn" type="button" disabled aria-describedby="checkout-note">Checkout — not connected</button>
-    <p class="notice" id="checkout-note">The basket is stored in this browser only. There is no payment provider connected — checkout is the first item in GAPS.md, not a button that pretends.</p>
+    <p class="basket-line-total"><span>Subtotal</span><span>£<span data-basket-total>0.00</span></span></p>
+    <p class="basket-line-total"><span>Delivery</span><span>£<span data-basket-delivery>0.00</span></span></p>
+    <p class="basket-line-total is-grand"><span>Total</span><span>£<span data-basket-grand>0.00</span></span></p>
+    <button class="btn" type="button" data-checkout>Checkout</button>
+    <p class="notice" id="checkout-note" data-checkout-note role="status">Card payment through Stripe. Delivery is worked out above, not added afterwards.</p>
     <button class="icon-btn" type="button" data-clear style="margin-top:.6rem">Empty basket</button>
   </div>
 </dialog>

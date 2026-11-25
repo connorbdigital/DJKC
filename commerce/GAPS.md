@@ -21,8 +21,8 @@ month or more).
 
 | Thing | Big stores | Here | Verdict | Why it matters | Effort |
 | --- | --- | --- | --- | --- | --- |
-| Payment provider | Stripe, Adyen, PayPal, Klarna, Apple/Google Pay | Nothing in `commerce/`. The DJ site's `api/deposit.ts` has a working Stripe Checkout pattern that could be pointed at an order | **Missing** | Without it there is no shop, only a catalogue | M |
-| Wallet buttons | Apple Pay / Google Pay express at top of checkout | — | **Missing** | Mobile express wallets are consistently the cheapest conversion win in checkout testing | S, once payments exist |
+| Payment provider | Stripe, Adyen, PayPal, Klarna, Apple/Google Pay | `api/checkout.js` prices the basket on the server and opens a Stripe Checkout session; without `STRIPE_SECRET_KEY` it answers 503 and takes nothing | **Partial** | The path works end to end in test mode; Stripe is the only provider, and the 503 is the honest answer until a key exists | S, the key |
+| Wallet buttons | Apple Pay / Google Pay express at top of checkout | Stripe Checkout shows the wallets the browser and the account support, not at the top of our own page | **Partial** | Mobile express wallets are consistently the cheapest conversion win in checkout testing | S, once the key is live |
 | Order record | An order with lines, totals, tax, address, status | Cart prices but nothing is written | **Missing** | No order means no refund, no support, no accounts, no reporting | M |
 | Webhook + receipt | Stripe webhook → order confirmed → email | — | **Missing** | A payment that is not recorded is a payment you will argue about | S |
 | Fraud / bot protection | Risk scoring, 3-D Secure, rate limits | — | **Missing** | Card testing attacks hit small shops first | S–M |
@@ -34,9 +34,9 @@ month or more).
 | --- | --- | --- | --- | --- | --- |
 | Guest-first flow | Guest by default, account optional after | Specified and audited in `checkout.ts` (field count, order of steps, no forced account) | **Partial** | Forced accounts are one of the top abandonment reasons measured; the policy is right, the UI is not built | M |
 | Address capture + validation | Postcode lookup, address book | — | **Missing** | Wrong addresses are the most expensive kind of support ticket | S–M |
-| Delivery choice at checkout | Standard/express/nominated day/collect | `cart.ts` applies one delivery policy | **Partial** | "Extra costs at the last step" is the single largest abandonment reason; the shopper must see delivery before paying | M |
+| Delivery choice at checkout | Standard/express/nominated day/collect | Standard only, priced in `lib/pricing.js` and shown in the basket and on the Stripe session as its own line | **Partial** | "Extra costs at the last step" is the single largest abandonment reason; the cost is visible before paying, the choice is not offered | S, once orders exist |
 | Payment-method choice | Card, wallet, BNPL, gift card | — | **Missing** | No preferred payment method is cited by 8–22% of abandoners | S, with payments |
-| Error handling | Inline, field-level, no data loss | Policy in `checkout.ts` audit | **Partial** | 17% abandon after an error | S |
+| Error handling | Inline, field-level, no data loss | The basket shows the server's own sentence under the button: 503 for no key, 502 for a refusal, and the basket survives | **Partial** | 17% abandon after an error | S |
 | One-page vs multi-step | Both are fine if short | Policy: keep under ~12 fields | **Partial** | US average was 11.3 fields in 2021 and rising | — |
 | Express checkout | Shop Pay / PayPal express / Amazon Pay | — | **Missing** | Express checkout often beats any optimisation of your own form | S |
 
