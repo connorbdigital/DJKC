@@ -42,7 +42,15 @@ const POST = async (path: string, signal?: AbortSignal) => {
   });
   const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
   if (!response.ok) {
-    const reason = typeof body?.error === "string" ? body.error : `${response.status} ${response.statusText}`;
+    /* A JSON error is ours and says something useful. An HTML or empty body at
+       a 5xx means the function crashed before it could speak: say that, rather
+       than passing on a status code with no meaning to anyone reading it. */
+    const reason =
+      typeof body?.error === "string"
+        ? body.error
+        : response.status >= 500
+          ? `the Anything bridge answered ${response.status} without a message — the function itself failed`
+          : `${response.status} ${response.statusText}`.trim();
     throw new Error(reason);
   }
   return body ?? {};

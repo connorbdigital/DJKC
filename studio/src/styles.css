@@ -166,7 +166,10 @@ button.btn, a.btn {
   color: var(--ink);
   font-family: "Manrope", system-ui, sans-serif;
 }
-.atlas-stage { position: absolute; inset: 0; }
+/* The stage owns a stacking context of its own: CSS3D content is hit-tested in
+   three dimensions, so without this a page card floating near the camera wins
+   clicks that belong to the tray underneath it. Below the HUD, always. */
+.atlas-stage { position: absolute; inset: 0; z-index: 1; }
 .atlas-webgl { position: absolute; inset: 0; }
 .atlas-webgl canvas { display: block; width: 100%; height: 100%; cursor: grab; }
 .atlas-webgl canvas:active { cursor: grabbing; }
@@ -388,6 +391,12 @@ button.btn, a.btn {
   touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .atlas-pad:active, .atlas-pad.is-boost:active { background: #ff2bd633; border-color: var(--pink); }
+/* Turbo latches: one tap on, one tap off, and the button says which. */
+.atlas-pad.is-boost.is-on {
+  background: linear-gradient(120deg, #ff2bd655, #7dd3fc44);
+  border-color: var(--pink);
+  box-shadow: 0 0 26px #ff2bd680;
+}
 
 /* -------------------------------------------------------------- phones */
 
@@ -766,7 +775,73 @@ button.btn, a.btn {
 }
 
 /* ⌘K — the palette lists what already exists, so nothing here is a hidden action */
+/* Centred along the bottom: the detail card owns the right edge, the map the
+   left, and the key hints the last line. This is the strip that is left. */
+.atlas-feel {
+  left: 50%; transform: translateX(-50%); bottom: 2.9rem; z-index: 6;
+  padding: .3rem .4rem; border-radius: 999px; background: #0a0512b8; backdrop-filter: blur(6px);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .45rem;
+  max-width: calc(100% - 21rem);
+}
+.atlas-feel-row { display: flex; align-items: center; gap: .3rem; }
+.atlas-feel-label {
+  font: 600 .6rem/1 "IBM Plex Mono", monospace; letter-spacing: .12em; text-transform: uppercase;
+  color: #9d8db6; margin-right: .15rem;
+}
+.atlas-feel-chip {
+  font: inherit; font-size: .72rem; padding: .3rem .6rem; border-radius: 999px; cursor: pointer;
+  background: #150a24cc; border: 1px solid #ffffff22; color: #cfc2e0;
+}
+.atlas-feel-chip:hover { border-color: #ffffff44; color: #fff; }
+.atlas-feel-chip.is-on { background: #2a1240; border-color: var(--pink); color: #fff; }
+
+.atlas-turbo {
+  display: inline-flex; align-items: center; gap: .45rem;
+  font: 700 .78rem/1 "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase;
+  padding: .5rem .9rem; border-radius: 999px; cursor: pointer;
+  background: #150a24cc; border: 1px solid #ffffff2e; color: #e8dcf6;
+}
+.atlas-turbo small { font-size: .62rem; opacity: .6; letter-spacing: .04em; }
+.atlas-turbo-dot {
+  width: .5rem; height: .5rem; border-radius: 50%; background: #584a6b; transition: background .15s, box-shadow .15s;
+}
+.atlas-turbo.is-on {
+  background: linear-gradient(120deg, #ff2bd633, #7dd3fc33);
+  border-color: var(--pink); color: #fff;
+  box-shadow: 0 0 22px #ff2bd655;
+}
+.atlas-turbo.is-on .atlas-turbo-dot { background: #ff5ce1; box-shadow: 0 0 10px #ff5ce1; }
+.atlas-turbo.is-on small { opacity: .95; color: #ffb8f0; }
+
+/* Turbo pulls the edges of the picture: the room widening, not a number climbing. */
+.atlas.is-boosting .atlas-stage::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  box-shadow: inset 0 0 140px rgba(255, 43, 214, 0.22), inset 0 0 40px rgba(125, 211, 252, 0.12);
+}
+
+/* The three looks. All of them are the same geometry; what changes is the light,
+   the air, and how much the suns are allowed to bloom. */
+.atlas.atlas-theme-observatory .atlas-stage {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #0b1730 0%, #05070f 55%, #02040a 100%);
+}
+.atlas.atlas-theme-observatory .atlas-webgl { filter: saturate(.82) contrast(1.04); }
+.atlas.atlas-theme-blueprint .atlas-stage {
+  background: linear-gradient(180deg, #04101f 0%, #030a15 60%, #02060e 100%);
+}
+.atlas.atlas-theme-blueprint .atlas-webgl { filter: saturate(.55) brightness(1.06); }
+
+/* On a phone the tray has no room and no purpose: the thumb pad already has a
+   turbo button, and it latches. */
+@media (pointer: coarse), (max-width: 860px) {
+  .atlas-feel { display: none; }
+}
+
 .atlas-note { margin: .15rem 0 0; font-size: .72rem; color: #f3d3a6; max-width: 34rem; }
+.atlas-note-retry {
+  font: inherit; font-size: .68rem; color: #ffd9a8; background: none; cursor: pointer;
+  border: 0; border-bottom: 1px solid #ffd9a866; padding: 0 0 .05rem;
+}
 .atlas-detail-escape { margin: .7rem 0 0; font-size: .76rem; }
 .atlas-detail-escape a { color: #d8b8ff; }
 
