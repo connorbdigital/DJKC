@@ -489,7 +489,7 @@ describe("what a site says about itself", () => {
 
   it("only claims a supplier view where there is one", () => {
     const withSupply = SITES.filter((site) => site.supply);
-    expect(withSupply.map((site) => site.id).sort()).toEqual(["site-exommeece", "site-sitebuildup"]);
+    expect(withSupply.map((site) => site.id).sort()).toEqual(["site-ecommerce", "site-sitebuildup"]);
     for (const site of withSupply) {
       expect(site.supply!.gives.length).toBeGreaterThan(20);
       expect(site.supply!.wants.length).toBeGreaterThan(10);

@@ -243,6 +243,25 @@ function labelSprite(text: string, options: { size?: number; colour?: string; we
   return sprite;
 }
 
+/** A soft round speck, for the particles that run along the wires. */
+function speckTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.35, "rgba(191,233,255,0.9)");
+    gradient.addColorStop(1, "rgba(191,233,255,0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 64, 64);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  return texture;
+}
+
 /** A blog brief drawn as a card: title, service, length — readable from across the room. */
 function cardSprite(node: AtlasNode) {
   const width = 640;
@@ -319,7 +338,21 @@ export class AtlasEngine {
   private readonly clock = new THREE.Clock();
   private readonly handlers: EngineHandlers;
   private readonly atlas: Atlas;
-  private readonly edgeLines: { from: string; to: string; kind: string; line: THREE.LineSegments; midpoint: THREE.Vector3 }[] = [];
+  private readonly edgeLines: {
+    from: string;
+    to: string;
+    kind: string;
+    line: THREE.LineSegments;
+    midpoint: THREE.Vector3;
+    curve: THREE.QuadraticBezierCurve3;
+  }[] = [];
+  /* What the selected node is wired to: page cards in the space, and particles
+     running along the wires. Both are rebuilt whenever the selection changes. */
+  private focusId: string | null = null;
+  private pageObjects: CSS3DObject[] = [];
+  private pageLines: THREE.Line[] = [];
+  private pageCurves: THREE.QuadraticBezierCurve3[] = [];
+  private stream: { points: THREE.Points; curves: THREE.QuadraticBezierCurve3[]; at: number[] } | null = null;
   private readonly stars: { points: THREE.Points; material: THREE.PointsMaterial; speed: number; base: number; phase: number }[] = [];
   private readonly suns: { id: string; material: THREE.ShaderMaterial; mesh: THREE.Mesh; spin: number }[] = [];
   private frame = 0;
@@ -624,9 +657,113 @@ export class AtlasEngine {
       /* The brief → process links are the busiest thing here, so they only appear
          once a post is selected: the space stays readable until you ask. */
       line.visible = edge.kind !== "proves";
-      this.edgeLines.push({ from: edge.from, to: edge.to, kind: edge.kind, line, midpoint: curve.getPoint(0.5) });
+      this.edgeLines.push({ from: edge.from, to: edge.to, kind: edge.kind, line, midpoint: curve.getPoint(0.5), curve });
       this.scene.add(line);
     }
+  }
+
+  /**
+   * What a selected node is attached to, drawn in the space.
+   *
+   * Its pages become real 3D cards on a ring around it — each one an `<a>`, so a
+   * page opens by clicking it where it hangs — and every wire that touches the
+   * node becomes a stream: particles running from one end to the other.
+   */
+  private setFocus(node: AtlasNode | null) {
+    this.focusId = node?.id ?? null;
+    this.clearFocus();
+
+    if (node?.pages?.length) {
+      const source = new THREE.Vector3(...node.position);
+      const radius = clamp(22 + node.pages.length * 3.6, 28, 56);
+      const pages = node.pages;
+      pages.forEach((page, index) => {
+        const angle = (index / pages.length) * Math.PI * 2 - Math.PI / 2;
+        const target = new THREE.Vector3(
+          source.x + Math.cos(angle) * radius,
+          source.y + 6 + Math.sin(angle * 2) * 5,
+          source.z + Math.sin(angle) * radius
+        );
+        const element = document.createElement("div");
+        element.className = "atlas-page-card";
+        const anchor = document.createElement("a");
+        anchor.href = page.href;
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        anchor.textContent = `${page.label} ↗`;
+        element.appendChild(anchor);
+        const object = new CSS3DObject(element);
+        object.position.copy(target);
+        object.scale.setScalar(0.06);
+        /* Face the middle of the ring, so every card is readable from inside it. */
+        object.lookAt(source);
+        this.scene.add(object);
+        this.pageObjects.push(object);
+
+        const curve = new THREE.QuadraticBezierCurve3(
+          source.clone(),
+          new THREE.Vector3().lerpVectors(source, target, 0.5).setY(Math.max(source.y, target.y) + 8),
+          target.clone()
+        );
+        const line = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(curve.getPoints(26)),
+          new THREE.LineBasicMaterial({ color: 0x8ef0d0, transparent: true, opacity: 0.5, depthWrite: false })
+        );
+        this.scene.add(line);
+        this.pageLines.push(line);
+        this.pageCurves.push(curve);
+      });
+    }
+
+    const wires = this.edgeLines.filter((edge) => edge.from === node?.id || edge.to === node?.id);
+    const curves = [...wires.map((edge) => edge.curve), ...this.pageCurves];
+    if (!curves.length) return;
+
+    const perCurve = 5;
+    const count = curves.length * perCurve;
+    const positions = new Float32Array(count * 3);
+    const at: number[] = [];
+    for (let index = 0; index < count; index += 1) at.push((index % perCurve) / perCurve + Math.random() * 0.05);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const points = new THREE.Points(
+      geometry,
+      new THREE.PointsMaterial({
+        map: speckTexture(),
+        color: 0xd8f6ff,
+        alphaTest: 0.05,
+        size: 1.6,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+      })
+    );
+    this.scene.add(points);
+    this.stream = { points, curves, at };
+  }
+
+  private clearFocus() {
+    for (const object of this.pageObjects) {
+      this.scene.remove(object);
+      /* CSS3D leaves its element in the host; take it out with the object. */
+      object.element.remove();
+    }
+    for (const line of this.pageLines) {
+      this.scene.remove(line);
+      line.geometry.dispose();
+      (line.material as THREE.Material).dispose();
+    }
+    if (this.stream) {
+      this.scene.remove(this.stream.points);
+      this.stream.points.geometry.dispose();
+      (this.stream.points.material as THREE.Material).dispose();
+      this.stream = null;
+    }
+    this.pageObjects = [];
+    this.pageLines = [];
+    this.pageCurves = [];
   }
 
   /** Edges follow their endpoints: hide a district and its wiring goes with it. */
@@ -930,6 +1067,7 @@ export class AtlasEngine {
   select(id: string | null) {
     this.selected = id;
     const node = id ? this.atlas.nodes.find((entry) => entry.id === id) ?? null : null;
+    this.setFocus(node);
     this.updateEdges();
     for (const entry of this.pickables) {
       const bright = !node || entry.node.id === node.id;
@@ -1204,7 +1342,27 @@ export class AtlasEngine {
       if (!edge.line.visible) continue;
       const material = edge.line.material as THREE.LineBasicMaterial;
       const away = edge.midpoint.distanceTo(this.rig.position);
-      material.opacity = clamp(0.34 - away / 900, 0.03, 0.34) * (edge.kind === "proves" ? 1.1 : 1);
+      const focused = this.focusId !== null && (edge.from === this.focusId || edge.to === this.focusId);
+      material.opacity = focused
+        ? clamp(0.95 - away / 700, 0.25, 0.95)
+        : clamp(0.34 - away / 900, 0.03, 0.34) * (edge.kind === "proves" ? 1.1 : 1);
+    }
+
+    /* The streams: particles walking the selected node's wires. */
+    if (this.stream) {
+      const attribute = this.stream.points.geometry.getAttribute("position") as THREE.BufferAttribute;
+      const perCurve = 5;
+      this.stream.curves.forEach((curve, curveIndex) => {
+        const point = new THREE.Vector3();
+        for (let index = 0; index < perCurve; index += 1) {
+          const slot = curveIndex * perCurve + index;
+          const at = this.stream!.at[slot]!;
+          curve.getPoint(at % 1, point);
+          attribute.setXYZ(slot, point.x, point.y, point.z);
+          this.stream!.at[slot] = (at + delta * 0.22) % 1;
+        }
+      });
+      attribute.needsUpdate = true;
     }
 
     if (this.frame % 12 === 0) {

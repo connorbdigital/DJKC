@@ -18,13 +18,13 @@ export interface Department {
 }
 
 export const BRAND = {
-  name: "Exommeece",
-  legalName: "Exommeece Ltd",
+  name: "Ecommerce",
+  legalName: "Ecommerce Ltd",
   tagline: "Home, garden and the useful things in between",
   description:
     "Considered homeware, garden and kitchen things at honest prices — free delivery over £40, 30 days to change your mind, and product pages that answer the question before you ask it.",
-  url: "https://exommeece.co.uk",
-  email: "hello@exommeece.co.uk",
+  url: "https://ecommerce-connorbdigital.vercel.app",
+  email: "hello@ecommerce-connorbdigital.vercel.app",
   phone: "+44 20 7946 0000",
   country: "GB",
   currency: "GBP" as const,

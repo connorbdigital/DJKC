@@ -98,13 +98,13 @@ export const PROJECTS = [
   {
     id: "project-commerce",
     label: "Commerce — the shop",
-    line: "Exommeece: 32 products, 12 departments, a static build and the commission maths.",
+    line: "Ecommerce: 32 products, 12 departments, a static build and the commission maths.",
     detail:
       "A storefront framework and a working shop: money as integers, a product validator, a search box that cannot dead-end, 50 generated pages, and the affiliate rates as typed data.",
     bullets: ["119 tests", "npm run site → 50 pages", "Product + Offer + FAQPage schema", "No payment provider, and it says so"],
-    href: "https://exommeece.co.uk/",
+    href: "https://ecommerce-connorbdigital.vercel.app/",
     pages: [
-      { label: "The shop", href: "https://exommeece.co.uk/" },
+      { label: "The shop", href: "https://ecommerce-connorbdigital.vercel.app/" },
       { label: "The framework (README)", href: `${REPO_DOCS}/commerce/README.md` },
       { label: "What's missing (GAPS.md)", href: `${REPO_DOCS}/commerce/GAPS.md` },
       { label: "Commission maths", href: `${REPO_DOCS}/commerce/COMMISSION.md` },
@@ -159,9 +159,9 @@ export const SITES: SiteRecord[] = [
     },
   },
   {
-    id: "site-exommeece",
-    label: "exommeece.co.uk",
-    url: "https://exommeece.co.uk/",
+    id: "site-ecommerce",
+    label: "ecommerce-connorbdigital.vercel.app",
+    url: "https://ecommerce-connorbdigital.vercel.app/",
     kind: "The demo shop",
     what: "The shop this repository builds: 32 products, twelve departments, and a static catalogue that never needs a server.",
     built: [
