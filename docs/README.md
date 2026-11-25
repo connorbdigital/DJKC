@@ -6,6 +6,7 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | Document | What it answers |
 | --- | --- |
 | [shop-round-2026-11-20.md](shop-round-2026-11-20.md) | This round's shop work: the name, the 12-department taxonomy, SEO/AEO/GEO, the four product-source routes, and how each piece was checked |
+| [atlas-anything-arm-2026-11-20.md](atlas-anything-arm-2026-11-20.md) | The Atlas this round: every Anything app as a sun with its modules inside, and the space rebuilt as a measured compass |
 | [atlas-round-2026-11-20.md](atlas-round-2026-11-20.md) | The Atlas: a flyable 3D space in the Studio holding every project, process, pathway, the decision record and the 14-post blog plan for sitebuildup.co.uk — plus search, the site gallery and VR |
 | [../commerce/README.md](../commerce/README.md) | The storefront framework, the research it is built from, and what `npm run site` produces |
 | [../commerce/COMMISSION.md](../commerce/COMMISSION.md) | The money: resale margin worked line by line, marketplace commission, affiliate rates, and the four routes (Alibaba, AliExpress, Amazon, eBay) with their caps and gates |
@@ -33,6 +34,9 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [atlas-tour-2026-11-20.png](atlas-tour-2026-11-20.png) | The guided tour, with its caption, between two stops |
 | [atlas-mobile-2026-11-20.png](atlas-mobile-2026-11-20.png) | 390px: compact bar, chip rail, thumbstick, lift/boost pads, tappable map |
 | [atlas-mobile-brief-2026-11-20.png](atlas-mobile-brief-2026-11-20.png) | 390px: a node's detail as a sheet, with its actions stuck to the bottom |
+| [atlas-compass-2026-11-20.png](atlas-compass-2026-11-20.png) | Arrival at the Atlas: rings, spokes, five arms and the library at the centre |
+| [atlas-anything-arm-2026-11-20.png](atlas-anything-arm-2026-11-20.png) | The Anything arm: three app suns on their own ring, under their own sign |
+| [atlas-compass-mobile-2026-11-20.png](atlas-compass-mobile-2026-11-20.png) | 390px: the same compass from the portrait pose |
 | [anything-projects-2026-11-20.png](anything-projects-2026-11-20.png) | The Anything tab: your projects, credits left, and the filter |
 | [anything-not-connected-2026-11-20.png](anything-not-connected-2026-11-20.png) | The Anything tab before the key exists: it names the variable and reads nothing |
 | [anything-phone-2026-11-20.png](anything-phone-2026-11-20.png) | 390px: the same list, stacked, no sideways scroll |

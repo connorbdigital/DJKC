@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AtlasEngine } from "../atlasEngine";
 import { checkUrl, type SiteReport } from "../sitecheck";
+import { loadAnythingApps, type AnythingApp } from "../anythingClient";
 import {
   TOUR,
   auditAtlas,
@@ -26,6 +27,7 @@ const KIND_DISTRICT: Record<NodeKind, District> = {
   project: "projects",
   brief: "content",
   site: "gallery",
+  app: "anything",
 };
 
 const FILTERS: { id: NodeKind | "all"; label: string }[] = [
@@ -36,6 +38,7 @@ const FILTERS: { id: NodeKind | "all"; label: string }[] = [
   { id: "step", label: "Builder" },
   { id: "brief", label: "Blog plan" },
   { id: "site", label: "Sites" },
+  { id: "app", label: "Anything" },
 ];
 
 const POSE_KEY = "atlas:pose";
@@ -81,7 +84,19 @@ function readPose(): [number, number, number] | null {
  */
 export function Atlas({ onClose }: { onClose?: () => void }) {
   const [ownProjects, setOwnProjects] = useState<CustomProject[]>(() => (typeof window === "undefined" ? [] : readProjects()));
-  const atlas = useMemo(() => buildAtlas(ownProjects), [ownProjects]);
+  /* The apps on anything.com arrive after the space has been drawn: the atlas
+     rebuilds when they do, and the pose carries across, so nothing jumps. */
+  const [apps, setApps] = useState<AnythingApp[]>([]);
+  const atlas = useMemo(() => buildAtlas(ownProjects, apps), [ownProjects, apps]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadAnythingApps({ limit: 12, signal: controller.signal }).then((result) => {
+      if (controller.signal.aborted || !result.ok || !result.apps.length) return;
+      setApps(result.apps);
+    });
+    return () => controller.abort();
+  }, []);
   const host = useRef<HTMLDivElement | null>(null);
   const cssHost = useRef<HTMLDivElement | null>(null);
   const stage = useRef<HTMLDivElement | null>(null);

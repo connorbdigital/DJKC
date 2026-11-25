@@ -22,6 +22,7 @@ import {
   searchAtlas,
 } from "./atlas";
 import { CAPABILITIES } from "./features";
+import type { AnythingApp } from "./anythingClient";
 import { PACKS, resolvePack } from "./packs";
 import { BUILDER_STEPS } from "./processDoc";
 
@@ -82,7 +83,7 @@ describe("the space", () => {
   });
 
   it("has a colour per kind, because the only legend is the colour", () => {
-    expect(Object.keys(kindColour).sort()).toEqual(["brief", "capability", "pack", "project", "site", "step"]);
+    expect(Object.keys(kindColour).sort()).toEqual(["app", "brief", "capability", "pack", "project", "site", "step"]);
   });
 });
 
@@ -323,5 +324,69 @@ describe("the blog plan for sitebuildup.co.uk", () => {
       expect(markdown).toContain(brief.proof[0]!);
     }
     expect(markdown.split("\n---\n").length).toBe(BRIEFS.length + 1);
+  });
+});
+
+
+describe("apps built on anything.com", () => {
+  const apps: AnythingApp[] = [
+    {
+      id: "prj_9fk2",
+      name: "sitebuildup",
+      organizationName: "Kaysie's Workspace",
+      platform: "web",
+      modules: ["Home", "Booking", "Prices"],
+      url: "https://kaysie.sitebuildup.co.uk",
+      updatedAt: "2026-11-18T16:40:00Z",
+    },
+    {
+      id: "prj_7hd1",
+      name: "storefront",
+      organizationName: "Kaysie's Workspace",
+      platform: "mobile",
+      modules: [],
+      updatedAt: "2026-11-12T11:05:00Z",
+    },
+  ];
+
+  it("adds one sun per app, on an arm that exists only when there is something on it", () => {
+    expect(buildAtlas().districts.some((district) => district.id === "anything")).toBe(false);
+    const withApps = buildAtlas([], apps);
+    expect(withApps.districts.some((district) => district.id === "anything")).toBe(true);
+    const nodes = withApps.nodes.filter((node) => node.district === "anything");
+    expect(nodes.map((node) => node.id)).toEqual(["app-prj_9fk2", "app-prj_7hd1"]);
+    expect(nodes.every((node) => node.kind === "app")).toBe(true);
+    expect(nodes[0]!.bullets.join(" ")).toMatch(/Booking/);
+    expect(nodes[0]!.href).toBe("https://kaysie.sitebuildup.co.uk");
+    /* Never published: nothing to open, and it says so rather than inventing one. */
+    expect(nodes[1]!.href).toBeUndefined();
+    expect(nodes[1]!.detail).toMatch(/never been published/);
+    /* The authored nodes do not move to make room. */
+    const plain = buildAtlas();
+    for (const node of plain.nodes) {
+      expect(withApps.nodes.find((other) => other.id === node.id)?.position).toEqual(node.position);
+    }
+  });
+
+  it("keeps them inside the space, in one place, and out of the search noise", () => {
+    const again = buildAtlas([], apps);
+    const once = buildAtlas([], apps);
+    expect(again.nodes.map((node) => node.position)).toEqual(once.nodes.map((node) => node.position));
+    for (const node of again.nodes.filter((entry) => entry.district === "anything")) {
+      for (const value of node.position) expect(Math.abs(value)).toBeLessThan(200);
+    }
+    expect(bestMatch(again, "sitebuildup")?.kind).toBe("app");
+  });
+
+  it("stands on the diagonal, one arm's width east and north of the library", () => {
+    const withApps = buildAtlas([], apps);
+    const centre = (id: string) => withApps.districts.find((district) => district.id === id)!.centre;
+    const library = centre("library");
+    const projects = centre("projects");
+    const anything = centre("anything");
+    /* The three cardinal arms are the same distance apart; the diagonal is the
+       corner of that square, not another axis. */
+    expect(Math.abs(anything[0] - library[0])).toBeCloseTo(Math.abs(projects[0] - library[0]), 1);
+    expect(Math.abs(anything[2] - library[2])).toBeCloseTo(Math.abs(projects[0] - library[0]), 1);
   });
 });
