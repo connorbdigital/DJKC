@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AtlasEngine } from "../atlasEngine";
+import { AtlasEngine, THEMES, type AtlasTheme } from "../atlasEngine";
 import { checkUrl, type SiteReport } from "../sitecheck";
 import { loadAnythingApps, loadAnythingList, type AnythingApp } from "../anythingClient";
 import { lookFromStick, moveFromStick, stickVector } from "../sticks";
@@ -53,6 +53,44 @@ const FILTERS: { id: NodeKind | "all"; label: string }[] = [
 ];
 
 const POSE_KEY = "atlas:pose";
+const FEEL_KEY = "atlas:feel";
+
+/** Look speeds, as multipliers of the house rate. */
+export const LOOK_STEPS: { id: string; label: string; value: number }[] = [
+  { id: "slow", label: "Slow", value: 0.6 },
+  { id: "normal", label: "Normal", value: 1 },
+  { id: "fast", label: "Fast", value: 1.7 },
+];
+
+interface Feel {
+  look: number;
+  theme: AtlasTheme;
+  turbo: boolean;
+}
+
+/** A stored feel that no longer parses is a feel with the defaults. */
+export function readFeel(): Feel {
+  const fallback: Feel = { look: 1, theme: "nebula", turbo: false };
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(FEEL_KEY) ?? "null") as Partial<Feel> | null;
+    if (!raw || typeof raw !== "object") return fallback;
+    return {
+      look: typeof raw.look === "number" && raw.look > 0 ? raw.look : fallback.look,
+      theme: raw.theme && raw.theme in THEMES ? raw.theme : fallback.theme,
+      turbo: raw.turbo === true,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function writeFeel(next: Partial<Feel>) {
+  try {
+    window.localStorage.setItem(FEEL_KEY, JSON.stringify({ ...readFeel(), ...next }));
+  } catch {
+    /* Storage is a convenience here, never a requirement. */
+  }
+}
 const NOTES_KEY = "atlas:notes:v1";
 const PROJECTS_KEY = "atlas:projects:v1";
 
@@ -102,6 +140,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   /* Why there are no Anything suns, when there are none: a space with a hole in
      it and no explanation is worse than a space with a sentence. */
   const [anythingNote, setAnythingNote] = useState("");
+  const [anythingTry, setAnythingTry] = useState(0);
   const atlas = useMemo(() => buildAtlas(ownProjects, apps), [ownProjects, apps]);
 
   useEffect(() => {
@@ -140,7 +179,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
       );
     });
     return () => controller.abort();
-  }, []);
+  }, [anythingTry]);
   const host = useRef<HTMLDivElement | null>(null);
   const cssHost = useRef<HTMLDivElement | null>(null);
   const stage = useRef<HTMLDivElement | null>(null);
@@ -159,6 +198,12 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const [touch, setTouch] = useState(false);
   const [hovering, setHovering] = useState(false);
   const [tour, setTour] = useState<number | null>(null);
+  /* The feel of the place: how fast a look turns you, which of the three looks
+     the room wears, and whether turbo is latched. Kept between visits, because
+     a space that resets its own feel every time is a space you re-tune forever. */
+  const [lookSpeed, setLookSpeed] = useState<number>(() => readFeel().look);
+  const [theme, setTheme] = useState<AtlasTheme>(() => readFeel().theme);
+  const [boosting, setBoosting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -285,11 +330,16 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
               }
             }
           },
+          onBoost: (on) => setBoosting(on),
           onStatus: (message) => setStatus(message),
         },
         fromHash ? null : readPose()
       );
       engine.current = instance;
+      instance.setLookSpeed(readFeel().look);
+      instance.setTheme(readFeel().theme);
+      instance.setBoost(readFeel().turbo);
+      setBoosting(readFeel().turbo);
       setReady(true);
       if (fromHash) {
         instance.flyToId(fromHash.id);
@@ -635,7 +685,10 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   }, {});
 
   return (
-    <div ref={shell} className={`atlas${touch ? " is-touch" : ""}${hovering ? " is-hovering" : ""}`}>
+    <div
+      ref={shell}
+      className={`atlas atlas-theme-${theme}${touch ? " is-touch" : ""}${hovering ? " is-hovering" : ""}${boosting ? " is-boosting" : ""}`}
+    >
       <div className="atlas-stage" ref={stage}>
         <div ref={host} className="atlas-webgl" />
         <div ref={cssHost} className="atlas-css-host" />
@@ -645,7 +698,14 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         <div className="atlas-title">
           <p className="eyebrow">The Atlas</p>
           <strong>Everything the Studio knows, in one space</strong>
-          {anythingNote && <p className="atlas-note">{anythingNote}</p>}
+          {anythingNote && (
+            <p className="atlas-note">
+              {anythingNote}{" "}
+              <button type="button" className="atlas-note-retry" onClick={() => setAnythingTry((count) => count + 1)}>
+                Try again
+              </button>
+            </p>
+          )}
         </div>
 
         <form
@@ -769,6 +829,64 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         </div>
       )}
 
+      {/* The feel tray: how a look turns you, which look the room wears, and turbo
+          as a button rather than a key you have to remember. */}
+      <div className="atlas-hud atlas-feel" role="group" aria-label="Feel">
+        <div className="atlas-feel-row" data-desktop-only>
+          <span className="atlas-feel-label">Look</span>
+          {LOOK_STEPS.map((step) => (
+            <button
+              key={step.id}
+              type="button"
+              className={`atlas-feel-chip${lookSpeed === step.value ? " is-on" : ""}`}
+              aria-pressed={lookSpeed === step.value}
+              onClick={() => {
+                setLookSpeed(step.value);
+                engine.current?.setLookSpeed(step.value);
+                writeFeel({ look: step.value });
+              }}
+            >
+              {step.label}
+            </button>
+          ))}
+        </div>
+        <div className="atlas-feel-row" data-desktop-only>
+          <span className="atlas-feel-label">Style</span>
+          {(Object.keys(THEMES) as AtlasTheme[]).map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={`atlas-feel-chip${theme === id ? " is-on" : ""}`}
+              aria-pressed={theme === id}
+              title={`The room in the ${THEMES[id].label.toLowerCase()} look`}
+              onClick={() => {
+                setTheme(id);
+                engine.current?.setTheme(id);
+                writeFeel({ theme: id });
+              }}
+            >
+              {THEMES[id].label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className={`atlas-turbo${boosting ? " is-on" : ""}`}
+          aria-pressed={boosting}
+          title="Turbo — click it on, click it off (hold Shift for a burst)"
+          onClick={() => {
+            const next = !boosting;
+            setBoosting(next);
+            engine.current?.setBoost(next);
+            writeFeel({ turbo: next });
+          }}
+        >
+          <span className="atlas-turbo-dot" />
+          Turbo
+          <small>{boosting ? "on" : "off"}</small>
+        </button>
+      </div>
+
       <div className="atlas-hud atlas-map">
         <svg viewBox="-240 -240 480 480" role="group" aria-label="Map of the space — choose a district">
           <circle cx="0" cy="0" r="230" className="ring" />
@@ -848,12 +966,17 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
               ↓
             </button>
             <button
-              className="atlas-pad is-boost"
+              className={`atlas-pad is-boost${boosting ? " is-on" : ""}`}
               type="button"
-              aria-label="Boost"
-              onPointerDown={() => engine.current?.setMoveInput({ boost: true })}
-              onPointerUp={() => engine.current?.setMoveInput({ boost: false })}
-              onPointerLeave={() => engine.current?.setMoveInput({ boost: false })}
+              aria-label="Turbo"
+              aria-pressed={boosting}
+              title="Turbo — tap to latch, tap again to stop"
+              onClick={() => {
+                const next = !boosting;
+                setBoosting(next);
+                engine.current?.setBoost(next);
+                writeFeel({ turbo: next });
+              }}
             >
               ⚡
             </button>

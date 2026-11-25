@@ -22,6 +22,8 @@ export interface EngineHandlers {
   onHover?: (node: AtlasNode | null) => void;
   /** Any deliberate movement — used to cancel a guided tour. */
   onInteract?: () => void;
+  /** Turbo went on or off, however it was asked for. */
+  onBoost?: (on: boolean) => void;
   onTick: (info: { position: [number, number, number]; district: District; heading: string; near: string | null }) => void;
   onStatus: (message: string) => void;
 }
@@ -97,6 +99,7 @@ function sunMaterial(colour: THREE.Color, seed: number) {
       uSeed: { value: seed },
       uFade: { value: 1 },
       uHeat: { value: 1 },
+      uFlat: { value: 0 },
     },
     vertexShader: `
       varying vec3 vNormal;
@@ -115,6 +118,7 @@ function sunMaterial(colour: THREE.Color, seed: number) {
       uniform float uSeed;
       uniform float uFade;
       uniform float uHeat;
+      uniform float uFlat;
       varying vec3 vNormal;
       varying vec3 vView;
 
@@ -160,12 +164,12 @@ function sunMaterial(colour: THREE.Color, seed: number) {
         float mid = fbm(vNormal * 15.0 - vec3(churn * 0.6, uSeed, churn * 0.3));
         float cells = smoothstep(0.34, 0.74, fine) * 0.78 + smoothstep(0.46, 0.82, mid) * 0.22;
 
-        vec3 surface = mix(uColour * 0.86, uHot, clamp(cells, 0.0, 1.0) * 0.72);
+        vec3 surface = mix(uColour * 0.86, uHot, clamp(cells, 0.0, 1.0) * 0.72 * (1.0 - uFlat));
 
         /* Sunspots: a few darker, slower patches — the thing that tells you a
            disc is a body turning and not a texture on a billboard. */
         float spot = smoothstep(0.74, 0.93, fbm(vNormal * 3.4 + vec3(uSeed * 1.7, 0.0, churn * 0.25)));
-        surface = mix(surface, uColour * 0.28, spot * 0.6);
+        surface = mix(surface, uColour * 0.28, spot * 0.6 * (1.0 - uFlat));
 
         /* Limb darkening is what makes a disc read as a sphere: the middle burns,
            the edge falls away, and a thin hot rim carries the corona. */
@@ -173,6 +177,9 @@ function sunMaterial(colour: THREE.Color, seed: number) {
         float rim = pow(1.0 - facing, 6.0);
         vec3 lit = surface * (0.36 + 1.0 * limb) + uHot * rim * 0.95;
         lit *= 1.1 * uHeat;
+        /* Flatter looks trade the granulation for a clean gradient: the disc
+           still reads as a sphere, but as a drawn one. */
+        lit = mix(lit, uColour * (0.34 + 0.9 * limb) * 1.05 * uHeat, uFlat * 0.85);
         gl_FragColor = vec4(lit * uFade, 1.0);
       }
     `,
@@ -194,6 +201,77 @@ function sphereFor(radius: number, width: number, height: number) {
 }
 
 const FOV = 62;
+/** Three ways the same space can look, all of them the same geometry. */
+export type AtlasTheme = "nebula" | "observatory" | "blueprint";
+
+interface ThemeLook {
+  label: string;
+  /** How much the suns' coronas throw into the dark. */
+  glow: number;
+  /** Edge brightness, against the depth fade. */
+  edges: number;
+  /** The sun shader's heat: 1 is a star, 0.3 is a diagram. */
+  heat: number;
+  /** How much the granulation is smoothed away: 0 keeps the churn, 1 draws it flat. */
+  flat: number;
+  /** Which way the suns are pulled: a tint, and how far. */
+  tint: { colour: number; amount: number } | null;
+  fog: { colour: number; near: number; far: number };
+  ambient: { colour: number; intensity: number };
+  key: { colour: number; intensity: number };
+  cool: { colour: number; intensity: number };
+  grid: { tint: number; opacity: number };
+  starTint: number | null;
+}
+
+export const THEMES: Record<AtlasTheme, ThemeLook> = {
+  /* The room as it is: pink and violet, warm suns, a lot of air. */
+  nebula: {
+    label: "Nebula",
+    glow: 1,
+    edges: 1,
+    heat: 1,
+    flat: 0,
+    tint: null,
+    fog: { colour: 0x0a0512, near: 60, far: 420 },
+    ambient: { colour: 0xb9a5ff, intensity: 0.9 },
+    key: { colour: 0xff2bd6, intensity: 320 },
+    cool: { colour: 0x7dd3fc, intensity: 220 },
+    grid: { tint: 0xffffff, opacity: 0.16 },
+    starTint: null,
+  },
+  /* A planetarium: cold, clean, the stars white and the grid quiet. */
+  observatory: {
+    label: "Observatory",
+    glow: 0.5,
+    edges: 0.9,
+    heat: 0.86,
+    flat: 0.35,
+    tint: { colour: 0xdfeaff, amount: 0.34 },
+    fog: { colour: 0x05070f, near: 90, far: 560 },
+    ambient: { colour: 0xa9c6ff, intensity: 0.7 },
+    key: { colour: 0xdfe9ff, intensity: 240 },
+    cool: { colour: 0x8fb6ff, intensity: 260 },
+    grid: { tint: 0x8fb6ff, opacity: 0.1 },
+    starTint: 0xe8f0ff,
+  },
+  /* A drawing you can fly through: grid up, glow down, every wire legible. */
+  blueprint: {
+    label: "Blueprint",
+    glow: 0.12,
+    edges: 1.6,
+    heat: 0.62,
+    flat: 1,
+    tint: { colour: 0x7fd4ff, amount: 0.6 },
+    fog: { colour: 0x030a15, near: 120, far: 700 },
+    ambient: { colour: 0x9fd8ff, intensity: 0.55 },
+    key: { colour: 0x5aa9ff, intensity: 200 },
+    cool: { colour: 0x2f6fff, intensity: 180 },
+    grid: { tint: 0x5aa9ff, opacity: 0.34 },
+    starTint: 0x9fd8ff,
+  },
+};
+
 const SPEED = 26;
 const BOOST = 3.2;
 const EYE_HEIGHT = 1.7;
@@ -332,6 +410,17 @@ export class AtlasEngine {
   private highlightUntil = 0;
   private readonly panels = new Map<string, HTMLElement>();
   private readonly velocity = new THREE.Vector3();
+  /** Look speed: 1 is the house rate, and the house rate is slow on purpose. */
+  private lookSpeed = 1;
+  private latchedBoost = false;
+  private wasBoosting = false;
+  private theme: AtlasTheme = "nebula";
+  private glowScale = 1;
+  private edgeScale = 1;
+  private grid: THREE.GridHelper | null = null;
+  private ambient: THREE.AmbientLight | null = null;
+  private keyLight: THREE.PointLight | null = null;
+  private coolLight: THREE.PointLight | null = null;
   private readonly keys = new Set<string>();
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
@@ -350,11 +439,27 @@ export class AtlasEngine {
      running along the wires. Both are rebuilt whenever the selection changes. */
   private focusId: string | null = null;
   private pageObjects: CSS3DObject[] = [];
+  /** Invisible planes over the cards: the engine does the picking, not the DOM. */
+  private readonly pageTargets: { mesh: THREE.Mesh; href: string }[] = [];
   private pageLines: THREE.Line[] = [];
   private pageCurves: THREE.QuadraticBezierCurve3[] = [];
   private stream: { points: THREE.Points; curves: THREE.QuadraticBezierCurve3[]; at: number[] } | null = null;
-  private readonly stars: { points: THREE.Points; material: THREE.PointsMaterial; speed: number; base: number; phase: number }[] = [];
-  private readonly suns: { id: string; material: THREE.ShaderMaterial; mesh: THREE.Mesh; spin: number }[] = [];
+  private readonly stars: {
+    points: THREE.Points;
+    material: THREE.PointsMaterial;
+    speed: number;
+    base: number;
+    phase: number;
+    colour: number;
+  }[] = [];
+  private readonly suns: {
+    id: string;
+    material: THREE.ShaderMaterial;
+    mesh: THREE.Mesh;
+    /** The district's own colour, before a look tints it. */
+    base: THREE.Color;
+    spin: number;
+  }[] = [];
   private frame = 0;
   private yaw = 0;
   private pitch = -0.13;
@@ -415,13 +520,14 @@ export class AtlasEngine {
     }
     cameraLook(this.rig, this.camera, this.yaw, this.pitch);
 
-    this.scene.add(new THREE.AmbientLight(0xb9a5ff, 0.9));
-    const key = new THREE.PointLight(0xff2bd6, 320, 260, 2);
-    key.position.set(0, 40, 0);
-    this.scene.add(key);
-    const cool = new THREE.PointLight(0x7dd3fc, 220, 320, 2);
-    cool.position.set(0, 18, 150);
-    this.scene.add(cool);
+    this.ambient = new THREE.AmbientLight(0xb9a5ff, 0.9);
+    this.scene.add(this.ambient);
+    this.keyLight = new THREE.PointLight(0xff2bd6, 320, 260, 2);
+    this.keyLight.position.set(0, 40, 0);
+    this.scene.add(this.keyLight);
+    this.coolLight = new THREE.PointLight(0x7dd3fc, 220, 320, 2);
+    this.coolLight.position.set(0, 18, 150);
+    this.scene.add(this.coolLight);
 
     this.buildStars();
     const grid = new THREE.GridHelper(420, 42, 0x8c5bff, 0x2a1740);
@@ -429,6 +535,7 @@ export class AtlasEngine {
     gridMaterial.transparent = true;
     gridMaterial.opacity = 0.16;
     grid.position.y = 0;
+    this.grid = grid;
     this.scene.add(grid);
     this.buildFramework();
     this.buildDistrictLabels();
@@ -485,7 +592,14 @@ export class AtlasEngine {
       const points = new THREE.Points(geometry, material);
       points.rotation.z = random() * Math.PI;
       this.scene.add(points);
-      this.stars.push({ points, material, speed: shell.speed, base: shell.opacity, phase: index * 1.7 });
+      this.stars.push({
+        points,
+        material,
+        speed: shell.speed,
+        base: shell.opacity,
+        phase: index * 1.7,
+        colour: shell.colour,
+      });
     });
 
     /* A soft glow behind each district so the space has light, not just points. */
@@ -695,10 +809,29 @@ export class AtlasEngine {
         const object = new CSS3DObject(element);
         object.position.copy(target);
         object.scale.setScalar(0.06);
+        /* CSS3D is hit-tested in three dimensions: a card near the camera takes
+           clicks meant for the tray underneath it. So the card is display only,
+           and a plane in the world carries the click. The anchor stays in the
+           tab order, which is how a keyboard opens it. */
+        element.style.pointerEvents = "none";
         /* Face the middle of the ring, so every card is readable from inside it. */
         object.lookAt(source);
         this.scene.add(object);
         this.pageObjects.push(object);
+
+        /* A pill roughly the label's size — 26px type, .9em of side padding —
+           a little generous, because a click on the edge of a link should open
+           the link. Both sides are pickable: the ring is entered from outside
+           as often as from within. */
+        const planeWidth = Math.min(9, (page.label.length * 15 + 64) * 0.06);
+        const plane = new THREE.Mesh(
+          new THREE.PlaneGeometry(planeWidth, 3),
+          new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
+        );
+        plane.position.copy(target);
+        plane.lookAt(source);
+        this.scene.add(plane);
+        this.pageTargets.push({ mesh: plane, href: page.href });
 
         const curve = new THREE.QuadraticBezierCurve3(
           source.clone(),
@@ -745,6 +878,12 @@ export class AtlasEngine {
   }
 
   private clearFocus() {
+    for (const target of this.pageTargets) {
+      this.scene.remove(target.mesh);
+      target.mesh.geometry.dispose();
+      (target.mesh.material as THREE.Material).dispose();
+    }
+    this.pageTargets.length = 0;
     for (const object of this.pageObjects) {
       this.scene.remove(object);
       /* CSS3D leaves its element in the host; take it out with the object. */
@@ -832,6 +971,7 @@ export class AtlasEngine {
         this.suns.push({
           id: node.id,
           material: material as THREE.ShaderMaterial,
+          base: colour.clone(),
           mesh,
           spin: node.kind === "project" ? 0.05 : node.kind === "pack" ? 0.04 : 0.028,
         });
@@ -897,7 +1037,10 @@ export class AtlasEngine {
         fade: isSite ? undefined : (value: number) => {
           const sun = material as THREE.ShaderMaterial;
           sun.uniforms.uFade!.value = 0.35 + value * 0.65;
-          (corona.material as THREE.SpriteMaterial).opacity = (isSite ? 0.16 : 0.34) * value;
+          (corona.material as THREE.SpriteMaterial).opacity = (isSite ? 0.16 : 0.34) * value * this.glowScale;
+          /* The wide halo is the light thrown into the dark: the first thing a
+             flatter look gives up, because it is what blurs a wire. */
+          (glow.material as THREE.SpriteMaterial).opacity = (isSite ? 0.2 : 0.14) * value * this.glowScale;
         },
       });
     }
@@ -1000,10 +1143,21 @@ export class AtlasEngine {
     const dy = event.clientY - this.last.y;
     this.last = { x: event.clientX, y: event.clientY };
     this.dragDistance += Math.abs(dx) + Math.abs(dy);
-    this.yaw -= dx * 0.0026;
-    this.pitch = clamp(this.pitch - dy * 0.0022, -1.32, 1.32);
+    this.yaw -= dx * 0.0019 * this.lookSpeed;
+    this.pitch = clamp(this.pitch - dy * 0.0016 * this.lookSpeed, -1.32, 1.32);
     cameraLook(this.rig, this.camera, this.yaw, this.pitch);
   };
+
+  /** The card under the pointer, if there is one. */
+  private pageAt(clientX: number, clientY: number): string | null {
+    if (!this.pageTargets.length) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hit = this.raycaster.intersectObjects(this.pageTargets.map((entry) => entry.mesh), false)[0];
+    if (!hit) return null;
+    return this.pageTargets.find((entry) => entry.mesh === hit.object)?.href ?? null;
+  }
 
   private nodeAt(clientX: number, clientY: number): AtlasNode | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
@@ -1029,6 +1183,11 @@ export class AtlasEngine {
     const wasDragging = this.dragging;
     this.dragging = false;
     if (!wasDragging || this.dragDistance > 6) return;
+    const page = this.pageAt(event.clientX, event.clientY);
+    if (page) {
+      window.open(page, "_blank", "noopener,noreferrer");
+      return;
+    }
     const node = this.nodeAt(event.clientX, event.clientY);
     if (!node) {
       this.select(null);
@@ -1094,6 +1253,69 @@ export class AtlasEngine {
    * applied per frame at the same rate as a drag — a stick that only turned when
    * the finger moved would stall the moment you held it still.
    */
+  /** How fast a drag or a stick turns you. 1 is the house rate. */
+  setLookSpeed(speed: number) {
+    this.lookSpeed = Math.max(0.2, Math.min(2.5, speed));
+  }
+
+  /** Turbo, latched: the button stays on until it is pressed again. */
+  setBoost(on: boolean) {
+    this.latchedBoost = on;
+  }
+
+  get boosting() {
+    return this.keys.has("shift") || this.touch.boost || this.latchedBoost;
+  }
+
+  /** Which of the three looks the room wears. Everything else stays put. */
+  setTheme(theme: AtlasTheme) {
+    const look = THEMES[theme] ?? THEMES.nebula;
+    this.theme = theme;
+    this.glowScale = look.glow;
+    this.edgeScale = look.edges;
+    if (this.scene.fog instanceof THREE.Fog) {
+      this.scene.fog.color.setHex(look.fog.colour);
+      this.scene.fog.near = look.fog.near;
+      this.scene.fog.far = look.fog.far;
+    }
+    if (this.ambient) {
+      this.ambient.color.setHex(look.ambient.colour);
+      this.ambient.intensity = look.ambient.intensity;
+    }
+    if (this.keyLight) {
+      this.keyLight.color.setHex(look.key.colour);
+      this.keyLight.intensity = look.key.intensity;
+    }
+    if (this.coolLight) {
+      this.coolLight.color.setHex(look.cool.colour);
+      this.coolLight.intensity = look.cool.intensity;
+    }
+    if (this.grid) {
+      const material = this.grid.material as THREE.LineBasicMaterial;
+      material.color.setHex(look.grid.tint);
+      material.opacity = look.grid.opacity;
+      material.needsUpdate = true;
+    }
+    /* Heat and flat are the sun shader's own dials: a star, or a diagram. */
+    const target = look.tint ? new THREE.Color(look.tint.colour) : null;
+    for (const sun of this.suns) {
+      sun.material.uniforms.uHeat!.value = look.heat;
+      sun.material.uniforms.uFlat!.value = look.flat;
+      const colour = sun.base.clone();
+      if (target) colour.lerp(target, look.tint!.amount);
+      sun.material.uniforms.uColour!.value.copy(colour);
+      sun.material.uniforms.uHot!.value.copy(colour.clone().lerp(new THREE.Color(0xffffff), 0.28));
+    }
+    for (const star of this.stars) {
+      if (look.starTint === null) star.material.color.setHex(star.colour);
+      else star.material.color.setHex(look.starTint);
+    }
+  }
+
+  get currentTheme() {
+    return this.theme;
+  }
+
   setLookInput(input: { x?: number; y?: number }) {
     this.look = { x: input.x ?? this.look.x, y: input.y ?? this.look.y };
     if (this.look.x || this.look.y) {
@@ -1246,6 +1468,19 @@ export class AtlasEngine {
     this.camera.updateProjectionMatrix();
   }
 
+  /**
+   * Turbo pulls the frame open by a few degrees. It is not faster (the speed is
+   * in the movement); it is the room widening around you, which is what makes
+   * the extra speed read as speed rather than as a number changing.
+   */
+  private settleFov(delta: number) {
+    const wanted = responsiveFov(this.camera.aspect) + (this.boosting ? 8 : 0);
+    if (Math.abs(this.camera.fov - wanted) < 0.01) return;
+    /* The fit-to-window FOV must not be overwritten permanently: this lerps back. */
+    this.camera.fov += (wanted - this.camera.fov) * Math.min(1, delta * 4);
+    this.camera.updateProjectionMatrix();
+  }
+
   resize = () => {
     const width = this.host.clientWidth || 1;
     const height = this.host.clientHeight || 1;
@@ -1343,9 +1578,10 @@ export class AtlasEngine {
       const material = edge.line.material as THREE.LineBasicMaterial;
       const away = edge.midpoint.distanceTo(this.rig.position);
       const focused = this.focusId !== null && (edge.from === this.focusId || edge.to === this.focusId);
-      material.opacity = focused
-        ? clamp(0.95 - away / 700, 0.25, 0.95)
-        : clamp(0.34 - away / 900, 0.03, 0.34) * (edge.kind === "proves" ? 1.1 : 1);
+      material.opacity =
+        (focused
+          ? clamp(0.95 - away / 700, 0.25, 0.95)
+          : clamp(0.34 - away / 900, 0.03, 0.34) * (edge.kind === "proves" ? 1.1 : 1)) * this.edgeScale;
     }
 
     /* The streams: particles walking the selected node's wires. */
@@ -1396,10 +1632,17 @@ export class AtlasEngine {
     if (this.touch.lift) direction.y += this.touch.lift;
 
     if (direction.lengthSq() > 0) direction.normalize();
-    const boost = this.keys.has("shift") || this.touch.boost ? BOOST : 1;
+    const boosting = this.keys.has("shift") || this.touch.boost || this.latchedBoost;
+    const boost = boosting ? BOOST : 1;
+    if (boosting !== this.wasBoosting) {
+      this.wasBoosting = boosting;
+      this.handlers.onBoost?.(boosting);
+    }
     if (direction.lengthSq() > 0) this.handlers.onInteract?.();
     this.velocity.lerp(direction.multiplyScalar(SPEED * boost), Math.min(1, delta * 9));
     this.rig.position.addScaledVector(this.velocity, delta);
+
+    this.settleFov(delta);
 
     /* Turn with the keyboard too: a space you can only explore with a mouse is half a space. */
     const turn = (this.keys.has("z") ? 1 : 0) - (this.keys.has("c") ? 1 : 0);
@@ -1410,8 +1653,8 @@ export class AtlasEngine {
 
     /* The right stick turns at the same rate as a drag, held or tapped. */
     if (this.look.x || this.look.y) {
-      this.yaw -= this.look.x * delta * 2.4;
-      this.pitch = clamp(this.pitch - this.look.y * delta * 1.7, -1.32, 1.32);
+      this.yaw -= this.look.x * delta * 1.7 * this.lookSpeed;
+      this.pitch = clamp(this.pitch - this.look.y * delta * 1.2 * this.lookSpeed, -1.32, 1.32);
       cameraLook(this.rig, this.camera, this.yaw, this.pitch);
     }
     this.clampRig();
