@@ -246,3 +246,33 @@ describe("two keys in the project, one of them wrong", () => {
     expect(diagnosis).not.toContain("eyJhbGci");
   });
 });
+
+describe("the probe says why a key is refused", () => {
+  const probeReport = async () => {
+    const { res, out } = response();
+    await handler({ method: "GET", url: "/api/anything?probe=1" } as unknown as Parameters<typeof handler>[0], res);
+    return JSON.parse(out.body) as {
+      probe: { working: string | null; verdict: string; keys: { name: string; length: number; looksLikeExample: boolean; accepted: boolean }[] };
+    };
+  };
+
+  it("names the docs' own example when that is what was stored", async () => {
+    process.env.Anything_Key = "anything_xxx:";
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }));
+    const body = await probeReport();
+    expect(body.probe.working).toBeNull();
+    expect(body.probe.keys[0]!.length).toBe(12);
+    expect(body.probe.keys[0]!.looksLikeExample).toBe(true);
+    expect(body.probe.verdict).toMatch(/example printed in Anything's documentation/i);
+    expect(body.probe.verdict).toMatch(/Settings → API Keys → Create key/);
+    expect(body.probe.verdict).not.toContain("anything_xxx");
+  });
+
+  it("says a right-shaped key is dead rather than blaming the paste", async () => {
+    process.env.Anything_Key = "anything_9f2c4d6e8a0b1c3d5e7f9a1b3c5d7e9f";
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }));
+    const body = await probeReport();
+    expect(body.probe.verdict).toMatch(/dead or from another account/i);
+    expect(body.probe.verdict).not.toMatch(/example printed/i);
+  });
+});

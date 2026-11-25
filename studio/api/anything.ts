@@ -7,6 +7,7 @@ import {
   basicAuth,
   keyCandidates,
   keyDiagnosis,
+  keyShape,
   type KeyCandidate,
 } from "../src/anything.js";
 
@@ -165,9 +166,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
         const results = [];
         for (const candidate of configured) {
           const answer = await read(candidate.value, ME_PATH, controller.signal);
+          const raw = process.env[candidate.name] ?? "";
+          const shape = keyShape(raw);
           results.push({
             name: candidate.name,
-            shape: keyDiagnosis(candidate.name, process.env[candidate.name] ?? ""),
+            shape: keyDiagnosis(candidate.name, raw),
+            length: shape.length,
+            plainCharacters: shape.plainCharacters,
+            looksLikeExample: shape.looksLikeExample,
             status: answer.ok ? answer.status : answer.attempt.status,
             accepted: answer.ok,
             detail: answer.ok ? "" : answer.attempt.detail,
@@ -181,9 +187,17 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
             working: working ? working.name : null,
             verdict: working
               ? `${working.name} is accepted by Anything${results.length > 1 ? ", so the other stored key is the one that was being used before and can be removed" : ""}.`
-              : `Anything accepted none of the ${results.length} stored key${results.length === 1 ? "" : "s"}. ${results
-                  .map((entry) => `${entry.name} answered ${entry.status || "nothing"}${entry.detail ? ` (${entry.detail})` : ""}`)
-                  .join("; ")}. A key is created in Anything under Settings → API keys and starts anything_.`,
+              : [
+                  `Anything refused ${results.length === 1 ? `the value stored in ${results[0]!.name}` : `all ${results.length} stored keys`} — ${results
+                    .map((entry) => `${entry.name} answered ${entry.status || "nothing"}${entry.detail ? ` (${entry.detail})` : ""}`)
+                    .join("; ")}.`,
+                  results.some((entry) => entry.looksLikeExample)
+                    ? "That value is the example printed in Anything's documentation, not a key: it was never replaced with a real one."
+                    : results.some((entry) => !entry.plainCharacters)
+                      ? "The value holds characters a key does not contain, so it is a paste artefact or another product's token."
+                      : "The value is the right shape, so it is dead or from another account: a revoked key, or one created before a rotation.",
+                  "Nothing in the code can fix that — only a live key can. In Anything: Settings → API Keys → Create key (expiry Never), copy it once, then paste it into this project as Anything_Key, type Sensitive, and redeploy: a changed variable does not reach an existing deployment.",
+                ].join(" "),
           },
         });
         return;
