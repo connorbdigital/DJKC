@@ -221,11 +221,19 @@ export const LINKS: StudioLink[] = [
 
 export const TODOS: StudioTodo[] = [
   {
-    id: "shop-checkout",
-    title: "Take money in the shop",
-    why: "Hearth & Grain has a catalogue, a basket and no payment step: nothing can be bought. Stripe Checkout is one redirect and a webhook.",
+    id: "shop-stripe-key",
+    title: "Put the Stripe key on the shop",
+    why: "The checkout is built and prices every basket on the server, but with no STRIPE_SECRET_KEY it answers 503 and takes no card. One test key makes the whole path real; the live key needs the business verified first.",
+    effort: "S",
+    where: "commerce",
+    state: "now",
+  },
+  {
+    id: "shop-order-email",
+    title: "Email the order, and write it down",
+    why: "Stripe sends its own receipt; the shop sends nothing and records nothing. A webhook that writes the order and mails it is what turns a payment into an order someone can refund or re-send.",
     effort: "M",
-    where: "site",
+    where: "commerce",
     state: "next",
   },
   {
@@ -271,7 +279,7 @@ export const TODOS: StudioTodo[] = [
   {
     id: "anything-bridge",
     title: "Confirm the Anything bridge on the live Studio",
-    why: "The function now answers a GET about itself and explains any failure; the last report was a bare 500, so the sentence it returns next is the diagnosis.",
+    why: "The bridge answers /api/anything?probe=1 with what each stored key is and what Anything says about it. The live answer was a 401 with two keys set, so one of the two variables is a wrong value.",
     effort: "S",
     where: "ops",
     state: "next",
@@ -370,14 +378,6 @@ export const TODOS: StudioTodo[] = [
     why: "WebXR is wired and has only ever answered 'No headset'. Untested is not the same as working.",
     effort: "S",
     where: "studio",
-    state: "later",
-  },
-  {
-    id: "payments",
-    title: "Take real payment for real orders",
-    why: "The store framework prices a cart and takes no money. GAPS.md calls this the difference between a shop and a catalogue.",
-    effort: "L",
-    where: "commerce",
     state: "later",
   },
   {

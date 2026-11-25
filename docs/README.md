@@ -5,9 +5,10 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 
 | Document | What it answers |
 | --- | --- |
+| [checkout-and-pitch-2026-11-20.md](checkout-and-pitch-2026-11-20.md) | The shop's Stripe checkout end to end (and the honest 503 until a key exists), the Studio's one-page pitch sheet, and the two-key 401 that was hiding the right key |
 | [shop-round-2026-11-20.md](shop-round-2026-11-20.md) | This round's shop work: the name, the 12-department taxonomy, SEO/AEO/GEO, the four product-source routes, and how each piece was checked |
 | [sitebuildup-clients-2026-11-20.md](sitebuildup-clients-2026-11-20.md) | What UK websites actually sell for in 2026, what wins the work, four fixed prices, and the site's own gaps |
-| [not-yet-done-2026-11-20.md](not-yet-done-2026-11-20.md) | The honest inventory: twenty-seven things raised in this project that are still not true |
+| [not-yet-done-2026-11-20.md](not-yet-done-2026-11-20.md) | The honest inventory: thirty things raised in this project that are still not true |
 | [studio-city-standards-2026-11-20.md](studio-city-standards-2026-11-20.md) | The city look, the Standards board, no more token bounce, and a bridge that explains itself |
 | [atlas-look-turbo-and-the-500-2026-11-20.md](atlas-look-turbo-and-the-500-2026-11-20.md) | Three switchable looks, a turbo button that latches, slower look controls, cards that no longer eat clicks, and what the Anything 500 actually said |
 | [atlas-wires-and-ecommerce-2026-11-20.md](atlas-wires-and-ecommerce-2026-11-20.md) | Pages and streams in the 3D space, a way back to the 2D Studio, why the Anything suns were missing, and the shop renamed and deployed on its own domain |
@@ -34,7 +35,9 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | --- | --- |
 | [shop-home-2026-11-20.png](shop-home-2026-11-20.png) | The full home page: hero, trust band, twelve department tiles, reductions, under-£25 edits, promises, FAQs |
 | [shop-product-2026-11-20.png](shop-product-2026-11-20.png) | A product page: price, delivery before the click, stock, basket, accordions, key facts |
-| [shop-basket-2026-11-20.png](shop-basket-2026-11-20.png) | The basket with two lines, and the checkout that says it is not connected |
+| [shop-basket-2026-11-20.png](shop-basket-2026-11-20.png) | The basket with two lines*, and the checkout that says it is not connected (*taken before the button was wired: see `shop-checkout-basket-2026-11-20.png`) |
+| [shop-checkout-basket-2026-11-20.png](shop-checkout-basket-2026-11-20.png) | The same basket now: subtotal, delivery, total, a real Checkout button, and the 503 sentence with the arithmetic in it |
+| [studio-pitch-sheet-2026-11-20.png](studio-pitch-sheet-2026-11-20.png) | The pitch sheet: a URL in, five faults with what each costs, three steps, two packages |
 | [shop-mobile-2026-11-20.png](shop-mobile-2026-11-20.png) | 390px: compact header, scrolling department rail, stacked calls to action |
 | [atlas-gate-2026-11-20.png](atlas-gate-2026-11-20.png) | The Studio gate, with the no-token way into the space |
 | [atlas-opening-2026-11-20.png](atlas-opening-2026-11-20.png) | The Atlas on arrival: builder steps, library, pathways, projects, the blog plan wall |

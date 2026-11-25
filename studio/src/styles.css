@@ -1106,3 +1106,49 @@ button.menu-toggle { display: none; }
   .top h1 { font-size: 1.25rem; }
   .lede { font-size: .86rem; }
 }
+
+/* ── Pitch sheet ────────────────────────────────────────────────────────────
+   A URL in, one printable page out. On screen it is a sheet of paper on the
+   desk; on paper it is exactly that, with the Studio's own chrome removed. */
+
+.pitch-form { display: flex; gap: .5rem; align-items: end; flex-wrap: wrap; margin: 1rem 0 .6rem; }
+.pitch-form label { display: block; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-bottom: .3rem; }
+.pitch-form input { min-width: 20rem; flex: 1 1 20rem; padding: .55rem .7rem; border: 1px solid var(--line); border-radius: 6px; background: rgba(255,255,255,.04); color: inherit; font: inherit; }
+.pitch-form input:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+.pitch-actions { display: flex; gap: .5rem; margin: 1rem 0 .8rem; flex-wrap: wrap; }
+
+.pitch-sheet {
+  background: #fbf7f1;
+  color: #201a14;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2.2rem 2.4rem 1.8rem;
+  border-radius: 3px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  line-height: 1.5;
+}
+.pitch-sheet h1 { font-size: 1.45rem; line-height: 1.25; margin: .3rem 0 .5rem; letter-spacing: -.01em; }
+.pitch-sheet h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; color: #7a6a58; margin: 1.5rem 0 .5rem; border-bottom: 1px solid #e3d8c8; padding-bottom: .3rem; }
+.pitch-sheet ol { margin: 0; padding-left: 1.2rem; }
+.pitch-sheet p, .pitch-sheet li, .pitch-sheet ol, .pitch-sheet ul { color: #201a14; }
+.pitch-sheet li { margin: .45rem 0; }
+.pitch-sheet strong { color: #14100c; }
+.pitch-sheet em { color: #4a3f33; font-style: italic; }
+.pitch-sheet li em { color: #4a3f33; }
+.pitch-sheet p { margin: .45rem 0; }
+.pitch-sheet .eyebrow { font-size: .7rem; letter-spacing: .16em; text-transform: uppercase; color: #8a7355; margin: 0; }
+.pitch-sheet .pitch-meta { font-size: .82rem; color: #6d6053 !important; margin-top: .2rem; }
+.pitch-sheet .pitch-all { font-size: .78rem; color: #7a6a58 !important; }
+.pitch-sheet footer { margin-top: 1.6rem; border-top: 1px solid #e3d8c8; padding-top: .8rem; font-size: .78rem; }
+.pitch-sheet footer p { font-size: .78rem; color: #6d6053 !important; margin: .3rem 0; }
+.pitch-sheet a { color: #5b4632; }
+
+@media print {
+  @page { size: A4; margin: 14mm; }
+  body { background: #fff !important; }
+  .top, .tabs, .lede, .pitch-form, .pitch-actions, .pitch-intro, .boot, footer.foot { display: none !important; }
+  .pitch-sheet { box-shadow: none; padding: 0; max-width: none; background: #fff; color: #000; font-size: 10.5pt; }
+  .pitch-sheet h1 { font-size: 16pt; }
+  .pitch-sheet h2 { color: #333; border-color: #bbb; }
+  .pitch-sheet a { color: #000; text-decoration: none; }
+}

@@ -11,6 +11,7 @@ import { Search } from "./components/Search";
 import { Draft } from "./components/Draft";
 import { Resources } from "./components/Resources";
 import { Standards } from "./components/Standards";
+import { Pitch } from "./components/Pitch";
 import { Anything } from "./components/Anything";
 import { Palette } from "./components/Palette";
 import type { Command } from "./palette";
@@ -18,7 +19,7 @@ import { PROJECTS } from "./atlas";
 /* three.js is ~700kB; nobody pays for it until they ask for the space. */
 const Atlas = lazy(() => import("./components/Atlas").then((module) => ({ default: module.Atlas })));
 
-type Tab = "projects" | "packs" | "features" | "search" | "draft" | "standards" | "resources" | "anything" | "atlas";
+type Tab = "projects" | "packs" | "features" | "search" | "draft" | "standards" | "pitch" | "resources" | "anything" | "atlas";
 
 /** `#tab=shelf` opens that tab, and `#atlas/<node>` has to open the space.
  *  A link you cannot share is a link you have to describe instead. */
@@ -50,6 +51,13 @@ const TABS: { id: Tab; label: string; blurb: string; group: Group; glyph: string
     group: "build",
     glyph: "✓",
     blurb: "Everything a website should have, scored against the shop and the band — with the gaps named and the two best examples of each line.",
+  },
+  {
+    id: "pitch",
+    label: "Pitch sheet",
+    group: "ask",
+    glyph: "◫",
+    blurb: "A prospect's URL in, a one-page audit out: five faults, what each costs, what to do first, and the package that fits. Print it or paste it.",
   },
   {
     id: "anything",
@@ -419,6 +427,7 @@ export function App() {
       {/* The shelf needs no token and no network: it is the same on a bad day. */}
       {tab === "resources" && <Resources />}
       {tab === "standards" && <Standards />}
+      {tab === "pitch" && <Pitch />}
       {tab === "anything" && <Anything />}
       {tab === "atlas" && (
         <Suspense fallback={<p className="atlas-boot">Loading the space…</p>}>

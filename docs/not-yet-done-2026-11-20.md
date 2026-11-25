@@ -7,7 +7,7 @@ still is not true. Ordered by what it costs to leave undone.*
 
 | # | What | Where it stands | Effort |
 | --- | --- | --- | --- |
-| 1 | **Shop checkout** | Hearth & Grain has a catalogue, a basket and no payment step. Nothing can be bought. | M |
+| 1 | **Shop checkout** | Built and priced on the server (`api/checkout.js`); it answers 503 until `STRIPE_SECRET_KEY` is on the **ecommerce** project. With the key it is a real Stripe page — see [checkout-and-pitch](checkout-and-pitch-2026-11-20.md). | S (the key) |
 | 2 | **Privacy notice, terms of sale, cookies, accessibility statement** | None exist on either site, and both collect names and emails. | S |
 | 3 | **SiteBuildup has no prices** | Competitors publish ranges; "contact for a quote" reads as expensive. Packages are drafted in [sitebuildup-clients](sitebuildup-clients-2026-11-20.md), not published. | S |
 | 4 | **No proof of work anywhere** | No case study, no testimonial, no number. Both sites describe; neither demonstrates. | M |
@@ -19,9 +19,9 @@ still is not true. Ordered by what it costs to leave undone.*
 | --- | --- | --- | --- |
 | 6 | **A real supplier account** | `commerce/SUPPLIERS.md` documents ten feeds; the catalogue is invented. No trade account, no sample order. | M |
 | 7 | **Real product photography** | 33 generated SVG placeholders, honest but not sellable. | M |
-| 8 | **Order confirmation and dispatch email** | Blocked on checkout. | S |
+| 8 | **Order record and confirmation email** | Checkout exists; nothing writes the order down or mails it. Stripe's receipt is the only confirmation, and the Stripe dashboard the only record. | M |
 | 9 | **Analytics with consent, and four named events** | Nothing measured on either site. | S |
-| 10 | **Shipping rules applied in the basket** | "Free over £40" is stated and not enforced. | S |
+| 10 | **Shipping choice** | "Free over £40" is now enforced in the basket and in the Stripe session. Standard only: no express, no nominated day, no collection. | M |
 | 11 | **Stock from a feed, not a column** | Stock is a CSV column, checked at build; nothing syncs it. | M |
 | 12 | **Custom 404, installable shop (manifest), Core Web Vitals** | None. | S each |
 | 13 | **A nicer domain than `ecommerce-two-psi-13.vercel.app`** | The Vercel project name was taken; add a domain and change one constant. | S |
@@ -30,7 +30,7 @@ still is not true. Ordered by what it costs to leave undone.*
 
 | # | What | Where it stands | Effort |
 | --- | --- | --- | --- |
-| 14 | **Anything projects, verified live** | The bridge now explains a failure and answers a GET about itself; the last report was a bare 500, so the next message is the diagnosis. | S |
+| 14 | **Anything projects, verified live** | The pulse says the key is set and Anything still answers 401. Two variables are configured (`ANYTHING_API_KEY`, `Anything_Key`); `/api/anything?probe=1` now reports what each answers, so the fix is deleting or replacing the wrong one. | S |
 | 15 | **Rate-limit `/api/chat`** | An unauthenticated endpoint that spends money. The one item that can cost you overnight. | S |
 | 16 | **The Agent's key on previews** | `ANTHROPIC_API_KEY` is production-only, so the Agent refuses on a preview deployment. | S |
 | 17 | **Orrery and Constellation looks** | City, Blueprint, Observatory and Nebula ship; the other two directions from the earlier list do not. | M each |
@@ -38,17 +38,20 @@ still is not true. Ordered by what it costs to leave undone.*
 | 19 | **WebXR with a headset** | "No headset" is the honest state of the VR button in this environment. | — |
 | 20 | **A deploys tab, server-side projects, the physical-device todo** | Still open on the shelf, as they were before this week. | M |
 | 21 | **Search synonyms and typo tolerance** | Site search matches substrings and nothing else. | S |
+| 22 | **The pitch sheet remembers nothing** | It prints and pastes, but no sheet is saved, no prospect is tracked, and there is no follow-up email. Every sheet starts from a cold URL. | M |
+| 23 | **The audit endpoint has no rate limit** | `/api/site` fetches any public URL on request. Cheap to write, free to abuse, and a public pitch sheet makes that visible. | S |
+| 24 | **One page is the only length** | A shop and a one-page brochure get the same sheet, with different packages. The faults differ more than the layout does. | S |
 
 ## Bigger things said out loud, still only said
 
 | # | What | Where it stands |
 | --- | --- | --- |
-| 22 | **A pitch sheet generated from an audit** | The Studio can audit a URL; it cannot yet produce the one-page PDF that goes with it. |
-| 23 | **A package builder** | Four offers are priced by hand in a doc. |
-| 24 | **Case-study templates with metric fields** | Described in [sitebuildup-clients](sitebuildup-clients-2026-11-20.md); no template exists. |
-| 25 | **Supplier partnerships and an affiliate route for the shop** | Worked out on paper in `commerce/COMMISSION.md`; no application sent. |
-| 26 | **Multi-language / hreflang** | Not started, and not needed until there is a second language. |
-| 27 | **Newsletter capture and a list** | No form, no list, no provider. |
+| 25 | **A pitch sheet generated from an audit** | Built: Studio → Pitch sheet, printable and pasteable — see [checkout-and-pitch](checkout-and-pitch-2026-11-20.md). What is missing is everything around it (items 22–24). |
+| 26 | **A package builder** | Four offers are priced by hand in a doc. |
+| 27 | **Case-study templates with metric fields** | Described in [sitebuildup-clients](sitebuildup-clients-2026-11-20.md); no template exists. |
+| 28 | **Supplier partnerships and an affiliate route for the shop** | Worked out on paper in `commerce/COMMISSION.md`; no application sent. |
+| 29 | **Multi-language / hreflang** | Not started, and not needed until there is a second language. |
+| 30 | **Newsletter capture and a list** | No form, no list, no provider. |
 
 ## How to read this list
 

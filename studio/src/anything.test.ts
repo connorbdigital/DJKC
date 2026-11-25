@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ANYTHING_API, basicAuth, anythingTarget } from "./anything";
+import { ANYTHING_API, basicAuth, anythingTarget, cleanKey, keyCandidates, keyDiagnosis } from "./anything";
 import handler from "../api/anything";
 
 function request(payload: unknown, method = "POST") {
@@ -108,7 +108,12 @@ describe("the Anything proxy handler", () => {
     const { res, out } = response();
     await handler(request({ path: "/v0/api/me" }), res);
     expect(out.status).toBe(401);
-    expect(out.body).toMatch(/rejected that key/i);
+    expect(out.body).toMatch(/rejected the stored key/i);
+    expect(out.body).toContain("probe=1");
+    /* The diagnosis is about the key's shape; the key itself never appears. */
+    expect(out.body).toContain("ANYTHING_API_KEY is 12 characters");
+    expect(out.body).toContain("ANYTHING_API_KEY is 12 characters");
+    expect(out.body).not.toContain("anything_bad");
   });
 
   it("answers a GET with its own pulse, and makes no request to do it", async () => {
@@ -136,5 +141,108 @@ describe("the Anything proxy handler", () => {
     await handler(request({ path: "/v0/api/projects/delete" }), second.res);
     expect(second.out.status).toBe(400);
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("two keys in the project, one of them wrong", () => {
+  /* This is the 401 that was reported: ANYTHING_API_KEY held a value Anything
+     refused, and Anything_Key held the right one. The canonical name used to win
+     silently, so the bridge reported a rejected key while a good one sat next to
+     it unused. */
+
+  it("trims what a dashboard pastes, and takes one layer of quotes off", () => {
+    expect(cleanKey("  anything_abc\n")).toBe("anything_abc");
+    expect(cleanKey('"anything_abc"')).toBe("anything_abc");
+    expect(cleanKey("'anything_abc'")).toBe("anything_abc");
+    expect(cleanKey("anything_abc")).toBe("anything_abc");
+    /* The two shapes that look right and 401: the docs' trailing colon, and a
+       key wrapped across two lines by the terminal it was copied from. */
+    expect(cleanKey("anything_abc:")).toBe("anything_abc");
+    expect(cleanKey("anything_ab\nc_def")).toBe("anything_abc_def");
+    expect(keyCandidates({ ANYTHING_API_KEY: " anything_a ", Anything_Key: "anything_a" })).toEqual([
+      { name: "ANYTHING_API_KEY", value: "anything_a" },
+    ]);
+  });
+
+  it("falls through to the second stored key when the first is refused", async () => {
+    process.env.ANYTHING_API_KEY = "anything_wrong";
+    process.env.Anything_Key = "anything_right";
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      const auth = (init.headers as Record<string, string>).Authorization ?? "";
+      seen.push(auth);
+      return auth === basicAuth("anything_right")
+        ? new Response(JSON.stringify({ projects: [] }), { status: 200 })
+        : new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
+    });
+    const { res, out } = response();
+    await handler(request({ path: "/v0/api/projects" }), res);
+    expect(out.status).toBe(200);
+    expect(seen).toContain(basicAuth("anything_right"));
+    expect(out.body).not.toContain("anything_right");
+    expect(out.body).not.toContain("anything_wrong");
+  });
+
+  it("names both keys, with their shapes, when both are refused", async () => {
+    process.env.ANYTHING_API_KEY = "  sk_live_wrong_token  ";
+    process.env.Anything_Key = "anything_also_wrong";
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }));
+    const { res, out } = response();
+    await handler(request({ path: "/v0/api/me" }), res);
+    expect(out.status).toBe(401);
+    expect(out.body).toContain("ANYTHING_API_KEY");
+    expect(out.body).toContain("Anything_Key");
+    expect(out.body).toContain("space or newline");
+    expect(out.body).toContain("probe=1");
+    expect(out.body).not.toContain("sk_live_wrong_token");
+  });
+
+  it("answers ?probe=1 with what each stored key is and what it answers", async () => {
+    process.env.ANYTHING_API_KEY = "anything_wrong";
+    process.env.Anything_Key = "anything_right";
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      const auth = (init.headers as Record<string, string>).Authorization ?? "";
+      return auth === basicAuth("anything_right")
+        ? new Response(JSON.stringify({ id: "u1", email: "hello@example.co.uk", organizations: [] }), { status: 200 })
+        : new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
+    });
+    const { res, out } = response();
+    const probe = { method: "GET", url: "/api/anything?probe=1" } as unknown as Parameters<typeof handler>[0];
+    await handler(probe, res);
+    const body = JSON.parse(out.body) as {
+      ok: boolean;
+      key: string;
+      probe: { working: string | null; verdict: string; keys: { name: string; accepted: boolean; status: number }[] };
+    };
+    expect(out.status).toBe(200);
+    expect(body.key).toBe("set");
+    expect(body.probe.working).toBe("Anything_Key");
+    expect(body.probe.keys.map((entry) => [entry.name, entry.status])).toEqual([
+      ["ANYTHING_API_KEY", 401],
+      ["Anything_Key", 200],
+    ]);
+    expect(body.probe.verdict).toContain("Anything_Key is accepted");
+    expect(out.body).not.toContain("anything_right");
+  });
+
+  it("says the truth in a probe when nothing is set, without calling Anything", async () => {
+    delete process.env.ANYTHING_API_KEY;
+    delete process.env.Anything_Key;
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    const { res, out } = response();
+    await handler({ method: "GET", url: "/api/anything?probe=1" } as unknown as Parameters<typeof handler>[0], res);
+    const body = JSON.parse(out.body) as { key: string; probe: { verdict: string } };
+    expect(body.key).toBe("missing");
+    expect(body.probe.verdict).toContain("ANYTHING_API_KEY");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("describes a key without ever printing it", () => {
+    const diagnosis = keyDiagnosis("Anything_Key", '"eyJhbGciOi.payload.signature-padded-out-to-be-long-enough-to-look-like-a-jwt-0000000000"');
+    expect(diagnosis).toContain("Anything_Key");
+    expect(diagnosis).toContain("quotes");
+    expect(diagnosis).toContain("signed token");
+    expect(diagnosis).not.toContain("eyJhbGci");
   });
 });
