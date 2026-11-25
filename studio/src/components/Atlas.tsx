@@ -703,6 +703,37 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
               ))}
             </ul>
           )}
+          {selected.pages && selected.pages.length > 0 && (
+            <div className="atlas-section">
+              <h3>Pages</h3>
+              <ul className="atlas-pages">
+                {selected.pages.map((page) => (
+                  <li key={page.href}>
+                    <a href={page.href} target="_blank" rel="noopener noreferrer">
+                      {page.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {selected.kind === "project" && selected.href && !sameOrigin(selected.href) && (
+            <div className="atlas-section">
+              <h3>The page itself</h3>
+              <p className="muted small">
+                If it stays blank, that site refuses to be framed — the links above still work.
+              </p>
+              <iframe
+                className="atlas-detail-frame"
+                src={selected.href}
+                title={selected.label}
+                loading="lazy"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          )}
+
           {selected.sections?.map((section) => (
             <div className="atlas-section" key={section.title}>
               <h3>{section.title}</h3>
@@ -980,6 +1011,15 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
 }
 
 /** A thumbstick that reports the vector it is being pushed towards. */
+/** A page cannot be shown inside itself: skip the preview for our own origin. */
+function sameOrigin(href: string): boolean {
+  try {
+    return new URL(href, window.location.href).origin === window.location.origin;
+  } catch {
+    return true;
+  }
+}
+
 function Thumbstick({
   onChange,
   label,

@@ -497,3 +497,50 @@ describe("what a site says about itself", () => {
     }
   });
 });
+
+describe("the pages a project opens", () => {
+  const projects = atlas.nodes.filter((node) => node.kind === "project");
+
+  it("gives every project somewhere to go", () => {
+    expect(projects.map((node) => node.id)).toEqual(["project-djkc", "project-studio", "project-commerce"]);
+    for (const node of projects) {
+      expect(node.href).toMatch(/^https:\/\//);
+      expect(node.pages!.length).toBeGreaterThan(4);
+      for (const page of node.pages!) {
+        expect(page.href).toMatch(/^https:\/\//);
+        expect(page.label.trim().length).toBeGreaterThan(2);
+      }
+    }
+  });
+
+  it("lists the DJ band's nine generated pages, none invented", () => {
+    const node = atlas.nodes.find((entry) => entry.id === "project-djkc")!;
+    expect(node.pages!.map((page) => page.href).sort()).toEqual(
+      [
+        "https://kaysie.sitebuildup.co.uk/",
+        "https://kaysie.sitebuildup.co.uk/about.html",
+        "https://kaysie.sitebuildup.co.uk/coverage.html",
+        "https://kaysie.sitebuildup.co.uk/dj-hire-manchester.html",
+        "https://kaysie.sitebuildup.co.uk/faq.html",
+        "https://kaysie.sitebuildup.co.uk/how-much-does-a-dj-cost.html",
+        "https://kaysie.sitebuildup.co.uk/prices.html",
+        "https://kaysie.sitebuildup.co.uk/shows.html",
+        "https://kaysie.sitebuildup.co.uk/wedding-dj.html",
+      ].sort()
+    );
+  });
+
+  it("deep-links the Studio's own pages into tabs it really has", () => {
+    const node = atlas.nodes.find((entry) => entry.id === "project-studio")!;
+    const ids = ["projects", "packs", "features", "search", "draft", "anything", "resources", "atlas"];
+    const linked = node.pages!.map((page) => page.href.split("#tab=")[1]);
+    expect(linked).toEqual(ids);
+  });
+
+  it("never lists the same page twice", () => {
+    for (const node of projects) {
+      const hrefs = node.pages!.map((page) => page.href);
+      expect(new Set(hrefs).size).toBe(hrefs.length);
+    }
+  });
+});
