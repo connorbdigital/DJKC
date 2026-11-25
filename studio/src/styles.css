@@ -666,3 +666,43 @@ button.btn, a.btn {
 }
 .atlas-section ul { margin: 0; padding-left: 1rem; }
 .atlas-section li { font-size: .74rem; line-height: 1.45; margin-bottom: .2rem; }
+
+/* ------------------------------------------------------- two sticks, notes */
+
+/* Two sticks, one each side: the left walks, the right looks. The old single
+   pad meant looking was a swipe across the scene — which also fought the
+   joystick for the same finger. */
+.atlas-stick { display: grid; justify-items: center; gap: .3rem; }
+.atlas-stick-caption {
+  font-size: .58rem; letter-spacing: .16em; text-transform: uppercase;
+  color: #c9b8ff99;
+}
+.atlas-notes {
+  position: absolute; z-index: 6; right: 1rem; bottom: 6.4rem; width: min(24rem, calc(100vw - 2rem));
+  display: grid; gap: .55rem; padding: .8rem .9rem;
+  /* Opaque, like every other sheet: text over a starfield is unreadable. */
+  background: #0d0618f7; border: 1px solid #ffffff24; border-radius: 16px;
+  box-shadow: 0 18px 48px #00000080; backdrop-filter: blur(8px);
+  max-height: calc(100vh - 12rem); overflow-y: auto; overscroll-behavior: contain;
+}
+.atlas-notes .atlas-sheet-head { display: flex; align-items: center; gap: .5rem; }
+.atlas-notes .atlas-sheet-head h2 { margin: 0; font-size: .95rem; }
+.atlas-saved {
+  margin-left: auto; font-size: .68rem; color: #6ee7b7;
+}
+.atlas-saved.is-dirty { color: #c9b8ff99; }
+.atlas-notes-field {
+  width: 100%; resize: vertical; min-height: 9rem;
+  background: #0c0616; color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+  padding: .6rem .7rem; font: inherit; font-size: .8rem; line-height: 1.5;
+}
+.atlas-notes-field:focus-visible { outline: 2px solid var(--pink); outline-offset: 1px; }
+.atlas-notes-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; }
+.atlas-notes-actions .btn { font-size: .72rem; padding: .35rem .6rem; }
+.atlas-notes-actions .btn:disabled { opacity: .45; }
+
+/* On a phone the top row has four useful actions and two that are not: adding a
+   project and a VR session both need a bigger screen than the one in your hand. */
+@media (pointer: coarse) {
+  .atlas-actions [data-desktop-only] { display: none; }
+}

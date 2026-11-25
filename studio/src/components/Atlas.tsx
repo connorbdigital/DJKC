@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AtlasEngine } from "../atlasEngine";
 import { checkUrl, type SiteReport } from "../sitecheck";
 import { loadAnythingApps, type AnythingApp } from "../anythingClient";
+import { lookFromStick, moveFromStick, stickVector } from "../sticks";
 import {
   TOUR,
   auditAtlas,
@@ -48,6 +49,7 @@ const FILTERS: { id: NodeKind | "all"; label: string }[] = [
 ];
 
 const POSE_KEY = "atlas:pose";
+const NOTES_KEY = "atlas:notes:v1";
 const PROJECTS_KEY = "atlas:projects:v1";
 
 function readProjects(): CustomProject[] {
@@ -122,6 +124,17 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const [hovering, setHovering] = useState(false);
   const [tour, setTour] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [saved, setSaved] = useState(true);
+  const [notes, setNotes] = useState<string>(() => {
+    try {
+      return window.localStorage.getItem(NOTES_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const shell = useRef<HTMLDivElement | null>(null);
   const [panel, setPanel] = useState<"none" | "projects" | "audit" | "scan">("none");
   const [scanSite, setScanSite] = useState<AtlasNode | null>(null);
   const [findings, setFindings] = useState<AuditFinding[] | null>(null);
@@ -136,6 +149,28 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
 
   useEffect(() => {
     setTouch(window.matchMedia?.("(pointer: coarse)").matches ?? false);
+  }, []);
+
+  /* Notes are written as you type, with a pause so a long sentence is one write
+     rather than one per keystroke. */
+  useEffect(() => {
+    if (saved) return;
+    const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(NOTES_KEY, notes);
+        setSaved(true);
+      } catch {
+        /* Storage full or blocked: the text is still here until the tab closes. */
+      }
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [notes, saved]);
+
+  useEffect(() => {
+    const sync = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", sync);
+    sync();
+    return () => document.removeEventListener("fullscreenchange", sync);
   }, []);
 
   useEffect(() => {
@@ -353,6 +388,33 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
     }
   };
 
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+        return;
+      }
+      const element = shell.current;
+      if (!element?.requestFullscreen) {
+        setStatus("This browser will not put a page full screen — on an iPhone, Share → Add to Home Screen gives the same effect.");
+        return;
+      }
+      await element.requestFullscreen({ navigationUI: "hide" });
+    } catch (problem) {
+      setStatus(problem instanceof Error ? `Full screen was refused: ${problem.message}` : "Full screen was refused by the browser.");
+    }
+  };
+
+  const downloadNotes = () => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const blob = new Blob([`# Atlas notes — ${stamp}\n\n${notes}\n`], { type: "text/markdown;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `atlas-notes-${stamp}.md`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   const enterVr = async () => {
     if (!engine.current) return;
     try {
@@ -375,7 +437,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   }, {});
 
   return (
-    <div className={`atlas${touch ? " is-touch" : ""}${hovering ? " is-hovering" : ""}`}>
+    <div ref={shell} className={`atlas${touch ? " is-touch" : ""}${hovering ? " is-hovering" : ""}`}>
       <div className="atlas-stage" ref={stage}>
         <div ref={host} className="atlas-webgl" />
         <div ref={cssHost} className="atlas-css-host" />
@@ -421,6 +483,25 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           <button
             className="btn ghost"
             type="button"
+            onClick={() => setNotesOpen((open) => !open)}
+            aria-pressed={notesOpen}
+            title="A scratchpad for this space — saved on this device"
+          >
+            Notes{notes.trim() ? " ·" : ""}
+          </button>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={() => void toggleFullscreen()}
+            aria-pressed={fullscreen}
+            title="Fill the screen with the space"
+          >
+            {fullscreen ? "Exit full screen" : "Full screen"}
+          </button>
+          <button
+            className="btn ghost"
+            type="button"
+            data-desktop-only
             onClick={() => setPanel(panel === "projects" ? "none" : "projects")}
             aria-expanded={panel === "projects"}
             title="Add one of your own projects to the space"
@@ -439,6 +520,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           <button
             className="btn ghost"
             type="button"
+            data-desktop-only
             onClick={() => void enterVr()}
             disabled={vr !== "ready"}
             title={vr === "ready" ? "Enter the space in a headset" : "No WebXR headset is attached to this browser"}
@@ -541,7 +623,10 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
 
       {touch && (
         <div className="atlas-dock">
-          <Thumbstick onChange={(vector) => engine.current?.setMoveInput(vector)} />
+          <div className="atlas-stick">
+            <Thumbstick label="Move — left stick" onChange={(vector) => engine.current?.setMoveInput(vector)} />
+            <span className="atlas-stick-caption">Move</span>
+          </div>
           <div className="atlas-dock-buttons">
             <button
               className="atlas-pad"
@@ -573,6 +658,13 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             >
               ⚡
             </button>
+          </div>
+          <div className="atlas-stick">
+            <Thumbstick
+              label="Look — right stick"
+              onChange={(vector) => engine.current?.setLookInput(lookFromStick({ x: vector.strafe, y: -vector.forward }))}
+            />
+            <span className="atlas-stick-caption">Look</span>
           </div>
         </div>
       )}
@@ -648,6 +740,58 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             )}
           </div>
         </aside>
+      )}
+
+      {notesOpen && (
+        <section className="atlas-hud atlas-notes" aria-label="Notes">
+          <div className="atlas-sheet-head">
+            <h2>Notes</h2>
+            <span className={`atlas-saved${saved ? "" : " is-dirty"}`}>{saved ? "Saved on this device" : "Saving…"}</span>
+            <button className="btn ghost" type="button" onClick={() => setNotesOpen(false)} aria-label="Close notes">
+              ×
+            </button>
+          </div>
+          <textarea
+            className="atlas-notes-field"
+            value={notes}
+            onChange={(event) => {
+              setNotes(event.target.value);
+              setSaved(false);
+            }}
+            placeholder="A price to check, a page to look at, a sentence for the brief…"
+            aria-label="Notes, saved in this browser"
+            rows={12}
+          />
+          <div className="atlas-notes-actions">
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={() => void navigator.clipboard?.writeText(notes).catch(() => setStatus("The browser refused the clipboard."))}
+              disabled={!notes.trim()}
+            >
+              Copy
+            </button>
+            <button className="btn ghost" type="button" onClick={downloadNotes} disabled={!notes.trim()}>
+              Download .md
+            </button>
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={() => {
+                setNotes("");
+                setSaved(false);
+              }}
+              disabled={!notes.trim()}
+            >
+              Clear
+            </button>
+            <span className="muted small">{notes.trim().length} characters</span>
+          </div>
+          <p className="atlas-sheet-note">
+            Kept in this browser's local storage, like the pose and the projects you add yourself. Nothing is sent
+            anywhere. <strong>Download</strong> is how you get it out: clearing site data clears this too.
+          </p>
+        </section>
       )}
 
       {panel === "projects" && (
@@ -836,7 +980,13 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
 }
 
 /** A thumbstick that reports the vector it is being pushed towards. */
-function Thumbstick({ onChange }: { onChange: (vector: { forward: number; strafe: number }) => void }) {
+function Thumbstick({
+  onChange,
+  label,
+}: {
+  onChange: (vector: { forward: number; strafe: number }) => void;
+  label: string;
+}) {
   const pad = useRef<HTMLDivElement | null>(null);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const active = useRef(false);
@@ -845,15 +995,9 @@ function Thumbstick({ onChange }: { onChange: (vector: { forward: number; strafe
     const box = pad.current?.getBoundingClientRect();
     if (!box) return;
     const radius = box.width / 2;
-    let x = (clientX - (box.left + radius)) / radius;
-    let y = (clientY - (box.top + radius)) / radius;
-    const length = Math.hypot(x, y);
-    if (length > 1) {
-      x /= length;
-      y /= length;
-    }
-    setKnob({ x: x * radius * 0.62, y: y * radius * 0.62 });
-    onChange({ forward: -y, strafe: x });
+    const stick = stickVector(clientX - (box.left + radius), clientY - (box.top + radius), radius);
+    setKnob({ x: stick.x * radius * 0.62, y: stick.y * radius * 0.62 });
+    onChange(moveFromStick(stick));
   };
 
   const release = () => {
@@ -867,7 +1011,7 @@ function Thumbstick({ onChange }: { onChange: (vector: { forward: number; strafe
       ref={pad}
       className="atlas-thumb"
       role="group"
-      aria-label="Move — drag the stick"
+      aria-label={`${label} — drag the stick`}
       onPointerDown={(event) => {
         active.current = true;
         (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);

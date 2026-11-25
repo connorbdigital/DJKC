@@ -305,6 +305,8 @@ export class AtlasEngine {
   private readonly cards: { sprite: THREE.Sprite; base: THREE.Vector3 }[] = [];
   /** Touch joystick input, merged with the keyboard in applyKeys(). */
   private touch = { forward: 0, strafe: 0, lift: 0, boost: false };
+  /** The right-hand stick: a continuous look input, in the same units as a drag. */
+  private look = { x: 0, y: 0 };
   private readonly pointers = new Map<number, { x: number; y: number }>();
   private pinchDistance = 0;
   private highlight = new Set<string>();
@@ -949,6 +951,19 @@ export class AtlasEngine {
     }
   }
 
+  /**
+   * The second stick. Kept as a held vector rather than a gesture so it can be
+   * applied per frame at the same rate as a drag — a stick that only turned when
+   * the finger moved would stall the moment you held it still.
+   */
+  setLookInput(input: { x?: number; y?: number }) {
+    this.look = { x: input.x ?? this.look.x, y: input.y ?? this.look.y };
+    if (this.look.x || this.look.y) {
+      this.flight = null;
+      this.handlers.onInteract?.();
+    }
+  }
+
   /** Pulse a set of nodes — used when a search result should be findable in the dark. */
   highlightNodes(ids: string[]) {
     this.highlight = new Set(ids);
@@ -1232,6 +1247,13 @@ export class AtlasEngine {
     const turn = (this.keys.has("z") ? 1 : 0) - (this.keys.has("c") ? 1 : 0);
     if (turn) {
       this.yaw += turn * delta * 1.6;
+      cameraLook(this.rig, this.camera, this.yaw, this.pitch);
+    }
+
+    /* The right stick turns at the same rate as a drag, held or tapped. */
+    if (this.look.x || this.look.y) {
+      this.yaw -= this.look.x * delta * 2.4;
+      this.pitch = clamp(this.pitch - this.look.y * delta * 1.7, -1.32, 1.32);
       cameraLook(this.rig, this.camera, this.yaw, this.pitch);
     }
     this.clampRig();
