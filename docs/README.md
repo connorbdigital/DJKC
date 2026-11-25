@@ -6,6 +6,7 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | Document | What it answers |
 | --- | --- |
 | [shop-round-2026-11-20.md](shop-round-2026-11-20.md) | This round's shop work: the name, the 12-department taxonomy, SEO/AEO/GEO, the four product-source routes, and how each piece was checked |
+| [atlas-wires-and-ecommerce-2026-11-20.md](atlas-wires-and-ecommerce-2026-11-20.md) | Pages and streams in the 3D space, a way back to the 2D Studio, why the Anything suns were missing, and the shop renamed and deployed on its own domain |
 | [studio-mobile-and-anything-2026-11-20.md](studio-mobile-and-anything-2026-11-20.md) | Everything from Anything (and what changed), the phone's drawer, and the chat key that was never read |
 | [atlas-shelf-shipped-2026-11-20.md](atlas-shelf-shipped-2026-11-20.md) | The last five shelf items: gamepad, link cards, an installable app, pinned notes, and notes that travel by gist |
 | [atlas-project-pages-2026-11-20.md](atlas-project-pages-2026-11-20.md) | A project opens every page it has as a link, and ⌘K opens everything that already exists |

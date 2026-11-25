@@ -23,8 +23,8 @@ export const BRAND = {
   tagline: "Home, garden and the useful things in between",
   description:
     "Considered homeware, garden and kitchen things at honest prices — free delivery over £40, 30 days to change your mind, and product pages that answer the question before you ask it.",
-  url: "https://ecommerce-connorbdigital.vercel.app",
-  email: "hello@ecommerce-connorbdigital.vercel.app",
+  url: "https://ecommerce-two-psi-13.vercel.app",
+  email: "hello@ecommerce.example",
   phone: "+44 20 7946 0000",
   country: "GB",
   currency: "GBP" as const,
