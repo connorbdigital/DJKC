@@ -3,9 +3,11 @@ import {
   ANYTHING_KEYS,
   ME_PATH,
   PROJECTS_PATH,
+  ANYTHING_AUTH_SCHEMES,
   anythingTarget,
-  basicAuth,
+  authHeaders,
   keyCandidates,
+  type AuthScheme,
   keyDiagnosis,
   keyShape,
   type KeyCandidate,
@@ -57,20 +59,19 @@ const words = (raw: string): string => {
   return flat.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200);
 };
 
-/**
- * One GET upstream, no retries: the caller decides what a failure means.
- */
-async function read(
+/** One GET with one scheme. No retries; the caller decides what a failure means. */
+async function once(
   key: string,
   path: string,
-  signal: AbortSignal
+  signal: AbortSignal,
+  scheme: AuthScheme
 ): Promise<{ ok: true; status: number; text: string } | { ok: false; attempt: Attempt }> {
   const target = anythingTarget(path);
   if (!target.ok) return { ok: false, attempt: { path, status: 0, detail: target.reason } };
   try {
     const upstream = await fetch(target.url, {
       method: "GET",
-      headers: { Accept: "application/json", Authorization: basicAuth(key) },
+      headers: { Accept: "application/json", ...authHeaders(key, scheme) },
       redirect: "error",
       signal,
     });
@@ -89,6 +90,59 @@ async function read(
         : "api.anything.com could not be reached from here";
     return { ok: false, attempt: { path, status: 0, detail } };
   }
+}
+
+/**
+ * Which scheme Anything accepts this key under. Basic is expected and is tried
+ * first; the others are tried only after a 401, and only once per key per warm
+ * instance, so a working deployment never pays for the experiment.
+ *
+ * Kept in module scope on purpose: it holds key material, and it must not leave
+ * this process. Nothing reads it but the two functions below.
+ */
+const schemeCache = new Map<string, { scheme: AuthScheme; at: number }>();
+const SCHEME_TTL = 10 * 60_000;
+
+async function discover(key: string, signal: AbortSignal): Promise<AuthScheme | null> {
+  const cached = schemeCache.get(key);
+  if (cached && Date.now() - cached.at < SCHEME_TTL) return cached.scheme;
+  for (const scheme of ANYTHING_AUTH_SCHEMES) {
+    const answer = await once(key, ME_PATH, signal, scheme);
+    if (answer.ok) {
+      schemeCache.set(key, { scheme, at: Date.now() });
+      return scheme;
+    }
+    /* Only a refusal moves on to the next scheme; 5xx or no answer means the
+       API is unwell, not that the header is wrong. */
+    if (answer.attempt.status !== 401) return null;
+  }
+  return null;
+}
+
+/**
+ * One GET upstream, in the scheme this key is known to use. A 401 with no cached
+ * scheme is the one case worth spending requests on: try the other headers
+ * before reporting that the key is refused.
+ */
+async function read(
+  key: string,
+  path: string,
+  signal: AbortSignal
+): Promise<{ ok: true; status: number; text: string } | { ok: false; attempt: Attempt }> {
+  const known = schemeCache.get(key);
+  const first = known && Date.now() - known.at < SCHEME_TTL ? known.scheme : "basic";
+  const answer = await once(key, path, signal, first);
+  if (answer.ok || answer.attempt.status !== 401 || known) return answer;
+  for (const scheme of ANYTHING_AUTH_SCHEMES) {
+    if (scheme === first) continue;
+    const alternative = await once(key, path, signal, scheme);
+    if (alternative.ok) {
+      schemeCache.set(key, { scheme, at: Date.now() });
+      return alternative;
+    }
+    if (alternative.attempt.status !== 401) return alternative;
+  }
+  return answer;
 }
 
 /**
@@ -165,18 +219,33 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       try {
         const results = [];
         for (const candidate of configured) {
-          const answer = await read(candidate.value, ME_PATH, controller.signal);
           const raw = process.env[candidate.name] ?? "";
           const shape = keyShape(raw);
+          /* Every scheme, so the answer says which header Anything wants — and
+             if one of the others works, the bridge has already remembered it. */
+          const tried = [];
+          let accepted: { scheme: AuthScheme; status: number } | null = null;
+          for (const scheme of ANYTHING_AUTH_SCHEMES) {
+            const answer = await once(candidate.value, ME_PATH, controller.signal, scheme);
+            tried.push({ scheme, status: answer.ok ? answer.status : answer.attempt.status, detail: answer.ok ? "" : answer.attempt.detail });
+            if (answer.ok) {
+              accepted = { scheme, status: answer.status };
+              schemeCache.set(candidate.value, { scheme, at: Date.now() });
+              break;
+            }
+            if (answer.attempt.status !== 401) break;
+          }
           results.push({
             name: candidate.name,
             shape: keyDiagnosis(candidate.name, raw),
             length: shape.length,
             plainCharacters: shape.plainCharacters,
             looksLikeExample: shape.looksLikeExample,
-            status: answer.ok ? answer.status : answer.attempt.status,
-            accepted: answer.ok,
-            detail: answer.ok ? "" : answer.attempt.detail,
+            tried,
+            scheme: accepted?.scheme ?? null,
+            status: accepted?.status ?? tried[tried.length - 1]?.status ?? 0,
+            accepted: Boolean(accepted),
+            detail: accepted ? "" : (tried[tried.length - 1]?.detail ?? ""),
           });
         }
         const working = results.find((entry) => entry.accepted);
@@ -186,7 +255,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
             keys: results,
             working: working ? working.name : null,
             verdict: working
-              ? `${working.name} is accepted by Anything${results.length > 1 ? ", so the other stored key is the one that was being used before and can be removed" : ""}.`
+              ? `${working.name} is accepted by Anything${working.scheme && working.scheme !== "basic" ? ` as ${working.scheme === "x-api-key" ? "an X-API-Key header" : "a bearer token"} rather than Basic auth, and the bridge has switched to that` : ""}${results.length > 1 ? ", so the other stored key is the one that was being used before and can be removed" : ""}.`
               : [
                   `Anything refused ${results.length === 1 ? `the value stored in ${results[0]!.name}` : `all ${results.length} stored keys`} — ${results
                     .map((entry) => `${entry.name} answered ${entry.status || "nothing"}${entry.detail ? ` (${entry.detail})` : ""}`)
@@ -279,6 +348,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS * 3 * Math.max(1, candidates.length));
   try {
+    /* Learn the working scheme before shaping a list, so the answer is about the
+       list rather than about the header. A null here is not fatal: the reads
+       below each try the schemes themselves. */
+    for (const candidate of candidates) await discover(candidate.value, controller.signal);
     let result = await listAttempts(candidates[0]!.value, asked, controller.signal);
     for (const candidate of candidates.slice(1)) {
       if (result.ok) break;

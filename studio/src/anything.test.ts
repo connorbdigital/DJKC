@@ -276,3 +276,35 @@ describe("the probe says why a key is refused", () => {
     expect(body.probe.verdict).not.toMatch(/example printed/i);
   });
 });
+
+describe("the scheme anything actually wants", () => {
+  it("reports every header it tried, so the answer is which one works", async () => {
+    process.env.Anything_Key = "anything_9f2c4d6e8a0b1c3d5e7f9a1b3c5d7e9f";
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }));
+    const { res, out } = response();
+    await handler({ method: "GET", url: "/api/anything?probe=1" } as unknown as Parameters<typeof handler>[0], res);
+    const body = JSON.parse(out.body) as {
+      probe: { keys: { tried: { scheme: string; status: number }[]; scheme: string | null; accepted: boolean }[] };
+    };
+    expect(body.probe.keys[0]!.tried.map((entry) => entry.scheme)).toEqual(["basic", "bearer", "x-api-key"]);
+    expect(body.probe.keys[0]!.scheme).toBeNull();
+    expect(body.probe.keys[0]!.accepted).toBe(false);
+  });
+
+  it("switches to bearer when that is what Anything accepts, and remembers it", async () => {
+    process.env.Anything_Key = "anything_9f2c4d6e8a0b1c3d5e7f9a1b3c5d7e9f";
+    const seen: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      const headers = init.headers as Record<string, string>;
+      seen.push(headers.Authorization ?? headers["X-API-Key"] ?? "");
+      return (headers.Authorization ?? "").startsWith("Bearer ")
+        ? new Response(JSON.stringify({ projects: [] }), { status: 200 })
+        : new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
+    });
+    const { res, out } = response();
+    await handler(request({ path: "/v0/api/projects" }), res);
+    expect(out.status).toBe(200);
+    expect(seen.some((header) => header.startsWith("Bearer anything_"))).toBe(true);
+    expect(out.body).not.toContain("anything_9f2c");
+  });
+});
