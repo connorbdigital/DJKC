@@ -28,6 +28,9 @@ const KIND_DISTRICT: Record<NodeKind, District> = {
   brief: "content",
   site: "gallery",
   app: "anything",
+  todo: "shelf",
+  link: "shelf",
+  built: "shelf",
 };
 
 const FILTERS: { id: NodeKind | "all"; label: string }[] = [
@@ -39,6 +42,9 @@ const FILTERS: { id: NodeKind | "all"; label: string }[] = [
   { id: "brief", label: "Blog plan" },
   { id: "site", label: "Sites" },
   { id: "app", label: "Anything" },
+  { id: "built", label: "Shipped" },
+  { id: "todo", label: "To do" },
+  { id: "link", label: "Links" },
 ];
 
 const POSE_KEY = "atlas:pose";
@@ -143,7 +149,12 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         stage.current,
         atlas,
         {
-          onSelect: (node) => setSelected(node),
+          onSelect: (node) => {
+            setSelected(node);
+            /* Clicking a site means "show me that site": the panel loads its
+               page straight away, without waiting for a second click. */
+            if (node?.kind === "site") engine.current?.loadSite(node.id);
+          },
           onHover: (node) => setHovering(Boolean(node)),
           onInteract: () => setTour(null),
           onTick: (info) => {
@@ -600,6 +611,16 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
               ))}
             </ul>
           )}
+          {selected.sections?.map((section) => (
+            <div className="atlas-section" key={section.title}>
+              <h3>{section.title}</h3>
+              <ul>
+                {section.lines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
           <div className="atlas-detail-actions">
             <button className="btn" type="button" onClick={() => flyTo(selected.id)}>
               Fly to it

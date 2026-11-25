@@ -657,3 +657,12 @@ button.btn, a.btn {
   .anything-meta { justify-content: space-between; }
   .anything-meta .btn { flex-shrink: 0; }
 }
+
+/* A detail card with sections: the sites say more than a paragraph. */
+.atlas-section { margin-top: .8rem; border-top: 1px solid var(--line); padding-top: .6rem; }
+.atlas-section h3 {
+  font-size: .62rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--pink); margin: 0 0 .35rem;
+}
+.atlas-section ul { margin: 0; padding-left: 1rem; }
+.atlas-section li { font-size: .74rem; line-height: 1.45; margin-bottom: .2rem; }
