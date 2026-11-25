@@ -1,4 +1,4 @@
-/** The generated catalogue the checkout prices from (see api/pricing.d.ts). */
-import type { CatalogueEntry } from "../api/pricing";
+/** The generated catalogue the checkout prices from (see lib/pricing.d.ts). */
+import type { CatalogueEntry } from "./pricing";
 
 export const CATALOGUE: CatalogueEntry[];

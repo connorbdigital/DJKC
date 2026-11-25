@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DELIVERY, basketNote, priceBasket, requestedLines, sessionBody, shippingFor } from "../api/pricing.js";
+import { DELIVERY, basketNote, priceBasket, requestedLines, sessionBody, shippingFor } from "../lib/pricing.js";
 import { CATALOGUE } from "../lib/catalogue.js";
 
 const shelf = CATALOGUE.find((product) => product.name === "Bamboo folding shelf rack") ?? CATALOGUE[0]!;

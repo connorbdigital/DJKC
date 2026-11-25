@@ -34,7 +34,7 @@ month or more).
 | --- | --- | --- | --- | --- | --- |
 | Guest-first flow | Guest by default, account optional after | Specified and audited in `checkout.ts` (field count, order of steps, no forced account) | **Partial** | Forced accounts are one of the top abandonment reasons measured; the policy is right, the UI is not built | M |
 | Address capture + validation | Postcode lookup, address book | — | **Missing** | Wrong addresses are the most expensive kind of support ticket | S–M |
-| Delivery choice at checkout | Standard/express/nominated day/collect | Standard only, priced in `api/pricing.js` and shown in the basket and on the Stripe session as its own line | **Partial** | "Extra costs at the last step" is the single largest abandonment reason; the cost is visible before paying, the choice is not offered | S, once orders exist |
+| Delivery choice at checkout | Standard/express/nominated day/collect | Standard only, priced in `lib/pricing.js` and shown in the basket and on the Stripe session as its own line | **Partial** | "Extra costs at the last step" is the single largest abandonment reason; the cost is visible before paying, the choice is not offered | S, once orders exist |
 | Payment-method choice | Card, wallet, BNPL, gift card | — | **Missing** | No preferred payment method is cited by 8–22% of abandoners | S, with payments |
 | Error handling | Inline, field-level, no data loss | The basket shows the server's own sentence under the button: 503 for no key, 502 for a refusal, and the basket survives | **Partial** | 17% abandon after an error | S |
 | One-page vs multi-step | Both are fine if short | Policy: keep under ~12 fields | **Partial** | US average was 11.3 fields in 2021 and rising | — |

@@ -12,7 +12,7 @@
  */
 
 import { CATALOGUE } from "../lib/catalogue.js";
-import { DELIVERY, priceBasket, sessionBody, formatMoney } from "./pricing.js";
+import { DELIVERY, priceBasket, sessionBody, formatMoney } from "../lib/pricing.js";
 
 const STRIPE = "https://api.stripe.com/v1/checkout/sessions";
 const TIMEOUT_MS = 12_000;

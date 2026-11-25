@@ -17,7 +17,7 @@ That button now works:
 | --- | --- | --- |
 | Basket totals | `catalogue/render.ts` | Subtotal, delivery and grand total, worked out as items are added: free over £40.00, otherwise £3.95. |
 | Checkout | the button in the basket | Sends **ids and quantities only** to `POST /api/checkout`; the browser never names a price. |
-| Pricing | `api/pricing.js` | `priceBasket()` reads `lib/catalogue.js` — the same CSV the shop is built from — merges duplicates, clamps to 10 per line, skips out-of-stock lines, and returns the total. |
+| Pricing | `lib/pricing.js` | `priceBasket()` reads `lib/catalogue.js` — the same CSV the shop is built from — merges duplicates, clamps to 10 per line, skips out-of-stock lines, and returns the total. |
 | Payment | `api/checkout.js` | Builds a Stripe Checkout session by hand (`application/x-www-form-urlencoded`, no SDK, no dependency), with delivery as its own line so a free order still shows £0.00. |
 | Return | `pages/order-complete.html` | A real page: thank you, what happens next, and what this demonstration shop still does not do. |
 
