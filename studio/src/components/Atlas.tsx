@@ -3,6 +3,10 @@ import { AtlasEngine } from "../atlasEngine";
 import { checkUrl, type SiteReport } from "../sitecheck";
 import { loadAnythingApps, type AnythingApp } from "../anythingClient";
 import { lookFromStick, moveFromStick, stickVector } from "../sticks";
+import { isIdle, pickGamepad, readGamepad, type GamepadInput } from "../gamepad";
+import { NODE_NOTES_KEY, noteCount, parseNodeNotes, setNodeNote, type NodeNotes } from "../nodeNotes";
+import { GIST_STORE_KEY, buildBundle, describeBundle, isGistId, mergeBundle, pullNotes, pushNotes } from "../notesSync";
+import { getToken } from "../token";
 import {
   TOUR,
   auditAtlas,
@@ -126,6 +130,31 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const [copied, setCopied] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [nodeNotes, setNodeNotes] = useState<NodeNotes>(() => {
+    try {
+      return parseNodeNotes(JSON.parse(window.localStorage.getItem(NODE_NOTES_KEY) ?? "{}"));
+    } catch {
+      return {};
+    }
+  });
+  const [gistId, setGistId] = useState<string>(() => {
+    try {
+      const saved = window.localStorage.getItem(GIST_STORE_KEY) ?? "";
+      return isGistId(saved) ? saved : "";
+    } catch {
+      return "";
+    }
+  });
+  const [gistBusy, setGistBusy] = useState(false);
+  const [gistMessage, setGistMessage] = useState("");
+  const [padOn, setPadOn] = useState(false);
+  const padSeen = useRef(false);
+  const setPadSeen = (seen: boolean) => {
+    if (seen !== padSeen.current) {
+      padSeen.current = seen;
+      setPadOn(seen);
+    }
+  };
   const [saved, setSaved] = useState(true);
   const [notes, setNotes] = useState<string>(() => {
     try {
@@ -135,6 +164,12 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
     }
   });
   const shell = useRef<HTMLDivElement | null>(null);
+  /* A gamepad is polled, not listened to: the pad drives the same two inputs the
+     sticks do, and only when the numbers actually change. */
+  const padInput = useRef<GamepadInput | null>(null);
+  const nearRef = useRef<string | null>(null);
+  const jumpRef = useRef<(node: AtlasNode) => void>(() => {});
+  const atlasNodesRef = useRef<AtlasNode[]>([]);
   const [panel, setPanel] = useState<"none" | "projects" | "audit" | "scan">("none");
   const [scanSite, setScanSite] = useState<AtlasNode | null>(null);
   const [findings, setFindings] = useState<AuditFinding[] | null>(null);
@@ -150,6 +185,15 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     setTouch(window.matchMedia?.("(pointer: coarse)").matches ?? false);
   }, []);
+
+  /* A note pinned to a node is short: it is written on every change, no pause. */
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(NODE_NOTES_KEY, JSON.stringify(nodeNotes));
+    } catch {
+      /* Storage is a convenience here, never a requirement. */
+    }
+  }, [nodeNotes]);
 
   /* Notes are written as you type, with a pause so a long sentence is one write
      rather than one per keystroke. */
@@ -289,6 +333,74 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
     remember(null);
   };
 
+  useEffect(() => {
+    nearRef.current = near;
+  }, [near]);
+
+  useEffect(() => {
+    atlasNodesRef.current = atlas.nodes;
+  }, [atlas]);
+
+  /* A node link clicked while the space is already open has to open that node. */
+  useEffect(() => {
+    const sync = () => {
+      const node = nodeFromHash(window.location.hash, atlas);
+      if (node) {
+        engine.current?.flyToId(node.id);
+        setSelected(node);
+      }
+    };
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, [atlas]);
+
+  /* The poll loop must outlive re-renders, so the handlers it calls come from refs. */
+  useEffect(() => {
+    jumpRef.current = jump;
+  });
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || typeof navigator.getGamepads !== "function") return;
+    if (typeof requestAnimationFrame !== "function") return;
+    let raf = 0;
+    let live = true;
+    const tick = () => {
+      if (!live) return;
+      const pad = pickGamepad(navigator.getGamepads());
+      setPadSeen(Boolean(pad));
+      if (pad) {
+        const next = readGamepad(pad, padInput.current);
+        const was = padInput.current;
+        padInput.current = next;
+        const changed =
+          !was ||
+          was.move.forward !== next.move.forward ||
+          was.move.strafe !== next.move.strafe ||
+          was.look.x !== next.look.x ||
+          was.look.y !== next.look.y ||
+          was.lift !== next.lift ||
+          was.boost !== next.boost;
+        if (changed && !isIdle(next)) {
+          engine.current?.setMoveInput({ forward: next.move.forward, strafe: next.move.strafe, lift: next.lift, boost: next.boost });
+          engine.current?.setLookInput(next.look);
+        } else if (changed && isIdle(next)) {
+          engine.current?.setMoveInput({ forward: 0, strafe: 0, lift: 0, boost: false });
+          engine.current?.setLookInput({ x: 0, y: 0 });
+        }
+        if (next.interact && nearRef.current) {
+          const node = atlasNodesRef.current.find((entry) => entry.id === nearRef.current);
+          if (node) jumpRef.current(node);
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      live = false;
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
   const copyLink = async (node: AtlasNode) => {
     const url = `${window.location.origin}${window.location.pathname}${hashForNode(node.id)}`;
     try {
@@ -407,12 +519,66 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
 
   const downloadNotes = () => {
     const stamp = new Date().toISOString().slice(0, 10);
-    const blob = new Blob([`# Atlas notes — ${stamp}\n\n${notes}\n`], { type: "text/markdown;charset=utf-8" });
+    const pinned = Object.entries(nodeNotes)
+      .map(([id, text]) => `### ${atlas.nodes.find((node) => node.id === id)?.label ?? id}\n\n${text}\n`)
+      .join("\n");
+    const body = `# Atlas notes — ${stamp}\n\n${notes}\n${pinned ? `\n## Pinned to a node\n\n${pinned}` : ""}`;
+    const blob = new Blob([body], { type: "text/markdown;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `atlas-notes-${stamp}.md`;
     link.click();
     URL.revokeObjectURL(link.href);
+  };
+
+  const syncPush = async () => {
+    const token = getToken();
+    if (!token) {
+      setGistMessage("This studio has no token of yours in it, so there is no account to write the gist to.");
+      return;
+    }
+    setGistBusy(true);
+    setGistMessage("Writing the gist…");
+    const result = await pushNotes(token, buildBundle(notes, nodeNotes), gistId || null);
+    setGistBusy(false);
+    if (!result.ok) {
+      setGistMessage(result.error ?? "The push failed.");
+      return;
+    }
+    if (result.gistId) {
+      setGistId(result.gistId);
+      try {
+        window.localStorage.setItem(GIST_STORE_KEY, result.gistId);
+      } catch {
+        /* the gist still exists; this browser just will not remember it */
+      }
+    }
+    setGistMessage("Pushed. The same gist will pull this back on another device.");
+  };
+
+  const syncPull = async () => {
+    const token = getToken();
+    if (!token) {
+      setGistMessage("This studio has no token of yours in it, so there is nothing to read the gist with.");
+      return;
+    }
+    if (!gistId) {
+      setGistMessage("No gist yet on this device — push once to create one, and paste its id here if another device made it.");
+      return;
+    }
+    setGistBusy(true);
+    setGistMessage("Reading the gist…");
+    const result = await pullNotes(token, gistId);
+    setGistBusy(false);
+    if (!result.ok || !result.bundle) {
+      setGistMessage(result.error ?? "The pull failed.");
+      return;
+    }
+    const merged = mergeBundle(buildBundle(notes, nodeNotes), result.bundle);
+    setNotes(merged.notes);
+    setNodeNotes(merged.nodeNotes);
+    setSaved(false);
+    setGistMessage(`Pulled — ${describeBundle(result.bundle)}.`);
   };
 
   const enterVr = async () => {
@@ -487,7 +653,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             aria-pressed={notesOpen}
             title="A scratchpad for this space — saved on this device"
           >
-            Notes{notes.trim() ? " ·" : ""}
+            Notes{notes.trim() || noteCount(nodeNotes) ? " ·" : ""}
           </button>
           <button
             className="btn ghost"
@@ -680,6 +846,12 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             </>
           )}
         </p>
+        {padOn && (
+          <p className="atlas-pad-hint" role="status">
+            Gamepad connected — left stick flies, right stick looks, <kbd>A</kbd> selects the nearest node,
+            triggers boost, <kbd>LB</kbd>/<kbd>RB</kbd> drop and rise.
+          </p>
+        )}
         {near && <p className="near">Near: {near}</p>}
         {status && <p className="atlas-status">{status}</p>}
         {failed && <p className="error">{failed}</p>}
@@ -703,6 +875,36 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
               ))}
             </ul>
           )}
+          {(selected.kind === "site" || selected.kind === "link") && selected.href && !sameOrigin(selected.href) && (
+            <SiteThumb url={selected.href} label={selected.label} />
+          )}
+
+          <div className="atlas-section atlas-pin">
+            <h3>Your note on this</h3>
+            <textarea
+              className="atlas-pin-field"
+              value={nodeNotes[selected.id] ?? ""}
+              onChange={(event) => setNodeNotes((current) => setNodeNote(current, selected.id, event.target.value))}
+              placeholder="Something to remember about this node — kept in this browser."
+              aria-label={`Your note on ${selected.label}`}
+              rows={3}
+            />
+            {nodeNotes[selected.id]?.trim() ? (
+              <p className="atlas-pin-foot">
+                Pinned ·{" "}
+                <button
+                  type="button"
+                  className="atlas-linkish"
+                  onClick={() => setNodeNotes((current) => setNodeNote(current, selected.id, ""))}
+                >
+                  remove
+                </button>
+              </p>
+            ) : (
+              <p className="atlas-pin-foot muted">Saves as you type. Only this browser has it.</p>
+            )}
+          </div>
+
           {selected.pages && selected.pages.length > 0 && (
             <div className="atlas-section">
               <h3>Pages</h3>
@@ -820,8 +1022,48 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           </div>
           <p className="atlas-sheet-note">
             Kept in this browser's local storage, like the pose and the projects you add yourself. Nothing is sent
-            anywhere. <strong>Download</strong> is how you get it out: clearing site data clears this too.
+            anywhere unless you ask it to be, below. <strong>Download</strong> is how you get it out: clearing site data
+            clears this too.
           </p>
+
+          <div className="atlas-sync">
+            <h3>Across devices</h3>
+            <p className="atlas-sheet-note">
+              A <strong>secret gist</strong> on your own GitHub account is the copy: no database, nothing deployed, and the
+              same token you signed in with can read it back on another machine. It needs the <code>gist</code> scope; if
+              the token has not got it, GitHub says 403 and this says so rather than pretending.
+            </p>
+            <label className="atlas-sync-id">
+              Gist id
+              <input
+                value={gistId}
+                onChange={(event) => {
+                  const next = event.target.value.trim();
+                  setGistId(next);
+                  try {
+                    if (isGistId(next)) window.localStorage.setItem(GIST_STORE_KEY, next);
+                  } catch {
+                    /* not remembering it is survivable */
+                  }
+                }}
+                placeholder="paste one from another device"
+                spellCheck={false}
+              />
+            </label>
+            <div className="atlas-notes-actions">
+              <button className="btn" type="button" onClick={() => void syncPush()} disabled={gistBusy || (!notes.trim() && !noteCount(nodeNotes))}>
+                {gistId ? "Push to the gist" : "Create a gist"}
+              </button>
+              <button className="btn ghost" type="button" onClick={() => void syncPull()} disabled={gistBusy || !gistId}>
+                Pull
+              </button>
+            </div>
+            {gistMessage && (
+              <p className="atlas-sync-status" role="status">
+                {gistMessage}
+              </p>
+            )}
+          </div>
         </section>
       )}
 
@@ -1011,6 +1253,53 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
 }
 
 /** A thumbstick that reports the vector it is being pushed towards. */
+/**
+ * The card a link makes when you paste it somewhere: `og:image`, its title, its
+ * one line. Read by /api/site (a browser cannot fetch another site), cached, and
+ * quiet when there is nothing to show.
+ */
+function SiteThumb({ url, label }: { url: string; label: string }) {
+  const [preview, setPreview] = useState<{ image: string; title: string; description: string } | null>(null);
+  const [state, setState] = useState<"loading" | "ready" | "none" | "failed">("loading");
+
+  useEffect(() => {
+    if (!url) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 9000);
+    setState("loading");
+    setPreview(null);
+    fetch(`/api/site?thumb=${encodeURIComponent(url)}`, { signal: controller.signal })
+      .then((response) => response.json())
+      .then((data: { ok?: boolean; preview?: { image: string; title: string; description: string } }) => {
+        if (!data?.ok || !data.preview) {
+          setState("failed");
+          return;
+        }
+        setPreview(data.preview);
+        setState(data.preview.image ? "ready" : "none");
+      })
+      .catch(() => setState("failed"))
+      .finally(() => window.clearTimeout(timer));
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [url]);
+
+  if (state === "loading") return <p className="atlas-thumb-state">Reading the card for this link…</p>;
+  if (state === "failed") return <p className="atlas-thumb-state">That page would not answer, so there is no card for it.</p>;
+  if (state === "none") return <p className="atlas-thumb-state">{preview?.title ? `“${preview.title}” — no picture to show.` : "That page declares no picture to show."}</p>;
+  if (!preview) return null;
+
+  return (
+    <figure className="atlas-thumb-card">
+      <img src={preview.image} alt={preview.title ? `Preview of ${preview.title}` : `Preview of ${label}`} loading="lazy" referrerPolicy="no-referrer" />
+      {preview.title && <figcaption>{preview.title}</figcaption>}
+      {preview.description && <p>{preview.description}</p>}
+    </figure>
+  );
+}
+
 /** A page cannot be shown inside itself: skip the preview for our own origin. */
 function sameOrigin(href: string): boolean {
   try {

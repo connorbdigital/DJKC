@@ -1,0 +1,19 @@
+{
+  "name": "Studio — projects, features, agents",
+  "short_name": "Studio",
+  "description": "The private studio: every project, every shipped feature, the Atlas, and the shelf.",
+  "id": "/",
+  "start_url": "/#tab=projects",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0A0512",
+  "theme_color": "#0A0512",
+  "lang": "en-GB",
+  "categories": ["productivity", "developer"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

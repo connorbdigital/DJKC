@@ -101,6 +101,43 @@ const metaContent = (html: string, name: string): string => {
   return decode(html.match(pattern)?.[1] ?? html.match(reversed)?.[1] ?? "");
 };
 
+export interface PagePreview {
+  /** Absolute https URL, or empty when the page declares none we can show. */
+  image: string;
+  title: string;
+  description: string;
+}
+
+/**
+ * The picture a link would show if it were pasted into a chat: `og:image`, or
+ * `twitter:image` when there is no Open Graph one. Only https and only an
+ * absolute address survives — a `data:` URI or a relative path with no base is
+ * not a preview, it is a hole in the panel.
+ */
+export function findOgImage(html: string, pageUrl: string): string {
+  const raw = metaContent(html, "og:image") || metaContent(html, "twitter:image") || metaContent(html, "og:image:url");
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 2000) return "";
+  let resolved: URL;
+  try {
+    resolved = new URL(trimmed, pageUrl);
+  } catch {
+    return "";
+  }
+  if (resolved.protocol !== "https:") return "";
+  return resolved.toString();
+}
+
+/** Everything the space needs to draw a link as a card rather than a word. */
+export function pagePreview(html: string, pageUrl: string): PagePreview {
+  const title = decode(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "") || metaContent(html, "og:title");
+  return {
+    image: findOgImage(html, pageUrl),
+    title: metaContent(html, "og:title") || title,
+    description: metaContent(html, "og:description") || metaContent(html, "description"),
+  };
+}
+
 /** Turns one page of HTML into the audit a shop owner can act on. */
 export function checkSite(html: string, url: string): SiteReport {
   const title = decode(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "");

@@ -82,6 +82,14 @@ The document covers all 11 processes on the 6 shelves plus the eight steps the b
 - *Inside the projects* uses GitHub's code search across every repository the token can see, or one of them. The query is built here, not typed by hand: GitHub refuses an unscoped search, so the Studio adds `user:` or `repo:` itself. Matches are grouped by repository with the matching lines stripped of GitHub's highlight markup. The API allows roughly ten queries a minute, so a rate limit is reported as a rate limit, not as a failure.
 - *One public page* fetches a single https page through `api/site` and reports what it says about itself: title, description, one headline, Product/Offer/ReturnPolicy markup, alt text, viewport, canonical, share card, readable words and document size — each with the reason it matters. Nothing is crawled, nothing is stored, and the HTML never reaches the browser.
 
+### Installable, and usable with a controller
+
+The Studio is a PWA: `public/manifest.webmanifest` (standalone, `#0A0512`, four icons including a maskable one) and `public/sw.js`, which caches the shell so the space and the shelf open with no network, and **refuses to cache anything under `/api/`** — a stale GitHub or Anything answer would be a lie. It registers only in a production build, and the header says "Offline — the space and the shelf still work" when the browser says it is.
+
+A gamepad is two sticks, which the Atlas already had: `src/gamepad.ts` turns a standard-mapping pad into the same `setMoveInput`/`setLookInput` calls the glass sticks make — same deadzone, same clamping — polled per frame and passed on only when a number changes. A selects the nearest node (rising edge, so holding it does not re-select), triggers boost, LB/RB drop and rise.
+
+Notes are in `atlas:notes:v1` and, per node, `atlas:node-notes:v1`. **Across devices** pushes both into a secret gist on your own account (`atlas-notes.json`) and pulls them back with a merge that lets the local pin win; a token without the `gist` scope is reported as GitHub's 403, not as success.
+
 ### Reading without a token in the browser
 
 `api/github.ts` reads GitHub on the deployment's behalf when `GITHUB_TOKEN` is set on the project — the browser then never holds a credential, and the gate is not needed to browse. It is **read-only**: `GET` only, an allowlist of paths (`/user`, `/user/repos`, `/repos/<owner>/<repo>…`, `/search/code`, `/rate_limit`), no absolute URLs, no traversal, no credentials in the path, a 12-second timeout and a 4 MB ceiling. Opening a branch, a file or a pull request still asks for a token at the gate, where the person authorising it can see what they are authorising.
@@ -89,6 +97,8 @@ The document covers all 11 processes on the 6 shelves plus the eight steps the b
 The rules live in `src/githubProxy.ts` and are tested without a request; the handler is thin on purpose. Scope note: the deployment sits behind Vercel Authentication, so "anyone who can reach the function" means anyone you let into the Studio. If the Studio is ever made public, remove this route first.
 
 ### The site check's guard rails
+
+`api/site` has two faces: `POST` audits a page, and `GET ?thumb=<url>` returns the **link card** — `og:image` (or `twitter:image`, or `og:image:url`) made absolute, with title and description — which the Atlas draws for site and link nodes. Only https images survive, and a card is cached for an hour.
 
 `src/sitecheck.ts` accepts https only, on the default port, with no credentials, and only public host names: `localhost`, `*.local`, `*.internal`, IP literals (including the decimal and hex aliases) and loopback/link-local addresses are refused before any request is made. `api/site.ts` then refuses redirects, requires `text/html`, times out after 8 seconds and stops reading at 1.5 MB, marking the report truncated.
 
