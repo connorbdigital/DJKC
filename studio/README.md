@@ -82,6 +82,12 @@ The document covers all 11 processes on the 6 shelves plus the eight steps the b
 - *Inside the projects* uses GitHub's code search across every repository the token can see, or one of them. The query is built here, not typed by hand: GitHub refuses an unscoped search, so the Studio adds `user:` or `repo:` itself. Matches are grouped by repository with the matching lines stripped of GitHub's highlight markup. The API allows roughly ten queries a minute, so a rate limit is reported as a rate limit, not as a failure.
 - *One public page* fetches a single https page through `api/site` and reports what it says about itself: title, description, one headline, Product/Offer/ReturnPolicy markup, alt text, viewport, canonical, share card, readable words and document size — each with the reason it matters. Nothing is crawled, nothing is stored, and the HTML never reaches the browser.
 
+### On a phone, and on Anything
+
+Under 720 px the tab strip is replaced by a **Menu** drawer that groups the eight tabs — Build, Ask and read, Look around — with the glyph, the name and the sentence for each. The grouping is a field on the tab itself (`group`), so the drawer and the strip cannot disagree.
+
+The Anything tab lists **every** project the API returns (asked for 100, its documented ceiling) in one call, and reads a project's files and published URL only when you open it; a project the API refuses says so in its row. Before this it read the detail of the first 24 before drawing anything, which is both slower and a different claim.
+
 ### Installable, and usable with a controller
 
 The Studio is a PWA: `public/manifest.webmanifest` (standalone, `#0A0512`, four icons including a maskable one) and `public/sw.js`, which caches the shell so the space and the shelf open with no network, and **refuses to cache anything under `/api/`** — a stale GitHub or Anything answer would be a lie. It registers only in a production build, and the header says "Offline — the space and the shelf still work" when the browser says it is.

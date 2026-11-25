@@ -179,7 +179,7 @@ export const LINKS: StudioLink[] = [
     group: "providers",
     label: "OpenAI platform",
     href: "https://platform.openai.com/api-keys",
-    note: "OPENAI_API_KEY for the site's chat widget. The variable on Vercel is currently named OPEN_AI_KEY, which nothing reads.",
+    note: "The site's chat widget. Vercel holds it as OPEN_AI_KEY and api/chat.ts now accepts both spellings, so it works without re-pasting a secret Vercel will not show again.",
   },
   {
     group: "this-project",
@@ -229,17 +229,9 @@ export const TODOS: StudioTodo[] = [
     state: "now",
   },
   {
-    id: "chat-key-name",
-    title: "Fix the chat key name",
-    why: "Vercel holds OPEN_AI_KEY; the code reads OPENAI_API_KEY. The widget has never answered, and it fails quietly.",
-    effort: "S",
-    where: "ops",
-    state: "now",
-  },
-  {
     id: "anthropic-key",
-    title: "Add ANTHROPIC_API_KEY to the studio project",
-    why: "The Agent tab has no key at all, so drafting has never worked in production.",
+    title: "Give the Studio's Agent a key on preview too",
+    why: "ANTHROPIC_API_KEY is set for Production only, so the Agent works on the live Studio and refuses on every preview deployment — which is where a change gets tried first.",
     effort: "S",
     where: "ops",
     state: "now",
@@ -367,7 +359,7 @@ export const ENV_KEYS: EnvKey[] = [
   { key: "STRIPE_SECRET_KEY", project: "djkc", what: "Deposits at booking", without: "no money moves" },
   { key: "STRIPE_DEPOSIT_PERCENT", project: "djkc", what: "Deposit percentage", without: "defaults to 50" },
   { key: "SITE_URL", project: "djkc", what: "Absolute links in email", without: "relative links, wrong share URL" },
-  { key: "OPENAI_API_KEY", project: "djkc", what: "The chat widget", without: "'AI unavailable'" },
+  { key: "OPEN_AI_KEY", project: "djkc", what: "The chat widget (also read as OPENAI_API_KEY)", without: "'AI unavailable'" },
 ];
 
 export const EFFORT_LABEL: Record<Effort, string> = {
