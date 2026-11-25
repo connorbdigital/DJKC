@@ -11,9 +11,10 @@ import { BUILDER_STEPS } from "./processDoc";
 import { CAPABILITIES, CATEGORIES, categoryInfo } from "./features";
 import { PACKS, resolvePack } from "./packs";
 import { BRIEFS } from "./atlasBriefs";
+import type { AnythingApp } from "./anythingClient";
 
-export type NodeKind = "project" | "capability" | "step" | "pack" | "brief" | "site";
-export type District = "library" | "projects" | "builder" | "packs" | "content" | "gallery";
+export type NodeKind = "project" | "capability" | "step" | "pack" | "brief" | "site" | "app";
+export type District = "library" | "projects" | "builder" | "packs" | "content" | "gallery" | "anything";
 
 export interface AtlasNode {
   id: string;
@@ -108,15 +109,38 @@ export const DISTRICTS: Atlas["districts"] = [
   { id: "projects", label: "Projects", blurb: "The repositories this Studio has read, and what is in them.", centre: [92, 10, 0] },
   { id: "builder", label: "How the builder works", blurb: "The eight steps between a brief and a pull request.", centre: [-92, 14, 0] },
   { id: "packs", label: "Pathways", blurb: "Four packs: a set of processes that install together, with the routes between them.", centre: [0, 34, -92] },
-  { id: "content", label: "The blog plan", blurb: "Every post for sitebuildup.co.uk, with the number it argues from.", centre: [0, 16, 96] },
-  { id: "gallery", label: "The gallery", blurb: "Live sites you can fly up to. Some refuse to be framed; the card tells you so.", centre: [0, 30, 250] },
+  { id: "content", label: "The blog plan", blurb: "Every post for sitebuildup.co.uk, with the number it argues from.", centre: [0, 16, 92] },
+  { id: "gallery", label: "The gallery", blurb: "Live sites you can fly up to. Some refuse to be framed; the card tells you so.", centre: [0, 30, 310] },
+  /* A diagonal, not another axis: the space is a compass, and this is the arm
+     that only exists when there is an Anything account to read. */
+  {
+    id: "anything",
+    label: "Anything",
+    blurb: "The apps on anything.com: what each one is, what is inside it, and where it publishes.",
+    centre: [-92, 20, -92],
+  },
 ];
+
+/**
+ * One radius for the four cardinal arms, so a single ring passes through all of
+ * them. The space is measured in these numbers, not eyeballed: the east and west
+ * arms, the north and south arms, and the diagonal are all the same distance
+ * from the library, which is what makes the shape legible from the air.
+ */
+export const ARM_RADIUS = 92;
 
 /**
  * The space is deliberately small: a bigger one is impressive for ten seconds
  * and tiring for ten minutes. These distances are in "metres" of flight.
  */
 export const WORLD_SCALE = 0.62;
+
+/**
+ * Four sizes, not six. A node's size says what kind of thing it is and how much
+ * of the space it owns: an arm's anchor, a sun with children, a sun, a small sun.
+ * Sizes off the ladder read as accidents.
+ */
+export const SIZE = { small: 2, medium: 2.6, large: 3.4, anchor: 4.4 } as const;
 
 /** A project you add yourself, kept in this browser rather than in the repo. */
 export interface CustomProject {
@@ -180,7 +204,7 @@ export function parseCustomProjects(raw: unknown): CustomProject[] {
   return out;
 }
 
-export function buildAtlas(custom: CustomProject[] = []): Atlas {
+export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = []): Atlas {
   const nodes: AtlasNode[] = [];
   const edges: AtlasEdge[] = [];
 
@@ -202,7 +226,7 @@ export function buildAtlas(custom: CustomProject[] = []): Atlas {
         ...capability.manual.slice(0, 3).map((step) => `By hand: ${step}`),
       ],
       position: spherePoint(index, CAPABILITIES.length, 34),
-      size: 1.9,
+      size: SIZE.small,
     });
   });
 
@@ -217,8 +241,8 @@ export function buildAtlas(custom: CustomProject[] = []): Atlas {
       line: project.line,
       detail: project.detail,
       bullets: [...project.bullets],
-      position: [round(92 + position[0]), position[1], round(position[2])],
-      size: 4.6,
+      position: [round(ARM_RADIUS + position[0]), position[1], round(position[2])],
+      size: SIZE.anchor,
     });
   });
 
@@ -239,9 +263,45 @@ export function buildAtlas(custom: CustomProject[] = []): Atlas {
         ...(project.href ? [project.href] : []),
         "Added by you · kept in this browser",
       ],
-      position: [round(92 + position[0]), round(8 + position[1]), round(position[2])],
-      size: 4.2,
+      position: [round(ARM_RADIUS + position[0]), round(8 + position[1]), round(position[2])],
+      size: SIZE.anchor,
       ...(project.href ? { href: project.href } : {}),
+    });
+  });
+
+  /* ------------------------------------------------------------ anything */
+  /* Apps stand on the diagonal arm, on a ring of the same radius as the
+     library's own, at the foot of the arm — so the arm is one place whether you
+     fly at it from the library or arrive from the west. */
+  const anythingArm = DISTRICTS.find((district) => district.id === "anything")!;
+  apps.forEach((app, index) => {
+    const position = ringPoint(index, Math.max(apps.length, 3), 17, 0, Math.PI / 4);
+    const modules = app.modules.length ? `${app.modules.length} module${app.modules.length === 1 ? "" : "s"}` : "no modules read";
+    const where = app.url ? app.url.replace(/^https:\/\//, "").replace(/\/$/, "") : "not published";
+    const updated = app.updatedAt ? new Date(app.updatedAt) : null;
+    const stamp = updated && !Number.isNaN(updated.getTime())
+      ? updated.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+      : "unknown";
+    nodes.push({
+      id: `app-${app.id}`,
+      kind: "app",
+      district: "anything",
+      label: app.name,
+      line: `${app.platform === "both" ? "Web and mobile" : app.platform === "mobile" ? "Mobile" : "Web"} app · ${modules} · ${where}`,
+      detail: `${app.name} is built on anything.com, in ${app.organizationName}: ${modules}, last changed ${stamp}. ${
+        app.url
+          ? `It publishes at ${app.url}, so the card opens the running app rather than a description of it.`
+          : "It has never been published, so there is nothing to open yet."
+      }\n\nRead through this deployment's key: the Atlas can see what is inside the app, and cannot change any of it.`,
+      bullets: [
+        `Platform: ${app.platform}`,
+        modules ? `Inside: ${app.modules.slice(0, 8).join(", ")}${app.modules.length > 8 ? "…" : ""}` : "Nothing read from inside it yet",
+        ...(app.url ? [app.url] : []),
+        `Last changed ${stamp}`,
+      ],
+      position: [round(anythingArm.centre[0] + position[0]), round(anythingArm.centre[1] + position[1]), round(anythingArm.centre[2] + position[2])],
+      size: SIZE.large,
+      ...(app.url ? { href: app.url } : {}),
     });
   });
 
@@ -257,7 +317,7 @@ export function buildAtlas(custom: CustomProject[] = []): Atlas {
       detail: `${step.does}\n\nWhy: ${step.why}`,
       bullets: [],
       position: [round(-92 + position[0]), round(14 + Math.sin(index * 1.1) * 5), round(position[2])],
-      size: 1.9,
+      size: SIZE.small,
     });
     if (index > 0) edges.push({ from: `step-${index}`, to: `step-${index + 1}`, kind: "contains" });
   });
@@ -278,8 +338,8 @@ export function buildAtlas(custom: CustomProject[] = []): Atlas {
         .map((item) => `• ${item}`)
         .join("\n")}`,
       bullets: [`${members.length} processes`, `Files written: ${members.reduce((total, member) => total + member.files.length, 0)}`, ...pack.before.map((item) => `Before: ${item}`)],
-      position: [round(position[0]), round(34 + position[1]), round(-92 + position[2])],
-      size: 3.2,
+      position: [round(position[0]), round(34 + position[1]), round(-ARM_RADIUS + position[2])],
+      size: SIZE.large,
     });
     for (const member of members) edges.push({ from: `pack-${pack.id}`, to: `cap-${member.id}`, kind: "installs" });
   });
@@ -291,7 +351,9 @@ export function buildAtlas(custom: CustomProject[] = []): Atlas {
   BRIEFS.forEach((brief, index) => {
     const column = index % COLUMNS;
     const row = Math.floor(index / COLUMNS);
-    const position: [number, number, number] = [(column - (COLUMNS - 1) / 2) * 10.6, 10 + row * 11, 96 + Math.pow(column - 3, 2) * 0.55];
+    /* Spacing is the card's own width plus a gap, not a guess: at 14 apart the
+     wall reads as fourteen posts instead of one bright smear. */
+    const position: [number, number, number] = [(column - (COLUMNS - 1) / 2) * 14, 10 + row * 13, 92 + Math.pow(column - 3, 2) * 1.1];
     const short = brief.title.split(/[:—]/)[0]!.trim().split(" ").slice(0, 7).join(" ");
     nodes.push({
       id: `brief-${brief.slug}`,
@@ -306,7 +368,7 @@ export function buildAtlas(custom: CustomProject[] = []): Atlas {
         ...brief.proof.map((file) => `Proof: ${file}`),
       ],
       position: [round(position[0]), round(position[1]), round(position[2])],
-      size: 2.4,
+      size: SIZE.medium,
     });
     edges.push({ from: `brief-${brief.slug}`, to: `cap-${brief.capability}`, kind: "proves" });
   });
@@ -316,7 +378,7 @@ export function buildAtlas(custom: CustomProject[] = []): Atlas {
      (10.8 world units wide) sit side by side with a small gap, facing the way
      you arrive. */
   SITES.forEach((site, index) => {
-    const position: [number, number, number] = [(index - (SITES.length - 1) / 2) * 19, 0, 250];
+    const position: [number, number, number] = [(index - (SITES.length - 1) / 2) * 19, 0, 310];
     nodes.push({
       id: site.id,
       kind: "site",
@@ -326,7 +388,7 @@ export function buildAtlas(custom: CustomProject[] = []): Atlas {
       detail: `A live page you can open as a panel in the space and fly around. Some sites refuse to be embedded by any other domain; when that happens the panel shows the card instead, with the link.`,
       bullets: [site.url, site.kind],
       position: [round(position[0]), round(30 + position[1]), round(position[2])],
-      size: 3.0,
+      size: SIZE.large,
       href: site.url,
     });
   });
@@ -334,7 +396,7 @@ export function buildAtlas(custom: CustomProject[] = []): Atlas {
   for (const node of nodes) {
     node.position = [round(node.position[0] * WORLD_SCALE), round(node.position[1] * WORLD_SCALE), round(node.position[2] * WORLD_SCALE)];
   }
-  const districts = DISTRICTS.map((district) => ({
+  const districts = DISTRICTS.filter((district) => district.id !== "anything" || apps.length > 0).map((district) => ({
     ...district,
     centre: [round(district.centre[0] * WORLD_SCALE), round(district.centre[1] * WORLD_SCALE), round(district.centre[2] * WORLD_SCALE)] as [number, number, number],
   }));
@@ -385,6 +447,7 @@ export const distance = (a: [number, number, number], b: [number, number, number
 
 export const kindColour: Record<NodeKind, string> = {
   project: "#8c5bff",
+  app: "#f472b6",
   capability: "#ff2bd6",
   step: "#6ee7b7",
   pack: "#ffd166",

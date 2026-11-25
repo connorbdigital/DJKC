@@ -47,7 +47,24 @@ describe("the Anything proxy rules", () => {
     const me = anythingTarget("/v0/api/me");
     expect(me.ok).toBe(true);
 
-    for (const path of ["/v0/api/projects/123/delete", "/v0/api/organizations", "/", "v0/api/me", "https://x.test/v0/api/me", "/v0/api/../me", "", "/v0/api/me@x"]) {
+    /* One project's own detail is readable; anything nested under it is not. */
+    const detail = anythingTarget("/v0/api/projects/prj_9fk2");
+    expect(detail.ok).toBe(true);
+    if (detail.ok) expect(detail.url).toBe(`${ANYTHING_API}/v0/api/projects/prj_9fk2`);
+
+    for (const path of [
+      "/v0/api/projects/123/delete",
+      "/v0/api/projects/123/files",
+      "/v0/api/projects/",
+      "/v0/api/organizations",
+      "/",
+      "v0/api/me",
+      "https://x.test/v0/api/me",
+      "/v0/api/../me",
+      "",
+      "/v0/api/me@x",
+      "/v0/api/projects?query=<script>",
+    ]) {
       expect(anythingTarget(path).ok, path).toBe(false);
     }
   });

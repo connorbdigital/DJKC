@@ -274,7 +274,7 @@ function cardSprite(node: AtlasNode) {
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
-  sprite.scale.set(5, 2.8, 1);
+  sprite.scale.set(4.6, 2.6, 1);
   return sprite;
 }
 
@@ -286,6 +286,8 @@ export class AtlasEngine {
   private readonly rig = new THREE.Object3D();
   private readonly pickables: Pickable[] = [];
   private readonly labels: { sprite: THREE.Sprite; kind: NodeKind; base: THREE.Vector3 }[] = [];
+  /** The district signs. They fade as you walk under them, or they fill the sky. */
+  private readonly districtLabels: { sprite: THREE.Sprite; centre: THREE.Vector3 }[] = [];
   private readonly cards: { sprite: THREE.Sprite; base: THREE.Vector3 }[] = [];
   /** Touch joystick input, merged with the keyboard in applyKeys(). */
   private touch = { forward: 0, strafe: 0, lift: 0, boost: false };
@@ -353,10 +355,14 @@ export class AtlasEngine {
     } else if (this.camera.aspect < 0.85) {
       /* Portrait gets an overview: from down here the space is a horizontal
          band in a tall black screen. */
-      this.rig.position.set(0, 52, 104);
-      this.pitch = -0.33;
+      this.rig.position.set(0, 70, 176);
+      this.pitch = -0.34;
     } else {
-      this.rig.position.set(0, 30, 132);
+      /* Arrive far enough back to see the shape you are standing in: the rings,
+         the five arms and where the library sits among them. Close enough that
+         it is still a place rather than a diagram. */
+      this.rig.position.set(0, 44, 146);
+      this.pitch = -0.16;
     }
     cameraLook(this.rig, this.camera, this.yaw, this.pitch);
 
@@ -375,6 +381,7 @@ export class AtlasEngine {
     gridMaterial.opacity = 0.16;
     grid.position.y = 0;
     this.scene.add(grid);
+    this.buildFramework();
     this.buildDistrictLabels();
     this.buildEdges();
     this.buildNodes();
@@ -434,11 +441,15 @@ export class AtlasEngine {
 
     /* A soft glow behind each district so the space has light, not just points. */
     const glow = nebulaTexture();
+    /* The haze stays — it is what makes the dark look like somewhere rather than
+       nowhere — but two of them used to sit close enough to the entrance to read
+       as moons. They are further out and thinner now, which is the difference
+       between light in the distance and an object in the room. */
     for (const [colour, position, size, opacity] of [
-      [0xff2bd6, [0, 26, -30], 220, 0.16],
-      [0x8c5bff, [-90, 40, 40], 260, 0.13],
-      [0x38bdf8, [80, 30, 70], 200, 0.1],
-      [0xffd166, [0, 60, -120], 240, 0.08],
+      [0xff2bd6, [0, 70, -640], 620, 0.09],
+      [0x8c5bff, [-600, 90, 220], 660, 0.08],
+      [0x38bdf8, [600, 90, 260], 620, 0.06],
+      [0xffd166, [0, 150, -460], 520, 0.05],
     ] as [number, [number, number, number], number, number][]) {
       const sprite = new THREE.Sprite(
         new THREE.SpriteMaterial({ map: glow, color: colour, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, fog: false })
@@ -449,11 +460,123 @@ export class AtlasEngine {
     }
   }
 
+
+  /**
+   * The scaffolding: rings, spokes and pillars that are derived from where the
+   * nodes actually are, never drawn by hand.
+   *
+   * The space is a compass. Every arm is the same distance from the library, so
+   * one ring passes through all four cardinal districts and a second passes
+   * through the diagonal; eight spokes mark the directions between them; each
+   * district gets its own ring at the radius its own nodes occupy, so the shape
+   * cannot drift from the data. If a district moves, its frame moves with it.
+   */
+  private buildFramework() {
+    const hub = this.atlas.districts.find((district) => district.id === "library") ?? this.atlas.districts[0];
+    if (!hub) return;
+    const line = (colour: number, opacity: number) =>
+      new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity, depthWrite: false });
+
+    const circle = (x: number, z: number, radius: number, colour: number, opacity: number) => {
+      const points: THREE.Vector3[] = [];
+      for (let step = 0; step < 160; step++) {
+        const angle = (step / 160) * Math.PI * 2;
+        points.push(new THREE.Vector3(x + Math.cos(angle) * radius, 0, z + Math.sin(angle) * radius));
+      }
+      return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(points), line(colour, opacity));
+    };
+
+    const floor = new THREE.Group();
+    floor.position.y = 0.16;
+
+    /* One ring per distinct arm distance: the four cardinals share a radius, and
+       the diagonal arm and the far gallery sit on their own. */
+    const arms = this.atlas.districts
+      .filter((district) => district.id !== hub.id)
+      .map((district) => Math.hypot(district.centre[0] - hub.centre[0], district.centre[2] - hub.centre[2]))
+      .sort((a, b) => a - b);
+    const radii: number[] = [];
+    for (const radius of arms) if (!radii.length || radius - radii[radii.length - 1]! > 5) radii.push(radius);
+    const widest = radii[radii.length - 1] ?? 60;
+    radii.forEach((radius, index) => {
+      floor.add(circle(hub.centre[0], hub.centre[2], radius, 0x8c5bff, index === 0 ? 0.2 : 0.12));
+    });
+
+    /* Eight spokes, so a direction is a place rather than a bearing. */
+    const spokes: number[] = [];
+    for (let index = 0; index < 8; index++) {
+      const angle = (index / 8) * Math.PI * 2;
+      spokes.push(
+        hub.centre[0], 0, hub.centre[2],
+        hub.centre[0] + Math.cos(angle) * widest * 1.05, 0, hub.centre[2] + Math.sin(angle) * widest * 1.05
+      );
+      /* Ticks at the rim: a compass you can read without a label. */
+      const inner = widest * 0.98;
+      const outer = widest * 1.08;
+      spokes.push(
+        hub.centre[0] + Math.cos(angle) * inner, 0, hub.centre[2] + Math.sin(angle) * inner,
+        hub.centre[0] + Math.cos(angle) * outer, 0, hub.centre[2] + Math.sin(angle) * outer
+      );
+    }
+    const spokeGeometry = new THREE.BufferGeometry();
+    spokeGeometry.setAttribute("position", new THREE.Float32BufferAttribute(spokes, 3));
+    floor.add(new THREE.LineSegments(spokeGeometry, line(0x6a4d94, 0.14)));
+    this.scene.add(floor);
+
+    /* The library's own ring, at the radius its processes stand at. */
+    const libraryNodes = this.atlas.nodes.filter((node) => node.district === hub.id);
+    const libraryRadius = libraryNodes.reduce(
+      (most, node) => Math.max(most, Math.hypot(node.position[0] - hub.centre[0], node.position[2] - hub.centre[2])),
+      0
+    );
+    if (libraryRadius > 1) {
+      const libraryRing = circle(hub.centre[0], hub.centre[2], libraryRadius * 1.04, 0xff2bd6, 0.1);
+      libraryRing.position.y = 0.16;
+      this.scene.add(libraryRing);
+    }
+
+    /* Each district: a ring at the radius of its own nodes, and a pillar up to
+       the height it floats at, so the arm has a floor and a place. */
+    for (const district of this.atlas.districts) {
+      if (district.id === hub.id) continue;
+      const members = this.atlas.nodes.filter((node) => node.district === district.id);
+      const radius = Math.max(
+        10,
+        members.reduce(
+          (most, node) => Math.max(most, Math.hypot(node.position[0] - district.centre[0], node.position[2] - district.centre[2])),
+          0
+        )
+      );
+      const colour = new THREE.Color(kindColour[members[0]?.kind ?? "capability"]);
+      const ring = circle(district.centre[0], district.centre[2], radius * 1.05, colour.getHex(), 0.16);
+      ring.position.y = 0.16;
+      this.scene.add(ring);
+
+      const pillars: number[] = [];
+      for (let index = 0; index < 4; index++) {
+        const angle = (index / 4) * Math.PI * 2 + Math.PI / 4;
+        const near = radius * 1.05;
+        const far = radius * 1.16;
+        pillars.push(
+          district.centre[0] + Math.cos(angle) * near, 0.16, district.centre[2] + Math.sin(angle) * near,
+          district.centre[0] + Math.cos(angle) * far, 0.16, district.centre[2] + Math.sin(angle) * far
+        );
+      }
+      pillars.push(district.centre[0], 0.16, district.centre[2], district.centre[0], district.centre[1], district.centre[2]);
+      const pillarGeometry = new THREE.BufferGeometry();
+      pillarGeometry.setAttribute("position", new THREE.Float32BufferAttribute(pillars, 3));
+      this.scene.add(new THREE.LineSegments(pillarGeometry, line(colour.getHex(), 0.18)));
+    }
+  }
+
   private buildDistrictLabels() {
     for (const district of this.atlas.districts) {
       const sprite = labelSprite(district.label, { size: 34, colour: "#c9b8ff", weight: 700, max: 22 });
-      sprite.position.set(district.centre[0], district.centre[1] + 13, district.centre[2]);
+      /* Signage sits above the arm, not in the middle of it: you look up to read
+         where you are, rather than walking into the words. */
+      sprite.position.set(district.centre[0], district.centre[1] + 24, district.centre[2]);
       this.scene.add(sprite);
+      this.districtLabels.push({ sprite, centre: new THREE.Vector3(...district.centre) });
     }
   }
 
@@ -1036,6 +1159,10 @@ export class AtlasEngine {
     for (const star of this.stars) {
       star.points.rotation.y += delta * star.speed;
       star.material.opacity = star.base * (0.86 + Math.sin(seconds * 0.6 + star.phase) * 0.08);
+    }
+    for (const label of this.districtLabels) {
+      const away = label.centre.distanceTo(this.rig.position);
+      label.sprite.material.opacity = clamp((away - 26) / 34, 0, 1);
     }
     for (const edge of this.edgeLines) {
       if (!edge.line.visible) continue;
