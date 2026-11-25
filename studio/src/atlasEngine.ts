@@ -243,6 +243,25 @@ function labelSprite(text: string, options: { size?: number; colour?: string; we
   return sprite;
 }
 
+/** A soft round speck, for the particles that run along the wires. */
+function speckTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.35, "rgba(191,233,255,0.9)");
+    gradient.addColorStop(1, "rgba(191,233,255,0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 64, 64);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  return texture;
+}
+
 /** A blog brief drawn as a card: title, service, length — readable from across the room. */
 function cardSprite(node: AtlasNode) {
   const width = 640;
@@ -656,7 +675,7 @@ export class AtlasEngine {
 
     if (node?.pages?.length) {
       const source = new THREE.Vector3(...node.position);
-      const radius = clamp(16 + node.pages.length * 3.2, 22, 44);
+      const radius = clamp(22 + node.pages.length * 3.6, 28, 56);
       const pages = node.pages;
       pages.forEach((page, index) => {
         const angle = (index / pages.length) * Math.PI * 2 - Math.PI / 2;
@@ -675,7 +694,7 @@ export class AtlasEngine {
         element.appendChild(anchor);
         const object = new CSS3DObject(element);
         object.position.copy(target);
-        object.scale.setScalar(0.085);
+        object.scale.setScalar(0.06);
         /* Face the middle of the ring, so every card is readable from inside it. */
         object.lookAt(source);
         this.scene.add(object);
@@ -710,8 +729,10 @@ export class AtlasEngine {
     const points = new THREE.Points(
       geometry,
       new THREE.PointsMaterial({
-        color: 0xbfe9ff,
-        size: 1.1,
+        map: speckTexture(),
+        color: 0xd8f6ff,
+        alphaTest: 0.05,
+        size: 1.6,
         transparent: true,
         opacity: 0.9,
         depthWrite: false,

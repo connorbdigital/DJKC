@@ -270,8 +270,8 @@ export const TODOS: StudioTodo[] = [
   },
   {
     id: "brand-name",
-    title: "Confirm the brand name",
-    why: "'Ecommerce' is still a placeholder standing where a business name goes.",
+    title: "Replace the demo name with the real one",
+    why: "The shop is called Ecommerce because that is what the misspelling meant; when there is a trading name, it goes in commerce/catalogue/site.ts and every page follows.",
     effort: "S",
     where: "site",
     state: "next",
