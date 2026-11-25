@@ -666,6 +666,27 @@ button.btn, a.btn {
 }
 .atlas-section ul { margin: 0; padding-left: 1rem; }
 .atlas-section li { font-size: .74rem; line-height: 1.45; margin-bottom: .2rem; }
+/* a project's pages are links, not a description of links */
+.atlas-pages { display: grid; gap: .15rem; padding-left: 0 !important; list-style: none; }
+.atlas-pages a {
+  display: block;
+  padding: .3rem .5rem;
+  border-radius: 6px;
+  color: #e6d8ff;
+  text-decoration: none;
+  border: 1px solid rgba(160, 130, 210, 0.18);
+  background: rgba(120, 90, 180, 0.1);
+}
+.atlas-pages a::after { content: " ↗"; color: #8d7aa8; font-size: .68rem; }
+.atlas-pages a:hover, .atlas-pages a:focus-visible { background: rgba(150, 110, 220, 0.24); border-color: rgba(190, 160, 240, 0.45); }
+.atlas-detail-frame {
+  width: 100%;
+  height: 190px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: .3rem;
+  background: #0b0616;
+}
 
 /* ------------------------------------------------------- two sticks, notes */
 
@@ -705,4 +726,62 @@ button.btn, a.btn {
    project and a VR session both need a bigger screen than the one in your hand. */
 @media (pointer: coarse) {
   .atlas-actions [data-desktop-only] { display: none; }
+}
+
+/* ⌘K — the palette lists what already exists, so nothing here is a hidden action */
+.palette-open { font-size: .78rem; letter-spacing: .04em; }
+.palette-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(6, 3, 12, 0.72);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 1rem 2rem;
+}
+.palette {
+  width: min(34rem, 100%);
+  background: #12081f;
+  border: 1px solid rgba(170, 140, 220, 0.32);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+.palette-input {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: #f0e6ff;
+  font-size: 1rem;
+  padding: .95rem 1.05rem;
+}
+.palette-input:focus { outline: none; }
+.palette-list { list-style: none; margin: 0; padding: .35rem; max-height: 46vh; overflow: auto; }
+.palette-item {
+  display: flex;
+  gap: .6rem;
+  align-items: baseline;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: .55rem .7rem;
+  color: #e6d8ff;
+  font-size: .86rem;
+  cursor: pointer;
+}
+.palette-item.is-active { background: rgba(150, 110, 220, 0.26); }
+.palette-hint { margin-left: auto; color: #9b89b4; font-size: .72rem; }
+.palette-empty { padding: .8rem 1rem; color: #a896c2; font-size: .84rem; }
+.palette-foot { margin: 0; padding: .55rem 1rem; border-top: 1px solid var(--line); color: #8d7aa8; font-size: .72rem; }
+.palette-foot kbd {
+  font-family: inherit;
+  border: 1px solid rgba(170, 140, 220, 0.3);
+  border-radius: 4px;
+  padding: 0 .25rem;
+  color: #cdbde4;
 }

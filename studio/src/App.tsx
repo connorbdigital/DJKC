@@ -11,10 +11,22 @@ import { Search } from "./components/Search";
 import { Draft } from "./components/Draft";
 import { Resources } from "./components/Resources";
 import { Anything } from "./components/Anything";
+import { Palette } from "./components/Palette";
+import type { Command } from "./palette";
+import { PROJECTS } from "./atlas";
 /* three.js is ~700kB; nobody pays for it until they ask for the space. */
 const Atlas = lazy(() => import("./components/Atlas").then((module) => ({ default: module.Atlas })));
 
 type Tab = "projects" | "packs" | "features" | "search" | "draft" | "resources" | "anything" | "atlas";
+
+/** `#tab=shelf` opens that tab, and `#atlas/<node>` has to open the space.
+ *  A link you cannot share is a link you have to describe instead. */
+function tabFromHash(hash: string): Tab {
+  const wanted = hash.replace(/^#/, "");
+  if (wanted.startsWith("atlas/")) return "atlas";
+  const named = wanted.startsWith("tab=") ? wanted.slice(4) : wanted;
+  return TABS.some((entry) => entry.id === named) ? (named as Tab) : "projects";
+}
 
 const TABS: { id: Tab; label: string; blurb: string }[] = [
   { id: "projects", label: "Projects", blurb: "Everything on the account, newest first, with its history." },
@@ -45,8 +57,11 @@ export function App() {
   const [repos, setRepos] = useState<Repo[] | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<Tab>("projects");
+  const [tab, setTab] = useState<Tab>(() =>
+    typeof window === "undefined" ? "projects" : tabFromHash(window.location.hash)
+  );
   const [preview, setPreview] = useState(false);
+  const [palette, setPalette] = useState(false);
   /* null = still asking. A deployment with GITHUB_TOKEN set can read without a
      token, so the gate has to wait for the answer rather than flash. */
   const [proxy, setProxy] = useState<"unknown" | "yes" | "no">("unknown");
@@ -69,6 +84,39 @@ export function App() {
       setLoading(false);
     }
   }, []);
+
+  /* ⌘K on a Mac, Ctrl-K everywhere else, and the button in the header for thumbs. */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPalette((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  /* A link clicked while the studio is already open has to land as well. */
+  useEffect(() => {
+    const sync = () => setTab((current) => {
+      const named = tabFromHash(window.location.hash);
+      return named === current ? current : named;
+    });
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+
+  /* The hash names the tab, so a link can point at one. The Atlas owns the hash
+     while you are inside it (`#atlas/<node>`), so it is left alone there. */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hash = window.location.hash.replace(/^#/, "");
+    /* While the space is open it owns the hash (`#atlas/<node>`); leave it alone
+       there, but going back to a tab has to replace the node link. */
+    if ((tab === "atlas" && hash.startsWith("atlas/")) || hash === `tab=${tab}`) return;
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#tab=${tab}`);
+  }, [tab]);
 
   useEffect(() => {
     if (token) void load(token);
@@ -119,6 +167,26 @@ export function App() {
 
   const active = TABS.find((t) => t.id === tab)!;
 
+  const commands: Command[] = [
+    ...TABS.map((entry) => ({
+      id: `tab-${entry.id}`,
+      label: entry.label,
+      hint: tab === entry.id ? "you are here" : "tab",
+      aliases: [entry.blurb],
+      run: () => setTab(entry.id),
+    })),
+    ...PROJECTS.map((project) => ({
+      id: `node-${project.id}`,
+      label: `${project.label} — open in the space`,
+      hint: "Atlas",
+      run: () => {
+        setTab("atlas");
+        window.location.hash = `atlas/${project.id}`;
+      },
+    })),
+    { id: "lock", label: "Lock the studio", hint: "forget the token", run: lock },
+  ];
+
   return (
     <div className="shell">
       <header className="top">
@@ -127,6 +195,9 @@ export function App() {
           <h1>Projects, features and agents</h1>
         </div>
         <div className="top-actions">
+          <button className="btn ghost palette-open" onClick={() => setPalette(true)} aria-label="Open the command palette">
+            ⌘K
+          </button>
           {login && <span className="pill">{token === PROXY_TOKEN ? `${login} · server key` : login}</span>}
           <button className="btn ghost" onClick={lock}>{token === PROXY_TOKEN ? "Use my token" : "Lock"}</button>
         </div>
@@ -163,6 +234,8 @@ export function App() {
           <Atlas onClose={() => setTab("projects")} />
         </Suspense>
       )}
+
+      {palette && <Palette commands={commands} onClose={() => setPalette(false)} />}
 
       <footer className="foot">
         <p>

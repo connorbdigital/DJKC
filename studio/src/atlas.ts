@@ -30,6 +30,8 @@ export interface AtlasNode {
   bullets: string[];
   /** Named lists, for the nodes that have more than a paragraph to say. */
   sections?: { title: string; lines: string[] }[];
+  /** Pages you can open: a project's own site, tab by tab. */
+  pages?: { label: string; href: string }[];
   position: [number, number, number];
   /** Node radius, so the renderer and the ray-picker agree. */
   size: number;
@@ -49,6 +51,9 @@ export interface Atlas {
   districts: { id: District; label: string; blurb: string; centre: [number, number, number] }[];
 }
 
+const STUDIO_ORIGIN = "https://studio-connorbdigital.vercel.app";
+const REPO_DOCS = "https://github.com/connorbdigital/DJKC/blob/main";
+
 /** The three projects this Studio has actually read. */
 export const PROJECTS = [
   {
@@ -58,7 +63,18 @@ export const PROJECTS = [
     detail:
       "The first project the Studio was built for: a single-page site with a priced enquiry form, a Stripe deposit, a booking desk and static pages generated for search. 66 tests.",
     bullets: ["React + Vite + Tailwind", "api/ on Vercel", "66 tests, 9 static pages generated", "Owner: connorbdigital"],
-    href: "/",
+    href: "https://kaysie.sitebuildup.co.uk/",
+    pages: [
+      { label: "Home", href: "https://kaysie.sitebuildup.co.uk/" },
+      { label: "Prices", href: "https://kaysie.sitebuildup.co.uk/prices.html" },
+      { label: "What a DJ costs", href: "https://kaysie.sitebuildup.co.uk/how-much-does-a-dj-cost.html" },
+      { label: "Weddings", href: "https://kaysie.sitebuildup.co.uk/wedding-dj.html" },
+      { label: "DJ hire Manchester", href: "https://kaysie.sitebuildup.co.uk/dj-hire-manchester.html" },
+      { label: "Live dates", href: "https://kaysie.sitebuildup.co.uk/shows.html" },
+      { label: "Questions", href: "https://kaysie.sitebuildup.co.uk/faq.html" },
+      { label: "Where KC plays", href: "https://kaysie.sitebuildup.co.uk/coverage.html" },
+      { label: "About KC", href: "https://kaysie.sitebuildup.co.uk/about.html" },
+    ],
   },
   {
     id: "project-studio",
@@ -66,8 +82,18 @@ export const PROJECTS = [
     line: "Inventory, feature library, agent drafts, pull requests, merge gate.",
     detail:
       "The app you are standing in. Reads GitHub, knows 13 processes on 7 shelves, drafts a change into a branch, opens a PR, runs the checks, and refuses to merge its own work.",
-    bullets: ["79 tests", "PROCESSES.md generated from features.ts", "Never merges", "This Atlas is part of it"],
-    href: "/",
+    bullets: ["150 tests", "PROCESSES.md generated from features.ts", "Never merges", "This Atlas is part of it"],
+    href: STUDIO_ORIGIN,
+    pages: [
+      { label: "Projects", href: `${STUDIO_ORIGIN}/#tab=projects` },
+      { label: "Packs", href: `${STUDIO_ORIGIN}/#tab=packs` },
+      { label: "Feature library", href: `${STUDIO_ORIGIN}/#tab=features` },
+      { label: "Search", href: `${STUDIO_ORIGIN}/#tab=search` },
+      { label: "Agent", href: `${STUDIO_ORIGIN}/#tab=draft` },
+      { label: "Anything", href: `${STUDIO_ORIGIN}/#tab=anything` },
+      { label: "Shelf", href: `${STUDIO_ORIGIN}/#tab=resources` },
+      { label: "Atlas (3D)", href: `${STUDIO_ORIGIN}/#tab=atlas` },
+    ],
   },
   {
     id: "project-commerce",
@@ -76,7 +102,14 @@ export const PROJECTS = [
     detail:
       "A storefront framework and a working shop: money as integers, a product validator, a search box that cannot dead-end, 50 generated pages, and the affiliate rates as typed data.",
     bullets: ["119 tests", "npm run site → 50 pages", "Product + Offer + FAQPage schema", "No payment provider, and it says so"],
-    href: "/",
+    href: "https://exommeece.co.uk/",
+    pages: [
+      { label: "The shop", href: "https://exommeece.co.uk/" },
+      { label: "The framework (README)", href: `${REPO_DOCS}/commerce/README.md` },
+      { label: "What's missing (GAPS.md)", href: `${REPO_DOCS}/commerce/GAPS.md` },
+      { label: "Commission maths", href: `${REPO_DOCS}/commerce/COMMISSION.md` },
+      { label: "Where stock comes from", href: `${REPO_DOCS}/commerce/SUPPLIERS.md` },
+    ],
   },
 ] as const;
 
@@ -462,6 +495,8 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
       bullets: [...project.bullets],
       position: [round(ARM_RADIUS + position[0]), position[1], round(position[2])],
       size: SIZE.anchor,
+      href: project.href,
+      pages: [...project.pages],
     });
   });
 

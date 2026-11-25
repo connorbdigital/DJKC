@@ -365,14 +365,6 @@ export const TODOS: StudioTodo[] = [
     state: "later",
   },
   {
-    id: "command-palette",
-    title: "A command palette (⌘K)",
-    why: "Search finds things; nothing runs them. Jump, filter, open a panel, start a draft — from one box, without hunting the HUD.",
-    effort: "S",
-    where: "studio",
-    state: "later",
-  },
-  {
     id: "studio-offline",
     title: "Install the Studio and cache the Atlas",
     why: "A manifest and a service worker would let the shelf and the space open with no signal — the two things worth having on a bad day.",
