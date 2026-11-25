@@ -847,6 +847,60 @@ button.btn, a.btn {
 
 .atlas-pad-hint { margin: .35rem 0 0; font-size: .74rem; color: #9fe3c4; }
 
+/* ---------------------------------------------------------- standards */
+.standards { display: grid; gap: 1.2rem; padding-bottom: 3rem; }
+.standards-bar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: stretch; justify-content: space-between; }
+.standards-scores { display: flex; gap: .6rem; flex: 1 1 24rem; }
+.standards-score {
+  flex: 1 1 0; text-align: left; cursor: pointer; font: inherit;
+  background: #0d0618f2; border: 1px solid #ffffff22; border-radius: 14px; padding: .8rem .9rem;
+  display: grid; gap: .15rem; color: var(--ink);
+}
+.standards-score.is-on { border-color: var(--pink); box-shadow: 0 0 24px #ff2bd633; }
+.standards-score strong { font-size: 1.5rem; font-family: Georgia, serif; }
+.standards-score span { font-size: .8rem; color: #d8cfe8; }
+.standards-score small { font-size: .68rem; color: var(--dim); }
+.standards-toggle { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.standards-toggle button {
+  font: inherit; font-size: .78rem; padding: .45rem .8rem; border-radius: 999px; cursor: pointer;
+  background: #150a24cc; border: 1px solid #ffffff22; color: #cfc2e0;
+}
+.standards-toggle button.is-on { background: #2a1240; border-color: var(--pink); color: #fff; }
+.standards-next { background: #0d0618f2; border: 1px solid #ffffff1c; border-radius: 14px; padding: .9rem 1.1rem; }
+.standards-next ol { margin: .5rem 0 0; padding-left: 1.1rem; display: grid; gap: .5rem; }
+.standards-next li { font-size: .86rem; }
+.standards-next li p { margin: .15rem 0 0; font-size: .78rem; color: #b9a9cd; }
+.standards-area h2 {
+  font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+  display: flex; align-items: baseline; gap: .5rem; margin: 1.2rem 0 .2rem;
+}
+.standards-area h2 span { color: var(--pink); }
+.standards-area ul { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: .7rem; }
+.standards-area li { background: #0d0618cc; border: 1px solid #ffffff16; border-radius: 12px; padding: .8rem .9rem; }
+.std-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.std-head strong { font-size: .95rem; }
+.std-state {
+  font: 600 .64rem/1 "IBM Plex Mono", monospace; letter-spacing: .06em; text-transform: uppercase;
+  padding: .22rem .5rem; border-radius: 999px; border: 1px solid; white-space: nowrap;
+}
+.std-state.is-yes { color: #8ef0d0; border-color: #8ef0d066; background: #8ef0d01a; }
+.std-state.is-partial { color: #ffd166; border-color: #ffd16666; background: #ffd16618; }
+.std-state.is-no { color: #ff8f8f; border-color: #ff8f8f55; background: #ff8f8f14; }
+.standards-area li > p { margin: .45rem 0 0; font-size: .82rem; color: #cfc2e0; }
+.standards-area .std-where { color: #9d8db6; font-size: .76rem; }
+.std-best { display: flex; flex-wrap: wrap; gap: .4rem .8rem; align-items: baseline; margin-top: .5rem; font-size: .74rem; }
+.std-best span { color: var(--dim); }
+.std-best a { color: #d8b8ff; }
+
+.key-needed {
+  max-width: 34rem; margin: 1rem 0 2rem; padding: 1.1rem 1.2rem;
+  background: #0d0618f2; border: 1px solid #ffffff22; border-radius: 14px;
+}
+.key-needed h2 { margin: .3rem 0 .5rem; font-size: 1.05rem; font-family: Georgia, serif; }
+.key-needed form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-end; margin: .8rem 0 .4rem; }
+.key-needed label { flex: 1 0 100%; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.key-needed input { flex: 1 1 16rem; }
+
 .palette-open { font-size: .78rem; letter-spacing: .04em; }
 .palette-scrim {
   position: fixed;
@@ -991,7 +1045,61 @@ button.menu-toggle { display: none; }
 @media (max-width: 720px) {
   button.menu-toggle { display: inline-flex; align-items: center; gap: .35rem; margin-top: 0; }
   /* The drawer already has "Search everything"; a ⌘K key cap is noise on a phone. */
-  @media (max-width: 560px) { .palette-open { display: none; } }
+  @media (max-width: 560px) { /* ---------------------------------------------------------- standards */
+.standards { display: grid; gap: 1.2rem; padding-bottom: 3rem; }
+.standards-bar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: stretch; justify-content: space-between; }
+.standards-scores { display: flex; gap: .6rem; flex: 1 1 24rem; }
+.standards-score {
+  flex: 1 1 0; text-align: left; cursor: pointer; font: inherit;
+  background: #0d0618f2; border: 1px solid #ffffff22; border-radius: 14px; padding: .8rem .9rem;
+  display: grid; gap: .15rem; color: var(--ink);
+}
+.standards-score.is-on { border-color: var(--pink); box-shadow: 0 0 24px #ff2bd633; }
+.standards-score strong { font-size: 1.5rem; font-family: Georgia, serif; }
+.standards-score span { font-size: .8rem; color: #d8cfe8; }
+.standards-score small { font-size: .68rem; color: var(--dim); }
+.standards-toggle { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.standards-toggle button {
+  font: inherit; font-size: .78rem; padding: .45rem .8rem; border-radius: 999px; cursor: pointer;
+  background: #150a24cc; border: 1px solid #ffffff22; color: #cfc2e0;
+}
+.standards-toggle button.is-on { background: #2a1240; border-color: var(--pink); color: #fff; }
+.standards-next { background: #0d0618f2; border: 1px solid #ffffff1c; border-radius: 14px; padding: .9rem 1.1rem; }
+.standards-next ol { margin: .5rem 0 0; padding-left: 1.1rem; display: grid; gap: .5rem; }
+.standards-next li { font-size: .86rem; }
+.standards-next li p { margin: .15rem 0 0; font-size: .78rem; color: #b9a9cd; }
+.standards-area h2 {
+  font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+  display: flex; align-items: baseline; gap: .5rem; margin: 1.2rem 0 .2rem;
+}
+.standards-area h2 span { color: var(--pink); }
+.standards-area ul { list-style: none; margin: .6rem 0 0; padding: 0; display: grid; gap: .7rem; }
+.standards-area li { background: #0d0618cc; border: 1px solid #ffffff16; border-radius: 12px; padding: .8rem .9rem; }
+.std-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.std-head strong { font-size: .95rem; }
+.std-state {
+  font: 600 .64rem/1 "IBM Plex Mono", monospace; letter-spacing: .06em; text-transform: uppercase;
+  padding: .22rem .5rem; border-radius: 999px; border: 1px solid; white-space: nowrap;
+}
+.std-state.is-yes { color: #8ef0d0; border-color: #8ef0d066; background: #8ef0d01a; }
+.std-state.is-partial { color: #ffd166; border-color: #ffd16666; background: #ffd16618; }
+.std-state.is-no { color: #ff8f8f; border-color: #ff8f8f55; background: #ff8f8f14; }
+.standards-area li > p { margin: .45rem 0 0; font-size: .82rem; color: #cfc2e0; }
+.standards-area .std-where { color: #9d8db6; font-size: .76rem; }
+.std-best { display: flex; flex-wrap: wrap; gap: .4rem .8rem; align-items: baseline; margin-top: .5rem; font-size: .74rem; }
+.std-best span { color: var(--dim); }
+.std-best a { color: #d8b8ff; }
+
+.key-needed {
+  max-width: 34rem; margin: 1rem 0 2rem; padding: 1.1rem 1.2rem;
+  background: #0d0618f2; border: 1px solid #ffffff22; border-radius: 14px;
+}
+.key-needed h2 { margin: .3rem 0 .5rem; font-size: 1.05rem; font-family: Georgia, serif; }
+.key-needed form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-end; margin: .8rem 0 .4rem; }
+.key-needed label { flex: 1 0 100%; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.key-needed input { flex: 1 1 16rem; }
+
+.palette-open { display: none; } }
   /* The drawer is the way round on a phone; the strip is the way round on a laptop. */
   .tabs { display: none; }
   .top { flex-wrap: wrap; gap: .5rem; }

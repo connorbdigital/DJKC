@@ -111,12 +111,26 @@ describe("the Anything proxy handler", () => {
     expect(out.body).toMatch(/rejected that key/i);
   });
 
-  it("refuses anything but POST, and any off-list path, before the network", async () => {
+  it("answers a GET with its own pulse, and makes no request to do it", async () => {
+    process.env.ANYTHING_API_KEY = "anything_ok";
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    const pulse = response();
+    await handler(request({ path: "/v0/api/projects" }, "GET"), pulse.res);
+    expect(pulse.out.status).toBe(200);
+    const body = JSON.parse(pulse.out.body) as { bridge: string; key: string; forwards: string[] };
+    expect(body.bridge).toBe("alive");
+    expect(body.key).toBe("set");
+    expect(body.forwards).toContain("/v0/api/projects");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("refuses anything but POST and GET, and any off-list path, before the network", async () => {
     process.env.ANYTHING_API_KEY = "anything_ok";
     const spy = vi.fn();
     vi.stubGlobal("fetch", spy);
     const first = response();
-    await handler(request({ path: "/v0/api/projects" }, "GET"), first.res);
+    await handler(request({ path: "/v0/api/projects" }, "DELETE"), first.res);
     expect(first.out.status).toBe(405);
     const second = response();
     await handler(request({ path: "/v0/api/projects/delete" }), second.res);

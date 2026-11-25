@@ -6,6 +6,9 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | Document | What it answers |
 | --- | --- |
 | [shop-round-2026-11-20.md](shop-round-2026-11-20.md) | This round's shop work: the name, the 12-department taxonomy, SEO/AEO/GEO, the four product-source routes, and how each piece was checked |
+| [sitebuildup-clients-2026-11-20.md](sitebuildup-clients-2026-11-20.md) | What UK websites actually sell for in 2026, what wins the work, four fixed prices, and the site's own gaps |
+| [not-yet-done-2026-11-20.md](not-yet-done-2026-11-20.md) | The honest inventory: twenty-seven things raised in this project that are still not true |
+| [studio-city-standards-2026-11-20.md](studio-city-standards-2026-11-20.md) | The city look, the Standards board, no more token bounce, and a bridge that explains itself |
 | [atlas-look-turbo-and-the-500-2026-11-20.md](atlas-look-turbo-and-the-500-2026-11-20.md) | Three switchable looks, a turbo button that latches, slower look controls, cards that no longer eat clicks, and what the Anything 500 actually said |
 | [atlas-wires-and-ecommerce-2026-11-20.md](atlas-wires-and-ecommerce-2026-11-20.md) | Pages and streams in the 3D space, a way back to the 2D Studio, why the Anything suns were missing, and the shop renamed and deployed on its own domain |
 | [studio-mobile-and-anything-2026-11-20.md](studio-mobile-and-anything-2026-11-20.md) | Everything from Anything (and what changed), the phone's drawer, and the chat key that was never read |

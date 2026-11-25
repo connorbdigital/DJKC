@@ -23,7 +23,7 @@ import {
 const product = (overrides: Partial<Product> & { slug: string; title: string; category: string }): Product => ({
   id: overrides.slug,
   description: "A perfectly ordinary product with enough words to be useful to a shopper reading it.",
-  brand: "Ecommerce",
+  brand: "Hearth & Grain",
   currency: "GBP",
   images: [{ url: "assets/x.svg", alt: "A placeholder illustration of the thing" }],
   variants: [{ sku: `SKU-${overrides.slug}`, title: "Default", options: [], price: money(4999, "GBP"), stock: 9 }],
@@ -146,7 +146,7 @@ describe("the words that get the page found", () => {
   it("writes titles for the query, inside 65 characters", () => {
     const title = titleFor({ department: "Garden & Outdoor", purpose: "free delivery over £40" });
     expect(title).toContain("Garden & Outdoor");
-    expect(title).toContain("Ecommerce");
+    expect(title).toContain("Hearth & Grain");
     expect(title.length).toBeLessThanOrEqual(65);
     expect(titleFor({}).length).toBeLessThanOrEqual(65);
   });
