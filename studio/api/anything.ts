@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { ANYTHING_KEYS, ME_PATH, PROJECTS_PATH, anythingTarget, basicAuth } from "../src/anything";
+import { ANYTHING_KEYS, ME_PATH, PROJECTS_PATH, anythingTarget, basicAuth } from "../src/anything.js";
 
 /**
  * Lists the Anything projects this account can open, without the key ever
@@ -124,6 +124,22 @@ async function listAttempts(key: string, asked: string, signal: AbortSignal) {
 }
 
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  /* A GET is the bridge's own pulse: open /api/anything in a browser and the
+     function answers about itself, with no key and no upstream call. When the
+     Studio says "500" this is the page that says whether the function exists,
+     whether it can see the key, and which Node it is running under. */
+  if (req.method === "GET") {
+    json(res, 200, {
+      ok: true,
+      bridge: "alive",
+      key: keyOf() ? "set" : "missing",
+      keyNames: ANYTHING_KEYS,
+      node: process.version,
+      readOnly: true,
+      forwards: [ME_PATH, PROJECTS_PATH, `${PROJECTS_PATH}/{id}`],
+    });
+    return;
+  }
   if (req.method !== "POST") {
     json(res, 405, { ok: false, error: "Use POST." });
     return;

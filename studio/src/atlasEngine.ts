@@ -202,7 +202,7 @@ function sphereFor(radius: number, width: number, height: number) {
 
 const FOV = 62;
 /** Three ways the same space can look, all of them the same geometry. */
-export type AtlasTheme = "nebula" | "observatory" | "blueprint";
+export type AtlasTheme = "nebula" | "observatory" | "blueprint" | "city";
 
 interface ThemeLook {
   label: string;
@@ -270,7 +270,51 @@ export const THEMES: Record<AtlasTheme, ThemeLook> = {
     grid: { tint: 0x5aa9ff, opacity: 0.34 },
     starTint: 0x9fd8ff,
   },
+  /* The city: every node a building on a lit grid, suns gone, windows instead. */
+  city: {
+    label: "City",
+    glow: 0.45,
+    edges: 1.15,
+    heat: 1,
+    flat: 0,
+    tint: null,
+    fog: { colour: 0x050a14, near: 100, far: 620 },
+    ambient: { colour: 0xa9c0ff, intensity: 0.5 },
+    key: { colour: 0xffb066, intensity: 170 },
+    cool: { colour: 0x5f8bff, intensity: 220 },
+    grid: { tint: 0x7fa8ff, opacity: 0.22 },
+    starTint: 0xbcd2ff,
+  },
 };
+
+/** A window grid for a building: lit panes in the district's own colour. */
+function cityTexture(colour: THREE.Color) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 256;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const base = `#${colour.clone().multiplyScalar(0.16).getHexString()}`;
+    context.fillStyle = base;
+    context.fillRect(0, 0, 128, 256);
+    const lit = `#${colour.clone().lerp(new THREE.Color(0xffffff), 0.45).getHexString()}`;
+    let seed = 11;
+    const random = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    for (let row = 0; row < 16; row += 1) {
+      for (let column = 0; column < 8; column += 1) {
+        if (random() < 0.42) continue;
+        context.fillStyle = random() < 0.3 ? "rgba(255, 236, 200, 0.85)" : lit;
+        context.fillRect(6 + column * 15, 8 + row * 15, 9, 8);
+      }
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
 
 const SPEED = 26;
 const BOOST = 3.2;
@@ -418,6 +462,9 @@ export class AtlasEngine {
   private glowScale = 1;
   private edgeScale = 1;
   private grid: THREE.GridHelper | null = null;
+  /** City mode: buildings instead of suns. Rebuilt when the look changes. */
+  private city = false;
+  private readonly nodeGroups: THREE.Group[] = [];
   private ambient: THREE.AmbientLight | null = null;
   private keyLight: THREE.PointLight | null = null;
   private coolLight: THREE.PointLight | null = null;
@@ -877,6 +924,29 @@ export class AtlasEngine {
     this.stream = { points, curves, at };
   }
 
+  /** Take the node geometry out, textures and all, before rebuilding it. */
+  private clearNodes() {
+    for (const group of this.nodeGroups) {
+      this.scene.remove(group);
+      group.traverse((child) => {
+        const mesh = child as THREE.Mesh;
+        if (mesh.geometry) mesh.geometry.dispose();
+        const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        const list = Array.isArray(material) ? material : material ? [material] : [];
+        for (const entry of list) {
+          const mapped = entry as THREE.MeshStandardMaterial;
+          mapped.map?.dispose();
+          entry.dispose();
+        }
+      });
+    }
+    this.nodeGroups.length = 0;
+    this.pickables.length = 0;
+    this.suns.length = 0;
+    this.labels.length = 0;
+    this.cards.length = 0;
+  }
+
   private clearFocus() {
     for (const target of this.pageTargets) {
       this.scene.remove(target.mesh);
@@ -947,6 +1017,78 @@ export class AtlasEngine {
       /* Sites stay screens: a framed box reads as a page, and a sphere would not.
          Everything else is a sun. */
       const isSite = node.kind === "site";
+      /* In the city every node is a building: a footprint, a height that says
+         how much is in it, and windows that say it is inhabited. */
+      if (this.city) {
+        const footprint = node.kind === "site" ? node.size * 1.9 : node.size * 1.45;
+        const height =
+          node.kind === "project" ? node.size * 4.6
+            : node.kind === "pack" ? node.size * 3.9
+              : node.kind === "site" ? node.size * 2.3
+                : node.kind === "capability" ? node.size * 3.5
+                  : node.size * 2.3;
+        const geometry = new THREE.BoxGeometry(footprint, height, footprint);
+        /* The texture repeats up the façade, so a tall block is not a tall smear. */
+        const texture = cityTexture(colour);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(1, Math.max(1, Math.round(height / footprint)));
+        const material = new THREE.MeshStandardMaterial({
+          color: 0xffffff,
+          map: texture,
+          emissive: colour,
+          emissiveIntensity: 0.22,
+          roughness: 0.72,
+          metalness: 0.08,
+          transparent: true,
+          opacity: 0.97,
+        });
+        const building = new THREE.Mesh(geometry, material);
+        building.position.y = height / 2;
+        group.add(building);
+        /* A plinth, so the block sits on the grid rather than in it. */
+        const plinth = new THREE.Mesh(
+          new THREE.BoxGeometry(footprint * 1.25, 0.6, footprint * 1.25),
+          new THREE.MeshStandardMaterial({ color: 0x1b2438, roughness: 0.9, transparent: true, opacity: 0.9 })
+        );
+        group.add(plinth);
+
+        const crown = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: nebulaTexture(),
+            color: colour.clone().lerp(new THREE.Color(0xffffff), 0.35),
+            transparent: true,
+            opacity: 0.5,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+            fog: false,
+          })
+        );
+        crown.position.y = height + 1.2;
+        crown.scale.setScalar(footprint * 1.9);
+        group.add(crown);
+
+        if (node.kind === "project" || node.kind === "capability" || node.kind === "pack") {
+          const sprite = labelSprite(node.label, { size: 26, max: 40 });
+          sprite.position.y = height + 4.4;
+          group.add(sprite);
+          this.labels.push({ sprite, kind: node.kind, base: sprite.scale.clone() });
+        }
+
+        const halo = new THREE.Mesh(
+          new THREE.TorusGeometry(footprint * 0.95, 0.16, 6, 40),
+          new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: 0 })
+        );
+        halo.rotation.x = Math.PI / 2;
+        halo.position.y = 0.7;
+        group.add(halo);
+
+        this.scene.add(group);
+        this.nodeGroups.push(group);
+        this.pickables.push({ node, mesh: building, material, halo });
+        continue;
+      }
+
       const geometry = isSite
         ? new THREE.BoxGeometry(node.size * 1.7, node.size * 1.1, 0.14)
         : sphereFor(
@@ -1029,6 +1171,7 @@ export class AtlasEngine {
       }
 
       this.scene.add(group);
+      this.nodeGroups.push(group);
       this.pickables.push({
         node,
         mesh,
@@ -1230,7 +1373,7 @@ export class AtlasEngine {
     this.updateEdges();
     for (const entry of this.pickables) {
       const bright = !node || entry.node.id === node.id;
-      entry.material.opacity = bright ? 1 : 0.5;
+      entry.material.opacity = bright ? 1 : 0.6;
       entry.fade?.(bright ? 1 : 0.5);
       if (entry.halo && entry.halo.material instanceof THREE.MeshBasicMaterial) {
         entry.halo.material.opacity = entry.node.id === node?.id ? 0.6 : 0;
@@ -1267,7 +1410,7 @@ export class AtlasEngine {
     return this.keys.has("shift") || this.touch.boost || this.latchedBoost;
   }
 
-  /** Which of the three looks the room wears. Everything else stays put. */
+  /** Which of the looks the room wears. Everything else stays put. */
   setTheme(theme: AtlasTheme) {
     const look = THEMES[theme] ?? THEMES.nebula;
     this.theme = theme;
@@ -1296,6 +1439,32 @@ export class AtlasEngine {
       material.opacity = look.grid.opacity;
       material.needsUpdate = true;
     }
+    /* City is not a paint job: buildings are different objects, so the nodes are
+       rebuilt. The selection is put back afterwards, with its cards and its
+       streams, so a look change costs nothing but a frame. */
+    const city = theme === "city";
+    if (city !== this.city) {
+      this.city = city;
+      const keep = this.selected;
+      this.clearNodes();
+      this.buildNodes();
+      this.select(keep);
+      /* The gallery's live-page screens belong to a sky of suns: laid flat over a
+         city they are a row of TVs on the pavement. */
+      for (const panel of this.panels.values()) panel.style.display = city ? "none" : "";
+      /* A sun can be entered; a block cannot be looked through. Coming into the
+         city from inside one, the camera backs off to the skyline. */
+      if (city && this.rig.position.length() < 110) {
+        const centre = new THREE.Vector3(0, 10, 0);
+        this.flight = {
+          from: this.rig.position.clone(),
+          to: new THREE.Vector3(0, 40, 134),
+          look: centre,
+          t: 0,
+        };
+      }
+    }
+
     /* Heat and flat are the sun shader's own dials: a star, or a diagram. */
     const target = look.tint ? new THREE.Color(look.tint.colour) : null;
     for (const sun of this.suns) {

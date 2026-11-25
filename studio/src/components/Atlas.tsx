@@ -170,12 +170,22 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         setAnythingNote(`${list.projects.length} Anything project${list.projects.length === 1 ? "" : "s"} in the space without their contents — the detail calls did not answer.`);
         return;
       }
+      /* The bridge's own pulse turns "500" into a diagnosis: gone, keyless, or
+         answering. It costs one GET and it is the difference between a number
+         and a next step. */
+      const pulse = await fetch("/api/anything")
+        .then(async (response) => (await response.json()) as { bridge?: string; key?: string })
+        .catch(() => null);
+      const bridge =
+        pulse?.bridge === "alive"
+          ? ` The bridge is alive; its key is ${pulse.key === "set" ? "set" : "missing"}.`
+          : " The bridge itself did not answer — open /api/anything to see why.";
       setAnythingNote(
         result.ok
           ? list.ok
-            ? "Anything has no projects on this account yet."
-            : `Anything: ${list.reason}`
-          : `Anything: ${result.reason}`
+            ? `Anything has no projects on this account yet.${bridge}`
+            : `Anything: ${list.reason}.${bridge}`
+          : `Anything: ${result.reason}.${bridge}`
       );
     });
     return () => controller.abort();

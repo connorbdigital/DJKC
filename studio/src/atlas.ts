@@ -98,7 +98,7 @@ export const PROJECTS = [
   {
     id: "project-commerce",
     label: "Commerce — the shop",
-    line: "Ecommerce: 32 products, 12 departments, a static build and the commission maths.",
+    line: "Hearth & Grain: 32 products, 12 departments, a static build and the commission maths.",
     detail:
       "A storefront framework and a working shop: money as integers, a product validator, a search box that cannot dead-end, 50 generated pages, and the affiliate rates as typed data.",
     bullets: ["119 tests", "npm run site → 50 pages", "Product + Offer + FAQPage schema", "No payment provider, and it says so"],

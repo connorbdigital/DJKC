@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { proxyTarget } from "../src/githubProxy";
+import { proxyTarget } from "../src/githubProxy.js";
 
 /**
  * Reads GitHub on the server's behalf, so the browser never holds a token.

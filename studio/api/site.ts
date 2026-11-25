@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { checkSite, checkUrl, pagePreview } from "../src/sitecheck";
+import { checkSite, checkUrl, pagePreview } from "../src/sitecheck.js";
 
 /**
  * Fetches one public https page and returns a summary of it.

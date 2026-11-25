@@ -4,10 +4,13 @@ export function Gate({
   onSubmit,
   error,
   onPreview,
+  onBrowse,
 }: {
   onSubmit: (token: string) => void;
   error: string;
   onPreview?: () => void;
+  /** Into the Studio itself, on the tabs that need no key. */
+  onBrowse?: () => void;
 }) {
   const [value, setValue] = useState("");
 
@@ -40,13 +43,21 @@ export function Gate({
           <button className="btn primary" type="submit">Unlock</button>
         </form>
         {error && <p className="error" role="alert">{error}</p>}
-        {onPreview && (
+        {(onPreview || onBrowse) && (
           <div className="gate-preview">
-            <button className="btn ghost" type="button" onClick={onPreview}>
-              Walk through the Atlas first →
-            </button>
+            {onBrowse && (
+              <button className="btn ghost" type="button" onClick={onBrowse}>
+                Open the Studio without a key →
+              </button>
+            )}
+            {onPreview && (
+              <button className="btn ghost" type="button" onClick={onPreview}>
+                Walk through the Atlas first →
+              </button>
+            )}
             <p className="muted small">
-              No token needed: the projects, the 13 processes, the four pathways and the blog plan are all in the space.
+              No token needed: the Atlas, the shelf, the notes and the Anything reading are all open. The repository
+              tabs ask for a key when you reach them, and only there.
             </p>
           </div>
         )}
