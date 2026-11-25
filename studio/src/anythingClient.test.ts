@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadAnythingApps, parseProjects, toApp } from "./anythingClient";
+import { loadAnythingApps, loadAnythingList, loadAnythingProject, parseProjects, toApp } from "./anythingClient";
 import type { AnythingProject, AnythingProjectInfo } from "./anything";
 
 const project = (overrides: Partial<AnythingProject> = {}): AnythingProject => ({
@@ -128,5 +128,60 @@ describe("loading the apps", () => {
     });
     const result = await loadAnythingApps({ limit: 3 });
     expect(result.ok && result.apps).toHaveLength(3);
+  });
+});
+
+describe("the Anything list on its own", () => {
+  const listBody = JSON.stringify({
+    projects: Array.from({ length: 6 }, (_, index) => ({
+      id: `prj_${index}`,
+      name: `app ${index}`,
+      organizationName: "connorbdigital",
+      updatedAt: "2026-11-20T10:00:00.000Z",
+    })),
+  });
+
+  it("lists every project without pretending to know what is inside them", async () => {
+    const paths: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { path: string };
+      paths.push(body.path);
+      if (body.path === "/v0/api/me") {
+        return new Response(JSON.stringify({ email: "k@example.com", organizations: [] }), { status: 200 });
+      }
+      return new Response(listBody, { status: 200 });
+    });
+    const result = await loadAnythingList();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.projects).toHaveLength(6);
+    expect(result.me?.email).toBe("k@example.com");
+    /* One list call and one identity call: no detail request before you ask for one. */
+    expect(paths.filter((path) => path.startsWith("/v0/api/projects/")).length).toBe(0);
+    expect(paths.length).toBe(2);
+  });
+
+  it("reads one project when it is asked about", async () => {
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { path: string };
+      expect(body.path).toBe("/v0/api/projects/prj_9fk2");
+      return new Response(
+        JSON.stringify({ platform: "mobile", files: [{ name: "Home.tsx" }, { name: "Booking.tsx" }], latestPublishedUrl: "https://app.example.com/" }),
+        { status: 200 }
+      );
+    });
+    const result = await loadAnythingProject({ id: "prj_9fk2", name: "sitebuildup", organizationName: "connorbdigital", organizationId: "org_1", slug: null, createdAt: "", updatedAt: "" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.app.modules).toEqual(["Home.tsx", "Booking.tsx"]);
+    expect(result.app.platform).toBe("mobile");
+    expect(result.app.url).toBe("https://app.example.com/");
+  });
+
+  it("keeps a failed detail a failure, so the list can say so", async () => {
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: "not found" }), { status: 404 }));
+    const result = await loadAnythingProject({ id: "prj_x", name: "gone", organizationName: "o", organizationId: "o", slug: null, createdAt: "", updatedAt: "" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain("not found");
   });
 });

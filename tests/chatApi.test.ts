@@ -23,3 +23,15 @@ it('uses the configured provider and returns only the reply', async () => {
   expect(res.statusCode).toBe(200);
   expect(res.end).toHaveBeenCalledWith(JSON.stringify({reply:'From £650.'}));
 });
+
+it('answers with the variable name Vercel actually holds', async () => {
+  vi.stubEnv('OPENAI_API_KEY', '');
+  vi.stubEnv('OPEN_AI_KEY', 'held-under-the-old-name');
+  const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ choices: [{ message: { content: 'From £650.' } }] }) });
+  vi.stubGlobal('fetch', fetch);
+  const res = await call([{ role: 'user', content: 'Fees?' }]);
+  expect(res.statusCode).toBe(200);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  const [, init] = fetch.mock.calls[0] as [string, { headers: Record<string, string> }];
+  expect(init.headers.Authorization).toBe('Bearer held-under-the-old-name');
+});

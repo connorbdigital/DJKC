@@ -28,25 +28,40 @@ function tabFromHash(hash: string): Tab {
   return TABS.some((entry) => entry.id === named) ? (named as Tab) : "projects";
 }
 
-const TABS: { id: Tab; label: string; blurb: string }[] = [
-  { id: "projects", label: "Projects", blurb: "Everything on the account, newest first, with its history." },
-  { id: "packs", label: "Packs", blurb: "Whole setups — a working site in one pull request, dependencies included." },
-  { id: "features", label: "Feature library", blurb: "What already ships, ready to copy into another project." },
-  { id: "search", label: "Search", blurb: "Look inside every project, and at one public page outside them." },
-  { id: "draft", label: "Agent", blurb: "Describe the change; the agent drafts files; you review and open the pull request." },
+/** Three groups, because eight tabs in a row is a row, not a way around. */
+type Group = "build" | "ask" | "look";
+
+const GROUPS: { id: Group; label: string }[] = [
+  { id: "build", label: "Build" },
+  { id: "ask", label: "Ask and read" },
+  { id: "look", label: "Look around" },
+];
+
+const TABS: { id: Tab; label: string; blurb: string; group: Group; glyph: string }[] = [
+  { id: "projects", label: "Projects", group: "build", glyph: "▦", blurb: "Everything on the account, newest first, with its history." },
+  { id: "packs", label: "Packs", group: "build", glyph: "▤", blurb: "Whole setups — a working site in one pull request, dependencies included." },
+  { id: "features", label: "Feature library", group: "build", glyph: "◈", blurb: "What already ships, ready to copy into another project." },
+  { id: "search", label: "Search", group: "ask", glyph: "⌕", blurb: "Look inside every project, and at one public page outside them." },
+  { id: "draft", label: "Agent", group: "ask", glyph: "✎", blurb: "Describe the change; the agent drafts files; you review and open the pull request." },
   {
     id: "anything",
     label: "Anything",
+    group: "ask",
+    glyph: "✧",
     blurb: "The projects you built on anything.com, read with this deployment's key — listed, never changed.",
   },
   {
     id: "resources",
     label: "Shelf",
+    group: "look",
+    glyph: "☰",
     blurb: "The todo, the sourcing links, and every key the two deployed projects read.",
   },
   {
     id: "atlas",
     label: "Atlas (3D)",
+    group: "look",
+    glyph: "✷",
     blurb: "Fly through every project, process, pathway and blog post at once. Works with the keyboard, and in a headset where one is attached.",
   },
 ];
@@ -62,6 +77,7 @@ export function App() {
   );
   const [preview, setPreview] = useState(false);
   const [palette, setPalette] = useState(false);
+  const [menu, setMenu] = useState(false);
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
   /* null = still asking. A deployment with GITHUB_TOKEN set can read without a
      token, so the gate has to wait for the answer rather than flash. */
@@ -96,6 +112,21 @@ export function App() {
       window.removeEventListener("offline", sync);
     };
   }, []);
+
+  /* A drawer on a phone: escape closes it, and the page behind it must not scroll. */
+  useEffect(() => {
+    if (!menu) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenu(false);
+    };
+    window.addEventListener("keydown", onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [menu]);
 
   /* ⌘K on a Mac, Ctrl-K everywhere else, and the button in the header for thumbs. */
   useEffect(() => {
@@ -207,6 +238,15 @@ export function App() {
           <h1>Projects, features and agents</h1>
         </div>
         <div className="top-actions">
+          <button
+            className="btn ghost menu-toggle"
+            type="button"
+            aria-expanded={menu}
+            aria-controls="studio-menu"
+            onClick={() => setMenu((open) => !open)}
+          >
+            <span aria-hidden="true">☰</span> Menu
+          </button>
           <button className="btn ghost palette-open" onClick={() => setPalette(true)} aria-label="Open the command palette">
             ⌘K
           </button>
@@ -228,6 +268,60 @@ export function App() {
           </button>
         ))}
       </nav>
+
+      {menu && (
+        <>
+          <div className="menu-scrim" role="presentation" onClick={() => setMenu(false)} />
+          <aside id="studio-menu" className="studio-menu" aria-label="Studio menu">
+            <div className="studio-menu-head">
+              <p className="eyebrow">Studio</p>
+              <button className="btn ghost" type="button" onClick={() => setMenu(false)} aria-label="Close menu">
+                ×
+              </button>
+            </div>
+            {GROUPS.map((group) => (
+              <div className="studio-menu-group" key={group.id}>
+                <p className="studio-menu-label">{group.label}</p>
+                {TABS.filter((entry) => entry.group === group.id).map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    className={`studio-menu-item${tab === entry.id ? " is-on" : ""}`}
+                    aria-current={tab === entry.id ? "page" : undefined}
+                    onClick={() => {
+                      setTab(entry.id);
+                      setMenu(false);
+                    }}
+                  >
+                    <span className="studio-menu-glyph" aria-hidden="true">
+                      {entry.glyph}
+                    </span>
+                    <span>
+                      <strong>{entry.label}</strong>
+                      <span className="studio-menu-blurb">{entry.blurb}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ))}
+            <div className="studio-menu-foot">
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => {
+                  setMenu(false);
+                  setPalette(true);
+                }}
+              >
+                Search everything
+              </button>
+              <button className="btn ghost" type="button" onClick={lock}>
+                {token === PROXY_TOKEN ? "Use my token" : "Lock"}
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
 
       <p className="lede">{active.blurb}</p>
 

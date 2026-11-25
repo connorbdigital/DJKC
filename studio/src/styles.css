@@ -649,13 +649,31 @@ button.btn, a.btn {
 }
 .anything-list strong { font-size: .88rem; display: block; }
 .anything-list p { margin: .12rem 0 0; }
-.anything-meta { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
+.anything-meta { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+/* An opened project: its files, from the detail call, not from the list call */
+.anything-list li.is-open { flex-wrap: wrap; }
+/* The detail is a row of its own under the buttons, never a second column. */
+.anything-detail { flex: 1 0 100%; width: 100%; min-width: 0; border-top: 1px solid var(--line); padding-top: .5rem; }
+.anything-modules {
+  list-style: none; margin: .35rem 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: .3rem;
+}
+.anything-modules li {
+  display: block; padding: .12rem .5rem; border-radius: 999px;
+  background: rgba(150, 110, 220, .16); border: 1px solid rgba(170, 140, 220, .3);
+  color: #e2d3f7; font-size: .72rem;
+}
 
 @media (max-width: 560px) {
   .anything-list li { flex-direction: column; align-items: stretch; gap: .55rem; }
+  /* A column that wraps wraps sideways; the stack is already the layout here. */
+  .anything-list li.is-open { flex-wrap: nowrap; }
   .anything-list li > div:first-child { min-width: 0; }
-  .anything-meta { justify-content: space-between; }
-  .anything-meta .btn { flex-shrink: 0; }
+  /* Buttons wrap rather than pushing each other off the screen. */
+  .anything-meta { justify-content: flex-start; width: 100%; }
+  .anything-meta .btn { flex: 0 0 auto; }
+  .anything-detail { width: 100%; }
+  .anything-search { flex-basis: 100%; margin-left: 0; }
 }
 
 /* A detail card with sections: the sites say more than a paragraph. */
@@ -823,3 +841,62 @@ button.btn, a.btn {
 .atlas-thumb-card figcaption { font-size: .78rem; color: #e6d8ff; padding: .4rem .55rem 0; }
 .atlas-thumb-card p { font-size: .74rem; color: #b9a9cd; margin: .2rem 0 .5rem; padding: 0 .55rem; }
 .atlas-thumb-state { font-size: .74rem; color: #9b89b4; margin: .55rem 0 0; }
+
+/* A drawer for a phone: eight tabs in a row is a row, not a way around */
+/* `button.btn` sets display itself and wins on specificity: be explicit. */
+button.menu-toggle { display: none; }
+.menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(6, 3, 12, .66);
+  backdrop-filter: blur(2px);
+}
+.studio-menu {
+  position: fixed;
+  z-index: 41;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(20rem, 86vw);
+  background: #0d0618;
+  border-right: 1px solid var(--line);
+  box-shadow: 0 0 60px rgba(0, 0, 0, .6);
+  padding: .9rem .85rem 1.2rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  align-content: start;
+  gap: .35rem;
+  animation: menu-in .16s ease-out;
+}
+@keyframes menu-in { from { transform: translateX(-8px); opacity: .6; } to { transform: none; opacity: 1; } }
+.studio-menu-head { display: flex; align-items: center; justify-content: space-between; }
+.studio-menu-head .eyebrow { margin: 0; }
+.studio-menu-group { margin-top: .7rem; }
+.studio-menu-label {
+  font-size: .6rem; letter-spacing: .16em; text-transform: uppercase;
+  color: #9b89b4; margin: 0 0 .3rem .2rem;
+}
+.studio-menu-item {
+  display: flex; gap: .6rem; align-items: flex-start; width: 100%;
+  background: transparent; border: 0; border-radius: 10px;
+  padding: .5rem .5rem; text-align: left; color: #ecdefc; font: inherit; cursor: pointer;
+}
+.studio-menu-item.is-on { background: rgba(150, 110, 220, .24); }
+.studio-menu-item:hover { background: rgba(150, 110, 220, .16); }
+.studio-menu-glyph { color: #d8b8ff; font-size: .95rem; line-height: 1.1; }
+.studio-menu-item strong { display: block; font-size: .88rem; font-weight: 600; }
+.studio-menu-blurb { display: block; font-size: .72rem; color: #a896c2; line-height: 1.35; margin-top: .1rem; }
+.studio-menu-foot { display: grid; gap: .4rem; margin-top: 1rem; border-top: 1px solid var(--line); padding-top: .8rem; }
+
+@media (max-width: 720px) {
+  button.menu-toggle { display: inline-flex; align-items: center; gap: .35rem; margin-top: 0; }
+  /* The drawer already has "Search everything"; a ⌘K key cap is noise on a phone. */
+  @media (max-width: 560px) { .palette-open { display: none; } }
+  /* The drawer is the way round on a phone; the strip is the way round on a laptop. */
+  .tabs { display: none; }
+  .top { flex-wrap: wrap; gap: .5rem; }
+  .top h1 { font-size: 1.25rem; }
+  .lede { font-size: .86rem; }
+}

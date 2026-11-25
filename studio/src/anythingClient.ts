@@ -103,6 +103,44 @@ export function toApp(project: AnythingProject, info: AnythingProjectInfo | null
   };
 }
 
+export type AnythingList =
+  | { ok: true; projects: AnythingProject[]; me: AnythingMe | null }
+  | { ok: false; reason: string };
+
+/**
+ * Every project the key can open — the list on its own, no details.
+ *
+ * The detail call is what says what is *inside* a project, and it is one request
+ * per project: doing that for a hundred projects before drawing a list is how a
+ * tab takes a minute to appear. So the list comes first, and the contents are
+ * read when somebody asks for them.
+ */
+export async function loadAnythingList(options: { signal?: AbortSignal } = {}): Promise<AnythingList> {
+  let projects: AnythingProject[];
+  try {
+    projects = parseProjects(await POST(`${PROJECTS_PATH}?limit=100`, options.signal));
+  } catch (problem) {
+    return { ok: false, reason: problem instanceof Error ? problem.message : "Anything did not answer." };
+  }
+  const me = await POST(ME_PATH, options.signal)
+    .then((raw) => raw as unknown as AnythingMe)
+    .catch(() => null);
+  return { ok: true, projects, me };
+}
+
+/** One project's contents, asked for on demand. */
+export async function loadAnythingProject(
+  project: AnythingProject,
+  signal?: AbortSignal
+): Promise<{ ok: true; app: AnythingApp } | { ok: false; reason: string }> {
+  try {
+    const raw = await POST(`${PROJECT_PREFIX}${encodeURIComponent(project.id)}`, signal);
+    return { ok: true, app: toApp(project, raw as unknown as AnythingProjectInfo) };
+  } catch (problem) {
+    return { ok: false, reason: problem instanceof Error ? problem.message : "That project could not be read." };
+  }
+}
+
 /**
  * Who you are, which projects you have, and what is inside each one.
  *
