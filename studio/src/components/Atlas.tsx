@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AtlasEngine } from "../atlasEngine";
 import { checkUrl, type SiteReport } from "../sitecheck";
-import { loadAnythingApps, type AnythingApp } from "../anythingClient";
+import { loadAnythingApps, loadAnythingList, type AnythingApp } from "../anythingClient";
 import { lookFromStick, moveFromStick, stickVector } from "../sticks";
 import { isIdle, pickGamepad, readGamepad, type GamepadInput } from "../gamepad";
 import { NODE_NOTES_KEY, noteCount, parseNodeNotes, setNodeNote, type NodeNotes } from "../nodeNotes";
@@ -99,13 +99,45 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   /* The apps on anything.com arrive after the space has been drawn: the atlas
      rebuilds when they do, and the pose carries across, so nothing jumps. */
   const [apps, setApps] = useState<AnythingApp[]>([]);
+  /* Why there are no Anything suns, when there are none: a space with a hole in
+     it and no explanation is worse than a space with a sentence. */
+  const [anythingNote, setAnythingNote] = useState("");
   const atlas = useMemo(() => buildAtlas(ownProjects, apps), [ownProjects, apps]);
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadAnythingApps({ limit: 12, signal: controller.signal }).then((result) => {
-      if (controller.signal.aborted || !result.ok || !result.apps.length) return;
-      setApps(result.apps);
+    void loadAnythingApps({ limit: 12, signal: controller.signal }).then(async (result) => {
+      if (controller.signal.aborted) return;
+      if (result.ok && result.apps.length) {
+        setApps(result.apps);
+        setAnythingNote("");
+        return;
+      }
+      /* The detail calls are what make a sun's modules; the list is enough for
+         the sun itself. So a failed detail is not a missing project. */
+      const list = await loadAnythingList({ signal: controller.signal });
+      if (controller.signal.aborted) return;
+      if (list.ok && list.projects.length) {
+        setApps(
+          list.projects.slice(0, 24).map((project) => ({
+            id: project.id,
+            name: project.name,
+            organizationName: project.organizationName,
+            platform: "web",
+            modules: [],
+            updatedAt: project.updatedAt,
+          }))
+        );
+        setAnythingNote(`${list.projects.length} Anything project${list.projects.length === 1 ? "" : "s"} in the space without their contents — the detail calls did not answer.`);
+        return;
+      }
+      setAnythingNote(
+        result.ok
+          ? list.ok
+            ? "Anything has no projects on this account yet."
+            : `Anything: ${list.reason}`
+          : `Anything: ${result.reason}`
+      );
     });
     return () => controller.abort();
   }, []);
@@ -613,6 +645,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         <div className="atlas-title">
           <p className="eyebrow">The Atlas</p>
           <strong>Everything the Studio knows, in one space</strong>
+          {anythingNote && <p className="atlas-note">{anythingNote}</p>}
         </div>
 
         <form
@@ -694,8 +727,8 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             {vr === "ready" ? "Enter VR" : vr === "none" ? "No headset" : "VR…"}
           </button>
           {onClose && (
-            <button className="btn ghost" type="button" onClick={onClose}>
-              Leave
+            <button className="btn ghost atlas-leave" type="button" onClick={onClose} title="Back to the Studio's 2D tabs">
+              ← Studio (2D)
             </button>
           )}
         </div>
@@ -946,6 +979,20 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
               </ul>
             </div>
           ))}
+          {onClose && (
+            <p className="atlas-detail-escape">
+              <a
+                href="#tab=projects"
+                onClick={(event) => {
+                  event.preventDefault();
+                  onClose();
+                }}
+              >
+                Open this in the Studio (2D) ↗
+              </a>
+            </p>
+          )}
+
           <div className="atlas-detail-actions">
             <button className="btn" type="button" onClick={() => flyTo(selected.id)}>
               Fly to it

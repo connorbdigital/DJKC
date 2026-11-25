@@ -180,6 +180,25 @@ button.btn, a.btn {
    the HUD is where a live page gets loaded. The layer must not swallow drags. */
 .atlas-css-host { position: absolute; inset: 0; pointer-events: none; }
 .atlas-css { pointer-events: none !important; }
+/* A page of the selected project, hanging in the space: a real link, so it opens
+   where it is rather than from a list somewhere else. */
+.atlas-page-card { pointer-events: auto; }
+.atlas-page-card a {
+  display: block;
+  padding: .5em .9em;
+  border-radius: 999px;
+  background: #120820f2;
+  border: 1px solid rgba(142, 240, 208, .55);
+  color: #d8fff2;
+  font: 600 26px/1.2 ui-sans-serif, system-ui, sans-serif;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 6px 26px rgba(0, 0, 0, .55), 0 0 22px rgba(142, 240, 208, .18);
+}
+.atlas-page-card a:hover, .atlas-page-card a:focus-visible {
+  background: rgba(40, 90, 76, .92);
+  border-color: #8ef0d0;
+}
 
 .atlas-panel {
   pointer-events: auto;
@@ -747,6 +766,10 @@ button.btn, a.btn {
 }
 
 /* ⌘K — the palette lists what already exists, so nothing here is a hidden action */
+.atlas-note { margin: .15rem 0 0; font-size: .72rem; color: #f3d3a6; max-width: 34rem; }
+.atlas-detail-escape { margin: .7rem 0 0; font-size: .76rem; }
+.atlas-detail-escape a { color: #d8b8ff; }
+
 .atlas-pad-hint { margin: .35rem 0 0; font-size: .74rem; color: #9fe3c4; }
 
 .palette-open { font-size: .78rem; letter-spacing: .04em; }

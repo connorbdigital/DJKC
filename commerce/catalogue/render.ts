@@ -214,7 +214,7 @@ footer.site ul a{display:inline-flex;align-items:center;min-height:28px;padding:
 /** Basket persistence, search filtering and the demo notices. No framework, no network. */
 export const CLIENT_JS = `
 (function(){
-  var KEY="exommeece-basket";
+  var KEY="ecommerce-basket";
   var FREE_OVER=${BRAND.delivery.freeOver};
   var SHIP=${BRAND.delivery.standard};
   var read=function(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return []}};

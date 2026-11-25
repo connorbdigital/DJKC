@@ -271,7 +271,7 @@ export const TODOS: StudioTodo[] = [
   {
     id: "brand-name",
     title: "Confirm the brand name",
-    why: "'Exommeece' is still a placeholder standing where a business name goes.",
+    why: "'Ecommerce' is still a placeholder standing where a business name goes.",
     effort: "S",
     where: "site",
     state: "next",
