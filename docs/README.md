@@ -6,6 +6,7 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | Document | What it answers |
 | --- | --- |
 | [shop-round-2026-11-20.md](shop-round-2026-11-20.md) | This round's shop work: the name, the 12-department taxonomy, SEO/AEO/GEO, the four product-source routes, and how each piece was checked |
+| [atlas-shelf-2026-11-20.md](atlas-shelf-2026-11-20.md) | The Shelf as a district (shipped, tasks, links) and sites that open what is on them |
 | [atlas-anything-arm-2026-11-20.md](atlas-anything-arm-2026-11-20.md) | The Atlas this round: every Anything app as a sun with its modules inside, and the space rebuilt as a measured compass |
 | [atlas-round-2026-11-20.md](atlas-round-2026-11-20.md) | The Atlas: a flyable 3D space in the Studio holding every project, process, pathway, the decision record and the 14-post blog plan for sitebuildup.co.uk — plus search, the site gallery and VR |
 | [../commerce/README.md](../commerce/README.md) | The storefront framework, the research it is built from, and what `npm run site` produces |
@@ -34,6 +35,9 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [atlas-tour-2026-11-20.png](atlas-tour-2026-11-20.png) | The guided tour, with its caption, between two stops |
 | [atlas-mobile-2026-11-20.png](atlas-mobile-2026-11-20.png) | 390px: compact bar, chip rail, thumbstick, lift/boost pads, tappable map |
 | [atlas-mobile-brief-2026-11-20.png](atlas-mobile-brief-2026-11-20.png) | 390px: a node's detail as a sheet, with its actions stuck to the bottom |
+| [atlas-shelf-shipped-2026-11-20.png](atlas-shelf-shipped-2026-11-20.png) | The shelf district: what shipped, ringed by what is next |
+| [atlas-shelf-links-2026-11-20.png](atlas-shelf-links-2026-11-20.png) | The shelf's outer ring: 28 links in their groups |
+| [atlas-site-detail-2026-11-20.png](atlas-site-detail-2026-11-20.png) | A site's card: what is there, what to look at, the supplier view |
 | [atlas-compass-2026-11-20.png](atlas-compass-2026-11-20.png) | Arrival at the Atlas: rings, spokes, five arms and the library at the centre |
 | [atlas-anything-arm-2026-11-20.png](atlas-anything-arm-2026-11-20.png) | The Anything arm: three app suns on their own ring, under their own sign |
 | [atlas-compass-mobile-2026-11-20.png](atlas-compass-mobile-2026-11-20.png) | 390px: the same compass from the portrait pose |

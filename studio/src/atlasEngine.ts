@@ -179,6 +179,20 @@ function sunMaterial(colour: THREE.Color, seed: number) {
   });
 }
 
+/**
+ * One sphere per size, not one per node. The shelf added forty-odd suns, and a
+ * geometry each would be forty-odd uploads of the same shape.
+ */
+const SPHERES = new Map<string, THREE.SphereGeometry>();
+function sphereFor(radius: number, width: number, height: number) {
+  const key = `${radius}:${width}:${height}`;
+  const found = SPHERES.get(key);
+  if (found) return found;
+  const geometry = new THREE.SphereGeometry(radius, width, height);
+  SPHERES.set(key, geometry);
+  return geometry;
+}
+
 const FOV = 62;
 const SPEED = 26;
 const BOOST = 3.2;
@@ -657,7 +671,11 @@ export class AtlasEngine {
       const isSite = node.kind === "site";
       const geometry = isSite
         ? new THREE.BoxGeometry(node.size * 1.7, node.size * 1.1, 0.14)
-        : new THREE.SphereGeometry(node.size * 1.18, node.kind === "project" || node.kind === "pack" ? 64 : 40, node.kind === "project" || node.kind === "pack" ? 48 : 28);
+        : sphereFor(
+            node.size * 1.18,
+            node.kind === "project" || node.kind === "pack" ? 64 : 40,
+            node.kind === "project" || node.kind === "pack" ? 48 : 28
+          );
       const material = isSite
         ? new THREE.MeshStandardMaterial({
             color: colour,
@@ -696,7 +714,10 @@ export class AtlasEngine {
           fog: false,
         })
       );
-      corona.scale.setScalar(node.size * (isSite ? 3.6 : 3.1));
+      /* Small, numerous nodes carry a tighter corona: a nine-unit halo on a
+         two-unit sun turns a shelf of forty into a smear at ten paces. */
+      const haloScale = node.kind === "link" ? 2.1 : node.kind === "todo" ? 2.5 : node.kind === "built" ? 2.8 : 3.1;
+      corona.scale.setScalar(node.size * (isSite ? 3.6 : haloScale));
       group.add(corona);
 
       const glow = new THREE.Sprite(
@@ -710,7 +731,7 @@ export class AtlasEngine {
           fog: false,
         })
       );
-      glow.scale.setScalar(node.size * (isSite ? 5.4 : 6.6));
+      glow.scale.setScalar(node.size * (isSite ? 5.4 : haloScale * 2.1));
       group.add(glow);
 
       const halo = new THREE.Mesh(

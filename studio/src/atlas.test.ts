@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { BRIEFS, briefsByService, briefsMarkdown } from "./atlasBriefs";
 import {
+  BUILT,
   PROJECTS,
   SITES,
   TOUR,
@@ -22,6 +23,7 @@ import {
   searchAtlas,
 } from "./atlas";
 import { CAPABILITIES } from "./features";
+import { LINKS, TODOS } from "./resources";
 import type { AnythingApp } from "./anythingClient";
 import { PACKS, resolvePack } from "./packs";
 import { BUILDER_STEPS } from "./processDoc";
@@ -38,8 +40,19 @@ describe("the space", () => {
     expect(atlas.nodes.filter((node) => node.kind === "project")).toHaveLength(PROJECTS.length);
     expect(atlas.nodes.filter((node) => node.kind === "brief")).toHaveLength(BRIEFS.length);
     expect(atlas.nodes.filter((node) => node.kind === "site")).toHaveLength(SITES.length);
+    expect(atlas.nodes.filter((node) => node.kind === "todo")).toHaveLength(TODOS.length);
+    expect(atlas.nodes.filter((node) => node.kind === "link")).toHaveLength(LINKS.length);
+    expect(atlas.nodes.filter((node) => node.kind === "built")).toHaveLength(BUILT.length);
     expect(atlas.nodes.length).toBe(
-      CAPABILITIES.length + PACKS.length + BUILDER_STEPS.length + PROJECTS.length + BRIEFS.length + SITES.length
+      CAPABILITIES.length +
+        PACKS.length +
+        BUILDER_STEPS.length +
+        PROJECTS.length +
+        BRIEFS.length +
+        SITES.length +
+        TODOS.length +
+        LINKS.length +
+        BUILT.length
     );
   });
 
@@ -83,7 +96,20 @@ describe("the space", () => {
   });
 
   it("has a colour per kind, because the only legend is the colour", () => {
-    expect(Object.keys(kindColour).sort()).toEqual(["app", "brief", "capability", "pack", "project", "site", "step"]);
+    expect(Object.keys(kindColour).sort()).toEqual([
+      "app",
+      "brief",
+      "built",
+      "capability",
+      "link",
+      "pack",
+      "project",
+      "site",
+      "step",
+      "todo",
+    ]);
+    /* Ten kinds, ten colours: no two districts wear the same one. */
+    expect(new Set(Object.values(kindColour)).size).toBe(Object.keys(kindColour).length);
   });
 });
 
@@ -388,5 +414,86 @@ describe("apps built on anything.com", () => {
        corner of that square, not another axis. */
     expect(Math.abs(anything[0] - library[0])).toBeCloseTo(Math.abs(projects[0] - library[0]), 1);
     expect(Math.abs(anything[2] - library[2])).toBeCloseTo(Math.abs(projects[0] - library[0]), 1);
+  });
+});
+
+
+describe("the shelf, in the space", () => {
+  const shelf = atlas.nodes.filter((node) => node.district === "shelf");
+
+  it("holds every task, every link and every round that shipped", () => {
+    expect(shelf.filter((node) => node.kind === "todo")).toHaveLength(TODOS.length);
+    expect(shelf.filter((node) => node.kind === "link")).toHaveLength(LINKS.length);
+    expect(shelf.filter((node) => node.kind === "built")).toHaveLength(BUILT.length);
+    /* Nothing on the shelf is anonymous: each one says why it is there. */
+    for (const node of shelf) {
+      expect(node.line.length, node.id).toBeGreaterThan(10);
+      expect(node.detail.length, node.id).toBeGreaterThan(40);
+    }
+  });
+
+  it("keeps a task's effort and area on the card, because that is the whole point", () => {
+    for (const todo of TODOS) {
+      const node = shelf.find((entry) => entry.id === `todo-${todo.id}`);
+      expect(node, todo.id).toBeDefined();
+      const text = node!.bullets.join(" ");
+      expect(text.toUpperCase()).toContain(todo.state.toUpperCase());
+      expect(text).toContain(todo.effort);
+      expect(text).toContain(todo.where);
+    }
+  });
+
+  it("links only to https, and every link says why you would open it", () => {
+    for (const node of shelf.filter((entry) => entry.kind === "link")) {
+      expect(node.href, node.id).toMatch(/^https:\/\//);
+    }
+    for (const link of LINKS) {
+      expect(link.href).toMatch(/^https:\/\//);
+      expect(link.note.length).toBeGreaterThan(20);
+    }
+  });
+
+  it("says what shipped, in the same space as what is next", () => {
+    const shipped = shelf.filter((entry) => entry.kind === "built");
+    expect(shipped.map((node) => node.label)).toContain("The Shelf");
+    expect(shipped.every((node) => node.bullets.length > 0)).toBe(true);
+    expect(searchAtlas(atlas, "shipped").some((node) => node.kind === "built")).toBe(true);
+    expect(searchAtlas(atlas, "the shelf").some((node) => node.id === "built-shelf")).toBe(true);
+  });
+});
+
+describe("what a site says about itself", () => {
+  it("gives every site what is there, what to look at, and whether it frames", () => {
+    for (const site of SITES) {
+      expect(site.what.length, site.id).toBeGreaterThan(30);
+      expect(site.built.length, site.id).toBeGreaterThan(1);
+      expect(site.look.length, site.id).toBeGreaterThan(1);
+      expect(["opens", "may refuse"]).toContain(site.framing);
+      for (const line of [...site.built, ...site.look]) expect(line.length, site.id).toBeGreaterThan(15);
+    }
+  });
+
+  it("carries those lists onto the node the panel reads", () => {
+    for (const site of SITES) {
+      const node = atlas.nodes.find((entry) => entry.id === site.id)!;
+      expect(node.kind).toBe("site");
+      expect(node.sections?.map((section) => section.title)).toEqual(
+        site.supply ? ["What is there", "What to look at", "The supplier view"] : ["What is there", "What to look at"]
+      );
+      expect(node.sections![0]!.lines).toEqual(site.built);
+      expect(node.href).toBe(site.url);
+      /* The panel opens the page; the sections explain it. */
+      expect(node.detail).toMatch(/panel/);
+    }
+  });
+
+  it("only claims a supplier view where there is one", () => {
+    const withSupply = SITES.filter((site) => site.supply);
+    expect(withSupply.map((site) => site.id).sort()).toEqual(["site-exommeece", "site-sitebuildup"]);
+    for (const site of withSupply) {
+      expect(site.supply!.gives.length).toBeGreaterThan(20);
+      expect(site.supply!.wants.length).toBeGreaterThan(10);
+      expect(site.supply!.check.length).toBeGreaterThan(20);
+    }
   });
 });

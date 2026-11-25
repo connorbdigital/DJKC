@@ -12,9 +12,10 @@ import { CAPABILITIES, CATEGORIES, categoryInfo } from "./features";
 import { PACKS, resolvePack } from "./packs";
 import { BRIEFS } from "./atlasBriefs";
 import type { AnythingApp } from "./anythingClient";
+import { LINKS, LINK_GROUP_LABEL, TODOS } from "./resources";
 
-export type NodeKind = "project" | "capability" | "step" | "pack" | "brief" | "site" | "app";
-export type District = "library" | "projects" | "builder" | "packs" | "content" | "gallery" | "anything";
+export type NodeKind = "project" | "capability" | "step" | "pack" | "brief" | "site" | "app" | "todo" | "link" | "built";
+export type District = "library" | "projects" | "builder" | "packs" | "content" | "gallery" | "anything" | "shelf";
 
 export interface AtlasNode {
   id: string;
@@ -27,6 +28,8 @@ export interface AtlasNode {
   detail: string;
   /** Bullets for the panel — files, manual steps, facts. */
   bullets: string[];
+  /** Named lists, for the nodes that have more than a paragraph to say. */
+  sections?: { title: string; lines: string[] }[];
   position: [number, number, number];
   /** Node radius, so the renderer and the ray-picker agree. */
   size: number;
@@ -77,15 +80,225 @@ export const PROJECTS = [
   },
 ] as const;
 
+/** What a page has on it, what it costs to copy, and whether it will be framed. */
+export interface SiteRecord {
+  id: string;
+  label: string;
+  url: string;
+  kind: string;
+  /** One line: what this is. */
+  what: string;
+  /** What is actually there — pages, parts, counts. Ours are known; theirs are not. */
+  built: string[];
+  /** What to look at, and what to take from it. */
+  look: string[];
+  /** Whether the page can be shown inside another site, as far as anyone knows. */
+  framing: "opens" | "may refuse";
+  /** The supplier-shaped facts: what it gives you, what it asks for, what to check first. */
+  supply?: { gives: string; wants: string; check: string };
+}
+
 /** Websites you can pull into the gallery and look at from any angle. */
-export const SITES = [
-  { id: "site-sitebuildup", label: "sitebuildup.co.uk", url: "https://www.sitebuildup.co.uk/", kind: "Your site" },
-  { id: "site-exommeece", label: "exommeece.co.uk", url: "https://exommeece.co.uk/", kind: "The demo shop" },
-  { id: "site-amazon", label: "amazon.co.uk", url: "https://www.amazon.co.uk/", kind: "Reference: scale" },
-  { id: "site-argos", label: "argos.co.uk", url: "https://www.argos.co.uk/", kind: "Reference: checkout" },
-  { id: "site-wayfair", label: "wayfair.co.uk", url: "https://www.wayfair.co.uk/", kind: "Reference: catalogue" },
-  { id: "site-ikea", label: "ikea.com/gb", url: "https://www.ikea.com/gb/en/", kind: "Reference: navigation" },
-  { id: "site-therange", label: "therange.co.uk", url: "https://www.therange.co.uk/", kind: "Reference: taxonomy" },
+export const SITES: SiteRecord[] = [
+  {
+    id: "site-sitebuildup",
+    label: "sitebuildup.co.uk",
+    url: "https://www.sitebuildup.co.uk/",
+    kind: "Your site",
+    what: "Kaysie Cork's site: a wedding DJ in Manchester, with prices, availability and a booking form that takes a deposit.",
+    built: [
+      "One page that does the selling: prices, packages, availability, FAQs",
+      "An enquiry form priced from the answers, with a Stripe deposit at the end",
+      "A booking desk behind it, and a calendar feed for the dates already taken",
+      "Static pages generated for search, plus the chat widget",
+      "Built on anything.com — so its modules are in the Anything arm of this space",
+    ],
+    look: [
+      "The price before the form: a quote that arrives before someone has to ask for it",
+      "The deposit: what percentage, and what it says about a date being held",
+      "The wording of the availability answer — the honest part of any booking site",
+    ],
+    framing: "may refuse",
+    supply: {
+      gives: "The one page that turns a search into a paid enquiry.",
+      wants: "A domain, and the Anything project behind it.",
+      check: "Open the Anything tab: the modules listed there are this site's actual pages.",
+    },
+  },
+  {
+    id: "site-exommeece",
+    label: "exommeece.co.uk",
+    url: "https://exommeece.co.uk/",
+    kind: "The demo shop",
+    what: "The shop this repository builds: 32 products, twelve departments, and a static catalogue that never needs a server.",
+    built: [
+      "32 products across 12 departments, with prices as integers",
+      "A search box that cannot dead-end, and a department rail on a phone",
+      "50 generated pages, 33 placeholder images, a Merchant feed and llms.txt",
+      "Product, Offer and FAQPage structured data on every product page",
+      "No payment provider, and the checkout says so rather than pretending",
+    ],
+    look: [
+      "Delivery before the click: the cost is on the card, not at the checkout",
+      "The staff pick and the spotted-it-cheaper note — trust artefacts, not decoration",
+      "The empty state of the search: it suggests departments instead of apologising",
+    ],
+    framing: "may refuse",
+    supply: {
+      gives: "A storefront you can lift: the code for it is in commerce/ and installs as one pack.",
+      wants: "A product feed and a payment provider — neither is in the repository.",
+      check: "commerce/GAPS.md lists what a real shop has that this one does not.",
+    },
+  },
+  {
+    id: "site-amazon",
+    label: "amazon.co.uk",
+    url: "https://www.amazon.co.uk/",
+    kind: "Reference: scale",
+    what: "The catalogue at scale: a search that always answers, and a product page that has been tested on more people than any other.",
+    built: [
+      "Recommendation rails that survive a catalogue of hundreds of millions",
+      "A buy box that answers price, delivery and returns in one block",
+      "Reviews as a filter, not a feed",
+    ],
+    look: [
+      "The first screen of a product page: price, delivery date, stock, seller",
+      "How little it asks you to read before buying",
+    ],
+    framing: "may refuse",
+  },
+  {
+    id: "site-argos",
+    label: "argos.co.uk",
+    url: "https://www.argos.co.uk/",
+    kind: "Reference: checkout",
+    what: "The British high-street model: reserve now, collect today, and a checkout that knows which store has it.",
+    built: [
+      "Stock as a promise tied to a postcode",
+      "A reservation flow that exists before payment does",
+      "Fulfilment options priced next to the product",
+    ],
+    look: [
+      "The collect-today badge and what it does to conversion nerves",
+      "The order the checkout asks for details in",
+    ],
+    framing: "may refuse",
+  },
+  {
+    id: "site-wayfair",
+    label: "wayfair.co.uk",
+    url: "https://www.wayfair.co.uk/",
+    kind: "Reference: catalogue",
+    what: "A catalogue where the product is impossible to photograph well, so the filters do the selling.",
+    built: [
+      "Faceted search with dimensions as first-class filters",
+      "Room-set photography that shows scale",
+      "Delivery lead times on the card, because furniture is not next-day",
+    ],
+    look: [
+      "The filter rail: what it asks before showing anything",
+      "How a 2-metre sofa is described in a 300px card",
+    ],
+    framing: "may refuse",
+  },
+  {
+    id: "site-ikea",
+    label: "ikea.com/gb",
+    url: "https://www.ikea.com/gb/en/",
+    kind: "Reference: navigation",
+    what: "Navigation as the product: a catalogue organised the way a room is, not the way a warehouse is.",
+    built: [
+      "Rooms, then categories, then products — a hierarchy you can hold in your head",
+      "Assembly and dimensions as structured data, not prose",
+      "A store stock check that is honest about distance",
+    ],
+    look: [
+      "The department rail and how few words it uses",
+      "The dimensions block: the one thing people actually need",
+    ],
+    framing: "may refuse",
+  },
+  {
+    id: "site-therange",
+    label: "therange.co.uk",
+    url: "https://www.therange.co.uk/",
+    kind: "Reference: taxonomy",
+    what: "The discounter's catalogue: thousands of cheap things, arranged so a price-led shopper can find them.",
+    built: [
+      "Price-band navigation as a first-class way in",
+      "Promotions that sit above the taxonomy rather than fighting it",
+      "A flat hierarchy, because the shopper is not browsing a category — they are looking for a bargain",
+    ],
+    look: [
+      "How the price filter is offered before the category",
+      "The way promotions are labelled so nobody feels tricked",
+    ],
+    framing: "may refuse",
+  },
+];
+
+/**
+ * What has already shipped, so the space can answer "what is built" as well as
+ * "what is next". Each entry is a round that landed: what changed, why, and the
+ * pull request that carried it.
+ */
+export const BUILT = [
+  {
+    id: "built-studio",
+    label: "The Studio",
+    line: "Inventory, a feature library, agent drafts, pull requests and a merge gate that will not merge its own work.",
+    detail:
+      "The app this space lives in. It reads GitHub, knows every process on the shelves, drafts a change into a branch, opens a pull request and runs the checks — and then stops, because the point is review.",
+    bullets: ["73 tests when it shipped", "8 tabs, 13 processes", "Never merges, never deploys"],
+  },
+  {
+    id: "built-storefront",
+    label: "The storefront framework",
+    line: "32 products, 12 departments, prices as integers, and 50 static pages built without a server.",
+    detail:
+      "`commerce/` builds a shop from a catalogue file: validated products, a search that cannot dead-end, structured data on every page, a Merchant feed, llms.txt and a sitemap. No payment provider, and it says so.",
+    bullets: ["119 tests", "npm run site → 50 pages", "Product + Offer + FAQPage schema"],
+  },
+  {
+    id: "built-bookings",
+    label: "Priced enquiries and deposits",
+    line: "A form that quotes before it asks, takes a deposit through Stripe, and leaves a booking desk behind it.",
+    detail:
+      "The site's commercial core: answers priced as they are given, a Stripe deposit at the end, a desk where the dates are managed, a calendar feed, and email to whoever needs to know.",
+    bullets: ["Stripe deposit at booking", "Desk at /desk", "Calendar feed for taken dates"],
+  },
+  {
+    id: "built-shelf",
+    label: "The Shelf",
+    line: "What to do next, where everything lives, and every key with the reason it exists — in one tab, offline.",
+    detail:
+      "Three columns of work with a reason each, 28 sourcing and account links in five groups, and a table of every environment variable the two deployments read with what breaks without it. Copy as Markdown turns the whole thing into a brief.",
+    bullets: ["PR #20", "15 tasks, 28 links, 15 keys", "Needs no token and no network"],
+  },
+  {
+    id: "built-github-proxy",
+    label: "GitHub, read through the deployment",
+    line: "The Studio reads GitHub with a server-held token, so nobody pastes a credential into a browser to look around.",
+    detail:
+      "`/api/github` is GET-only against an allowlist of paths, with a 12-second timeout and a 4 MB ceiling. Writes still ask for a token at the gate, where the person authorising it can see what they are authorising.",
+    bullets: ["PR #21", "GET only, path allowlist", "Gate disappears once GITHUB_TOKEN is set"],
+  },
+  {
+    id: "built-anything-key",
+    label: "Anything, read-only",
+    line: "Your anything.com projects and their modules, read server-side so the key never reaches the page.",
+    detail:
+      "An Anything tab that lists projects with credits left, and a route that forwards two list reads and one project's detail — nothing that can create, rename or delete. Anything's Basic auth puts the key in the username, which is exactly why it lives on the server.",
+    bullets: ["PR #22", "3 paths, exact", "Missing key ≠ rejected key"],
+  },
+  {
+    id: "built-compass",
+    label: "The Atlas as a compass",
+    line: "Four arms of equal length, one ring through them, spokes and rim ticks — and your Anything apps on the diagonal.",
+    detail:
+      "The space stopped being hand-placed: districts sit on measured arms, each district has a ring at the radius its own nodes stand at, and node sizes come from a four-step ladder. Anything's apps joined as suns, each carrying the modules inside it.",
+    bullets: ["PR #23", "138 tests", "Every frame derived from the data"],
+  },
 ] as const;
 
 const TAU = Math.PI * 2;
@@ -113,6 +326,12 @@ export const DISTRICTS: Atlas["districts"] = [
   { id: "gallery", label: "The gallery", blurb: "Live sites you can fly up to. Some refuse to be framed; the card tells you so.", centre: [0, 30, 310] },
   /* A diagonal, not another axis: the space is a compass, and this is the arm
      that only exists when there is an Anything account to read. */
+  {
+    id: "shelf",
+    label: "The shelf",
+    blurb: "What to do next, where everything lives, and what has already shipped.",
+    centre: [92, 18, 92],
+  },
   {
     id: "anything",
     label: "Anything",
@@ -305,6 +524,68 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
     });
   });
 
+  /* --------------------------------------------------------------- shelf */
+  /* Five rings, smallest first: what has shipped sits at the middle because it
+     is the ground you stand on; the work waiting on you wraps around it; the
+     links are the outermost ring, because they are reference, not tasks. */
+  const shelfArm = DISTRICTS.find((district) => district.id === "shelf")!;
+  BUILT.forEach((entry, index) => {
+    const position = ringPoint(index, BUILT.length, 14, 0, Math.PI / 6);
+    nodes.push({
+      id: entry.id,
+      kind: "built",
+      district: "shelf",
+      label: entry.label,
+      line: entry.line,
+      detail: entry.detail,
+      bullets: [...entry.bullets],
+      position: [round(shelfArm.centre[0] + position[0]), round(shelfArm.centre[1] + 4 + position[1]), round(shelfArm.centre[2] + position[2])],
+      size: SIZE.medium,
+    });
+  });
+
+  const TODO_RINGS: Record<string, { radius: number; keys: string }> = {
+    now: { radius: 23, keys: "now" },
+    next: { radius: 30, keys: "next" },
+    later: { radius: 37, keys: "later" },
+  };
+  (["now", "next", "later"] as const).forEach((state) => {
+    const ring = TODO_RINGS[state]!;
+    const items = TODOS.filter((todo) => todo.state === state);
+    items.forEach((todo, index) => {
+      const position = ringPoint(index, items.length, ring.radius, 0, 0.2);
+      nodes.push({
+        id: `todo-${todo.id}`,
+        kind: "todo",
+        district: "shelf",
+        label: todo.title,
+        line: todo.why,
+        detail: `${todo.why}\n\nEffort: ${todo.effort === "S" ? "a day" : todo.effort === "M" ? "about a week" : "a month or more"}. Part of the project: ${todo.where}. It sits under ${state === "now" ? "Now: it costs money or blocks everything else" : state === "next" ? "Next: worth doing once the blocking work is clear" : "Later: real, not yet urgent"}.`,
+        bullets: [`${state.toUpperCase()} · effort ${todo.effort}`, `Area: ${todo.where}`, todo.why],
+        position: [round(shelfArm.centre[0] + position[0]), round(shelfArm.centre[1] + 2 + position[1]), round(shelfArm.centre[2] + position[2])],
+        size: SIZE.small,
+      });
+    });
+  });
+
+  /* The links keep their groups: each group is a contiguous arc, in the order
+     the Shelf prints them, so the ring reads the way the page does. */
+  LINKS.forEach((entry, index) => {
+    const position = ringPoint(index, LINKS.length, 48, 0, Math.PI / 2);
+    nodes.push({
+      id: `link-${slugify(entry.label)}`,
+      kind: "link",
+      district: "shelf",
+      label: entry.label,
+      line: entry.note,
+      detail: `${entry.note}\n\nGroup: ${LINK_GROUP_LABEL[entry.group]}. ${entry.href}`,
+      bullets: [LINK_GROUP_LABEL[entry.group], entry.href],
+      position: [round(shelfArm.centre[0] + position[0]), round(shelfArm.centre[1] + position[1]), round(shelfArm.centre[2] + position[2])],
+      size: SIZE.small,
+      href: entry.href,
+    });
+  });
+
   /* ------------------------------------------------------------- builder */
   BUILDER_STEPS.forEach((step, index) => {
     const position = ringPoint(index, BUILDER_STEPS.length, 13, 0, Math.PI);
@@ -384,9 +665,25 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
       kind: "site",
       district: "gallery",
       label: site.label,
-      line: `${site.kind} — ${site.url}`,
-      detail: `A live page you can open as a panel in the space and fly around. Some sites refuse to be embedded by any other domain; when that happens the panel shows the card instead, with the link.`,
+      line: `${site.kind} — ${site.what}`,
+      detail: `${site.what}\n\nClicking this opens the page here, in a panel you can scroll.${
+        site.framing === "may refuse"
+          ? " If it refuses to be framed the panel says so, and the tab link is still the way in."
+          : ""
+      }`,
       bullets: [site.url, site.kind],
+      sections: [
+        { title: "What is there", lines: site.built },
+        { title: "What to look at", lines: site.look },
+        ...(site.supply
+          ? [
+              {
+                title: "The supplier view",
+                lines: [`Gives you: ${site.supply.gives}`, `Asks for: ${site.supply.wants}`, `Check first: ${site.supply.check}`],
+              },
+            ]
+          : []),
+      ],
       position: [round(position[0]), round(30 + position[1]), round(position[2])],
       size: SIZE.large,
       href: site.url,
@@ -448,6 +745,9 @@ export const distance = (a: [number, number, number], b: [number, number, number
 export const kindColour: Record<NodeKind, string> = {
   project: "#8c5bff",
   app: "#f472b6",
+  todo: "#a3e635",
+  link: "#94a3b8",
+  built: "#c084fc",
   capability: "#ff2bd6",
   step: "#6ee7b7",
   pack: "#ffd166",
