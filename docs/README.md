@@ -6,6 +6,7 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | Document | What it answers |
 | --- | --- |
 | [shop-round-2026-11-20.md](shop-round-2026-11-20.md) | This round's shop work: the name, the 12-department taxonomy, SEO/AEO/GEO, the four product-source routes, and how each piece was checked |
+| [atlas-controls-2026-11-20.md](atlas-controls-2026-11-20.md) | Two sticks, full screen, a notepad — and an honest table of what is stored where |
 | [atlas-shelf-2026-11-20.md](atlas-shelf-2026-11-20.md) | The Shelf as a district (shipped, tasks, links) and sites that open what is on them |
 | [atlas-anything-arm-2026-11-20.md](atlas-anything-arm-2026-11-20.md) | The Atlas this round: every Anything app as a sun with its modules inside, and the space rebuilt as a measured compass |
 | [atlas-round-2026-11-20.md](atlas-round-2026-11-20.md) | The Atlas: a flyable 3D space in the Studio holding every project, process, pathway, the decision record and the 14-post blog plan for sitebuildup.co.uk — plus search, the site gallery and VR |
@@ -35,6 +36,9 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [atlas-tour-2026-11-20.png](atlas-tour-2026-11-20.png) | The guided tour, with its caption, between two stops |
 | [atlas-mobile-2026-11-20.png](atlas-mobile-2026-11-20.png) | 390px: compact bar, chip rail, thumbstick, lift/boost pads, tappable map |
 | [atlas-mobile-brief-2026-11-20.png](atlas-mobile-brief-2026-11-20.png) | 390px: a node's detail as a sheet, with its actions stuck to the bottom |
+| [atlas-sticks-2026-11-20.png](atlas-sticks-2026-11-20.png) | 390px: two sticks, Move left and Look right |
+| [atlas-notes-2026-11-20.png](atlas-notes-2026-11-20.png) | The notepad, saved on this device |
+| [atlas-fullscreen-2026-11-20.png](atlas-fullscreen-2026-11-20.png) | The Atlas full screen |
 | [atlas-shelf-shipped-2026-11-20.png](atlas-shelf-shipped-2026-11-20.png) | The shelf district: what shipped, ringed by what is next |
 | [atlas-shelf-links-2026-11-20.png](atlas-shelf-links-2026-11-20.png) | The shelf's outer ring: 28 links in their groups |
 | [atlas-site-detail-2026-11-20.png](atlas-site-detail-2026-11-20.png) | A site's card: what is there, what to look at, the supplier view |
