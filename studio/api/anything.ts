@@ -287,7 +287,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   if (!candidates.length) {
     json(res, 503, {
       ok: false,
-      error: `Set ${ANYTHING_KEYS[0]} on this project to list Anything projects. Nothing is read until then.`,
+      error: `No key is set on this project, so nothing is read. Add ANYTHING_API_KEY (any spelling of it works — Anything_Key, anything_api_key), type Sensitive, and redeploy: a changed variable does not reach an existing deployment.`,
     });
     return;
   }

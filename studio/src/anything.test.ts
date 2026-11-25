@@ -150,6 +150,14 @@ describe("two keys in the project, one of them wrong", () => {
      silently, so the bridge reported a rejected key while a good one sat next to
      it unused. */
 
+  it("finds the key whatever case and punctuation its name was given", () => {
+    /* Vercel is case-sensitive, and anything_api_key is what a person types. */
+    for (const name of ["ANYTHING_API_KEY", "Anything_Key", "anything_api_key", "anything-key", "AnythingAPIKey"]) {
+      expect(keyCandidates({ [name]: "anything_abc" })).toEqual([{ name, value: "anything_abc" }]);
+    }
+    expect(keyCandidates({ PATH: "/bin", GITHUB_TOKEN: "ghp_x" })).toEqual([]);
+  });
+
   it("trims what a dashboard pastes, and takes one layer of quotes off", () => {
     expect(cleanKey("  anything_abc\n")).toBe("anything_abc");
     expect(cleanKey('"anything_abc"')).toBe("anything_abc");
