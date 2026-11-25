@@ -62,6 +62,7 @@ export function App() {
   );
   const [preview, setPreview] = useState(false);
   const [palette, setPalette] = useState(false);
+  const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
   /* null = still asking. A deployment with GITHUB_TOKEN set can read without a
      token, so the gate has to wait for the answer rather than flash. */
   const [proxy, setProxy] = useState<"unknown" | "yes" | "no">("unknown");
@@ -83,6 +84,17 @@ export function App() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  /* The shell is cached, so the Studio still opens offline — and says so. */
+  useEffect(() => {
+    const sync = () => setOnline(navigator.onLine);
+    window.addEventListener("online", sync);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", sync);
+      window.removeEventListener("offline", sync);
+    };
   }, []);
 
   /* ⌘K on a Mac, Ctrl-K everywhere else, and the button in the header for thumbs. */
@@ -198,6 +210,7 @@ export function App() {
           <button className="btn ghost palette-open" onClick={() => setPalette(true)} aria-label="Open the command palette">
             ⌘K
           </button>
+          {!online && <span className="pill pill-offline">Offline — the space and the shelf still work</span>}
           {login && <span className="pill">{token === PROXY_TOKEN ? `${login} · server key` : login}</span>}
           <button className="btn ghost" onClick={lock}>{token === PROXY_TOKEN ? "Use my token" : "Lock"}</button>
         </div>

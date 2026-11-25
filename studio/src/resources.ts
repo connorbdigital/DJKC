@@ -340,46 +340,6 @@ export const TODOS: StudioTodo[] = [
     where: "commerce",
     state: "later",
   },
-  {
-    id: "notes-sync",
-    title: "Sync the notes off the device",
-    why: "Notes are in localStorage: one browser, one device, gone when site data is cleared. A KV store would make them follow you and survive a new laptop.",
-    effort: "M",
-    where: "ops",
-    state: "later",
-  },
-  {
-    id: "node-notes",
-    title: "Pin a note to a node",
-    why: "The scratchpad is one page. Pinning a note to a supplier or a site is where it starts replacing the spreadsheet instead of sitting beside it.",
-    effort: "M",
-    where: "studio",
-    state: "later",
-  },
-  {
-    id: "gamepad",
-    title: "Gamepad support in the Atlas",
-    why: "There are two sticks under your thumbs; the same two sticks exist on every controller. The Gamepad API is a small addition to the input layer that already exists.",
-    effort: "S",
-    where: "studio",
-    state: "later",
-  },
-  {
-    id: "studio-offline",
-    title: "Install the Studio and cache the Atlas",
-    why: "A manifest and a service worker would let the shelf and the space open with no signal — the two things worth having on a bad day.",
-    effort: "M",
-    where: "studio",
-    state: "later",
-  },
-  {
-    id: "site-thumbs",
-    title: "Preview images for sites that refuse framing",
-    why: "Half the gallery sends X-Frame-Options, so the panel is blank. A screenshot service fills it, at the cost of a headless browser per page.",
-    effort: "L",
-    where: "ops",
-    state: "later",
-  },
 ];
 
 export interface EnvKey {
