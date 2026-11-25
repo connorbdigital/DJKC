@@ -103,6 +103,23 @@ export function basicAuth(key: string): string {
 }
 
 /**
+ * The schemes worth trying. Anything documents Basic, and Basic is tried first
+ * and stays first: a working Basic key never pays for the experiment. The other
+ * two exist because a refused key of the right shape leaves only two answers —
+ * the key is dead, or the API is reading a header we are not sending — and the
+ * second is cheap to rule out from inside the bridge.
+ */
+export const ANYTHING_AUTH_SCHEMES = ["basic", "bearer", "x-api-key"] as const;
+export type AuthScheme = (typeof ANYTHING_AUTH_SCHEMES)[number];
+
+export function authHeaders(rawKey: string, scheme: AuthScheme = "basic"): Record<string, string> {
+  const key = cleanKey(rawKey);
+  if (scheme === "bearer") return { Authorization: `Bearer ${key}` };
+  if (scheme === "x-api-key") return { "X-API-Key": key };
+  return { Authorization: basicAuth(key) };
+}
+
+/**
  * A key pasted into a dashboard usually arrives with something attached: a
  * newline from the clipboard, quotes from a chat message, a leading space from a
  * double-click. Anything then answers 401 and the key looks fine, which is the

@@ -132,6 +132,13 @@ Changed:
 - **The probe now says which of the three it is**: pasted example, paste artefact,
   or a right-shaped key that is dead or from another account — because those need
   the same action but not the same explanation.
+- **Three auth schemes are tried, Basic first.** The live value was 150 characters
+  starting `anything_`, plain ASCII, and still refused: the right shape. That
+  leaves either a dead key or an API reading a header we were not sending, and the
+  second costs nothing to rule out from inside the bridge. Basic stays first and a
+  working Basic key never pays for the experiment; after a 401 the bridge tries
+  `Bearer` and `X-API-Key`, keeps whichever works for ten minutes of warm
+  instance, and the probe reports every header it tried.
 - A 401 now names the variables and their shapes, and points at the probe.
 
 The Anything tab links straight to the probe when it is refused. **If the probe
