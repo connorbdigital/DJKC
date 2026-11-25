@@ -132,6 +132,10 @@ Changed:
 - **The probe now says which of the three it is**: pasted example, paste artefact,
   or a right-shaped key that is dead or from another account — because those need
   the same action but not the same explanation.
+- **The name is matched loosely.** Vercel is case-sensitive, and `anything_api_key`
+  — what a person actually types — read as "no key set", which then told him to
+  add the thing he had already added. Any variable whose name normalises to
+  `anythingapikey` or `anythingkey` is taken as the key.
 - **Three auth schemes are tried, Basic first.** The live value was 150 characters
   starting `anything_`, plain ASCII, and still refused: the right shape. That
   leaves either a dead key or an API reading a header we were not sending, and the

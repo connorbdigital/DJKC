@@ -147,11 +147,33 @@ export interface KeyCandidate {
   value: string;
 }
 
-/** Every configured key, canonical name first, duplicates dropped. */
+/**
+ * A variable name with its case and punctuation thrown away, so the three
+ * spellings people actually type are one name: `ANYTHING_API_KEY`,
+ * `Anything_Key`, `anything_api_key`, and `anything-api-key` too.
+ *
+ * Vercel is case-sensitive, and a key that is present, correct and spelled
+ * `anything_api_key` used to read as "no key set" — the worst outcome, because
+ * the message then tells you to add the thing you already added.
+ */
+export const normaliseKeyName = (name: string): string => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Any variable whose name normalises to one of these is taken as the key. */
+export const KEY_NAMES = ["anythingapikey", "anythingkey"] as const;
+
+/** Every configured key, the documented spellings first, duplicates dropped. */
 export function keyCandidates(env: Record<string, string | undefined> = {}): KeyCandidate[] {
+  const rank = (name: string) => {
+    const index = (ANYTHING_KEYS as readonly string[]).indexOf(name);
+    return index === -1 ? ANYTHING_KEYS.length : index;
+  };
+  const names = Object.keys(env)
+    .filter((name) => (KEY_NAMES as readonly string[]).includes(normaliseKeyName(name)))
+    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+
   const seen = new Set<string>();
   const found: KeyCandidate[] = [];
-  for (const name of ANYTHING_KEYS) {
+  for (const name of names) {
     const raw = env[name];
     if (!raw) continue;
     const value = cleanKey(raw);
