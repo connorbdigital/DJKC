@@ -102,9 +102,9 @@ export const PROJECTS = [
     detail:
       "A storefront framework and a working shop: money as integers, a product validator, a search box that cannot dead-end, 50 generated pages, and the affiliate rates as typed data.",
     bullets: ["119 tests", "npm run site → 50 pages", "Product + Offer + FAQPage schema", "No payment provider, and it says so"],
-    href: "https://ecommerce-connorbdigital.vercel.app/",
+    href: "https://ecommerce-two-psi-13.vercel.app/",
     pages: [
-      { label: "The shop", href: "https://ecommerce-connorbdigital.vercel.app/" },
+      { label: "The shop", href: "https://ecommerce-two-psi-13.vercel.app/" },
       { label: "The framework (README)", href: `${REPO_DOCS}/commerce/README.md` },
       { label: "What's missing (GAPS.md)", href: `${REPO_DOCS}/commerce/GAPS.md` },
       { label: "Commission maths", href: `${REPO_DOCS}/commerce/COMMISSION.md` },
@@ -160,8 +160,8 @@ export const SITES: SiteRecord[] = [
   },
   {
     id: "site-ecommerce",
-    label: "ecommerce-connorbdigital.vercel.app",
-    url: "https://ecommerce-connorbdigital.vercel.app/",
+    label: "ecommerce-two-psi-13.vercel.app",
+    url: "https://ecommerce-two-psi-13.vercel.app/",
     kind: "The demo shop",
     what: "The shop this repository builds: 32 products, twelve departments, and a static catalogue that never needs a server.",
     built: [
