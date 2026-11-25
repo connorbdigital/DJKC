@@ -114,6 +114,10 @@ export function cleanKey(raw: string): string {
     value
       /* A key pasted from a wrapped line arrives with a space in the middle. */
       .replace(/\s+/g, "")
+      /* Invisible characters a rich-text copy leaves behind: no-break space,
+         zero-width space/joiner, word joiner, byte-order mark. They survive
+         every visible check and turn a correct key into a 401. */
+      .replace(/[\u00A0\u200B-\u200D\u2060\uFEFF]/g, "")
       /* Anything's docs print the example as `anything_xxx:` because Basic auth
          adds the colon. Pasting it with the colon sends two, and 401s. */
       .replace(/:+$/, "")
@@ -149,8 +153,12 @@ export function keyShape(raw: string): {
   hadQuotes: boolean;
   hadColon: boolean;
   looksLikeJwt: boolean;
+  plainCharacters: boolean;
+  outsideCharacters: number;
+  looksLikeExample: boolean;
 } {
   const value = cleanKey(raw);
+  const allowed = /^[A-Za-z0-9_-]*$/;
   return {
     length: value.length,
     anythingPrefix: /^anything_/.test(value),
@@ -158,6 +166,14 @@ export function keyShape(raw: string): {
     hadQuotes: /^["'`]|["'`]$/.test(raw.trim()),
     hadColon: /:*$/.test(raw),
     looksLikeJwt: value.split(".").length === 3 && value.length > 80,
+    /* Anything's keys are ASCII: letters, digits, underscore, dash. Anything else
+       in the value is a paste artefact or a different product's token. */
+    plainCharacters: allowed.test(value),
+    outsideCharacters: [...value].filter((character) => !/[A-Za-z0-9_-]/.test(character)).length,
+    /* The docs print `anything_xxx:` as an example. It is a shape, not a key,
+       and it is the single most likely thing in a variable that was never
+       filled in properly. */
+    looksLikeExample: /^anything_x{2,}$/i.test(value) || /^(your|example|placeholder|test)/i.test(value),
   };
 }
 
@@ -170,5 +186,7 @@ export function keyDiagnosis(name: string, raw: string): string {
   if (shape.hadQuotes) notes.push("it arrived inside quotes, which are now stripped");
   if (shape.hadColon) notes.push("it ended with a colon — the one Basic auth adds — which is now stripped");
   if (shape.looksLikeJwt) notes.push("it looks like a signed token, not an API key");
+  if (!shape.plainCharacters) notes.push(`it holds ${shape.outsideCharacters} character(s) that are not letters, digits, underscore or dash`);
+  if (shape.looksLikeExample) notes.push("it is the example from Anything's own documentation, not a key");
   return notes.join("; ");
 }

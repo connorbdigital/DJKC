@@ -122,8 +122,16 @@ Changed:
   cannot shadow a good one.
 - **`GET /api/anything?probe=1`** reports, per stored variable: its length, whether
   it starts with `anything_`, whether it arrived with quotes/whitespace/a colon,
-  whether it looks like a signed token, what Anything answered, and which name is
-  accepted. No key is ever printed.
+  whether it looks like a signed token, whether every character is one a key can
+  contain, whether it is the example from Anything's own docs (`anything_xxx`),
+  what Anything answered, and which name is accepted. No key is ever printed.
+- **Invisible characters are stripped too**: a no-break space, zero-width space,
+  word joiner or byte-order mark from a rich-text copy survives every visible
+  check and turns a correct key into a 401. (Found by the second live report:
+  quoting, whitespace and a trailing colon were not enough to explain it.)
+- **The probe now says which of the three it is**: pasted example, paste artefact,
+  or a right-shaped key that is dead or from another account — because those need
+  the same action but not the same explanation.
 - A 401 now names the variables and their shapes, and points at the probe.
 
 The Anything tab links straight to the probe when it is refused. **If the probe
