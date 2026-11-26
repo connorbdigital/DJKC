@@ -12,6 +12,7 @@ Four ways in, in the order most people meet them:
 | **The City** tab | The tab used to read *Atlas (3D)*; same room, its own name now |
 | **Enter the City** button | Top right of the Studio, on every tab |
 | A link | `#city` or `#atlas` opens the City **without the gate** — the gate is a front door, not a wall in front of an open room |
+| A link to a project | `#atlas/project-djkc` lands **inside that project's room**. `Esc` drops you into the City with the project still selected |
 
 The City's look is now **City** by default (it was Nebula). The other three —
 Nebula, Observatory, Blueprint — are still in the style row at the bottom, and
@@ -61,6 +62,32 @@ One screen, cut into the City: a circle is a page, a line is a link.
 
 Nothing behind a form, a login or a script is visible, and the room says so in a
 line at the bottom rather than pretending the map is complete.
+
+## The City's head now measures itself
+
+The bar at the top of the City — name, search, buttons, the chips, the results —
+used to be five things placed at offsets guessed from the top of the screen
+(`top: 4.6rem` for the chips, `7.4rem` for the results, and so on). One extra
+line under the title, or a width where the buttons wrapped, and the chips came
+up underneath the search: the search bar sat **over the buttons**.
+
+It is now one column. `Atlas.tsx` puts the title, search, actions, chips and
+results inside `.atlas-head`, everything in flow, so nothing can land on
+anything else at any width. The same element is measured with a
+`ResizeObserver` and publishes `--atlas-head`; the detail card, the add-project
+sheet, the audit sheet and the phone's help line are placed at
+`calc(var(--atlas-head) + .4rem)` instead of a number that was true once. The
+results float under the bar rather than growing it, so a search does not dim any
+more of the room than the bar already does.
+
+Two smaller things came out of the same fix: the head is `pointer-events: none`
+with its children taking them, so dragging the world from the empty part of the
+top strip works; and the button row never breaks a label across lines — it
+scrolls sideways on a phone the way the chips do.
+
+Checked in headless Chromium at 1440, 1100, 860 and 390 wide: no intersection
+between the search, the buttons, the chips, the note and the results at any of
+them, and the detail card and audit sheet sit below the measured bar.
 
 ## What it cost, and what it still cannot do
 

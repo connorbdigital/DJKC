@@ -213,6 +213,9 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const [hovering, setHovering] = useState(false);
   const [tour, setTour] = useState<number | null>(null);
   const [space, setSpace] = useState<AtlasNode | null>(null);
+  /* The head measures itself so everything below it can be placed under it
+     rather than under a number that was true at one width with no note. */
+  const headRef = useRef<HTMLDivElement>(null);
   /* `#atlas/stars` is a link you can send someone straight to the list. */
   const [stars, setStars] = useState<string | null>(() =>
     ["atlas/stars", "stars"].includes(window.location.hash.replace(/^#/, "")) ? "" : null
@@ -311,6 +314,22 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
     document.addEventListener("fullscreenchange", sync);
     sync();
     return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+  useEffect(() => {
+    const node = headRef.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const apply = () => {
+      const height = Math.ceil(node.getBoundingClientRect().height);
+      if (height > 0) document.documentElement.style.setProperty("--atlas-head", `${height}px`);
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--atlas-head");
+    };
   }, []);
 
   useEffect(() => {
@@ -716,7 +735,12 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         <div ref={cssHost} className="atlas-css-host" />
       </div>
 
-      <div className="atlas-hud atlas-top">
+      {/* The head: name, search, actions, the chips, and the search results, in
+          one column. Every one of them used to be placed at a guessed offset from
+          the top of the screen, so a long note under the title pushed the chips
+          up underneath the search. In flow they cannot overlap, at any width. */}
+      <div className="atlas-hud atlas-head" ref={headRef}>
+      <div className="atlas-top">
         <div className="atlas-title">
           <p className="eyebrow">The Atlas</p>
           <strong>Everything the Studio knows, in one space</strong>
@@ -862,6 +886,8 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           ))}
         </div>
       )}
+
+      </div>
 
       {/* The feel tray: how a look turns you, which look the room wears, and turbo
           as a button rather than a key you have to remember. */}

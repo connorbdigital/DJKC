@@ -235,11 +235,26 @@ button.btn, a.btn {
 .atlas-panel-card .btn { font-size: .6em; padding: .7em 1.2em; }
 
 .atlas-hud { position: absolute; z-index: 4; }
-.atlas-top {
+
+/* The head is one column: title, search, actions, chips, results. Its children
+   are in flow, so none of them can land on another however long the title's
+   note gets. `--atlas-head` is measured from the DOM (see Atlas.tsx) and every
+   panel below is placed under it rather than at a guessed offset. */
+.atlas-head {
   top: 0; left: 0; right: 0;
+  z-index: 6;
+  display: flex; flex-direction: column; gap: .5rem;
+  padding: .9rem 0 0;
+  background: linear-gradient(180deg, #0a0512e6 0%, #0a0512a8 62%, #0a051200 100%);
+  pointer-events: none;
+}
+.atlas-head > * { pointer-events: auto; }
+/* The bar itself is in flow; the results float under it, so opening a search
+   does not make the head taller and dim any more of the room than the bar. */
+.atlas-head > .atlas-top, .atlas-head > .atlas-filters { position: static; }
+.atlas-top {
   display: flex; align-items: center; gap: 1rem;
-  padding: .9rem 1.1rem;
-  background: linear-gradient(180deg, #0a0512f2, #0a051200);
+  padding: 0 1.1rem;
   flex-wrap: wrap;
 }
 .atlas-title strong { display: block; font-size: .95rem; }
@@ -250,10 +265,16 @@ button.btn, a.btn {
   color: var(--ink); padding: .55rem .95rem; font: inherit; font-size: .85rem;
 }
 .atlas-search input:focus-visible { outline: 2px solid var(--pink); outline-offset: 1px; }
-.atlas-actions { display: flex; gap: .4rem; }
+/* One row of buttons, never a word-per-line column: if the row is wider than
+   the screen it scrolls, the way the chips do. */
+.atlas-actions {
+  display: flex; gap: .4rem; flex-wrap: nowrap;
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.atlas-actions::-webkit-scrollbar { display: none; }
+.atlas-actions .btn { white-space: nowrap; flex: none; }
 
 .atlas-filters {
-  top: 4.6rem; left: 0; right: 0;
   display: flex; gap: .35rem; padding: 0 1.1rem; flex-wrap: wrap;
 }
 .chip {
@@ -266,10 +287,11 @@ button.btn, a.btn {
 .chip.is-on span { color: #ffb8ee; }
 
 .atlas-results {
-  top: 7.4rem; left: 1.1rem; width: min(26rem, calc(100% - 2.2rem));
+  position: absolute; top: calc(100% + .15rem); left: 1.1rem;
+  width: min(26rem, calc(100% - 2.2rem));
   display: grid; gap: .25rem;
   background: #0d0618ee; border: 1px solid #ffffff1f; border-radius: 12px; padding: .45rem;
-  max-height: 46vh; overflow: auto;
+  max-height: min(46vh, 26rem); overflow: auto;
 }
 .atlas-results button {
   display: flex; align-items: center; gap: .55rem; text-align: left;
@@ -284,7 +306,7 @@ button.btn, a.btn {
 .swatch { width: .6rem; height: .6rem; border-radius: 50%; flex: none; box-shadow: 0 0 10px currentColor; }
 
 .atlas-detail {
-  top: 7.4rem; right: 1.1rem; width: min(23rem, calc(100% - 2.2rem));
+  top: calc(var(--atlas-head, 7.4rem) + .4rem); right: 1.1rem; width: min(23rem, calc(100% - 2.2rem));
   max-height: calc(100vh - 9rem); overflow: auto;
   background: #0d0618f2; border: 1px solid #ffffff22; border-radius: 14px; padding: 1rem 1.1rem 1.2rem;
   box-shadow: 0 20px 60px #00000060;
@@ -401,9 +423,12 @@ button.btn, a.btn {
 /* -------------------------------------------------------------- phones */
 
 @media (max-width: 720px), (pointer: coarse) and (max-width: 900px) {
+  .atlas-head {
+    gap: .35rem; padding: .55rem 0 0;
+    background: linear-gradient(180deg, #0a0512f7 58%, #0a0512a8 80%, #0a051200);
+  }
   .atlas-top {
-    gap: .5rem; padding: .55rem .7rem .4rem; align-items: flex-start;
-    background: linear-gradient(180deg, #0a0512f7 62%, #0a051200);
+    gap: .5rem; padding: 0 .7rem; align-items: flex-start;
   }
   /* One compact bar: the name on the left, the actions on the right, then
      the search. The long sentence belongs on a desktop, not a phone. */
@@ -416,14 +441,14 @@ button.btn, a.btn {
   .atlas-actions .btn { font-size: .68rem; padding: .35rem .6rem; }
 
   .atlas-filters {
-    top: 7.1rem; flex-wrap: nowrap; overflow-x: auto;
-    padding: 0 .7rem .35rem; gap: .3rem;
+    flex-wrap: nowrap; overflow-x: auto;
+    padding: 0 .7rem .15rem; gap: .3rem;
     scrollbar-width: none; -webkit-overflow-scrolling: touch;
   }
   .atlas-filters::-webkit-scrollbar { display: none; }
   .chip { flex: none; font-size: .7rem; padding: .3rem .6rem; }
 
-  .atlas-results { top: 8.6rem; left: .7rem; width: calc(100% - 1.4rem); max-height: 38vh; }
+  .atlas-results { left: .7rem; width: calc(100% - 1.4rem); max-height: 38vh; }
 
   .atlas-map { width: 5.4rem; left: auto; right: .7rem; bottom: 13.4rem; padding: .25rem; }
   .atlas-map p { font-size: .5rem; line-height: 1.35; }
@@ -447,7 +472,7 @@ button.btn, a.btn {
   .atlas-detail-actions .btn { font-size: .74rem; padding: .45rem .8rem; }
 
   /* On a phone the dock is the instructions; only messages earn screen space. */
-  .atlas-help { top: 8.4rem; bottom: auto; left: .7rem; right: .7rem; max-width: 62%; }
+  .atlas-help { top: calc(var(--atlas-head, 8.4rem) + .4rem); bottom: auto; left: .7rem; right: .7rem; max-width: 62%; }
   .atlas-help p { font-size: .68rem; }
   .atlas.is-touch .atlas-help p:first-child { display: none; }
   .atlas-tour { bottom: calc(9.4rem + env(safe-area-inset-bottom)); left: .5rem; right: .5rem; width: auto; transform: none; }
@@ -462,7 +487,7 @@ button.btn, a.btn {
 
 .atlas-panel-sheet {
   z-index: 6;
-  top: 7.6rem; left: 1.1rem; width: min(30rem, calc(100% - 2.2rem));
+  top: calc(var(--atlas-head, 7.6rem) + .4rem); left: 1.1rem; width: min(30rem, calc(100% - 2.2rem));
   max-height: min(72vh, 40rem);
   overflow-y: auto; overflow-x: hidden;
   overscroll-behavior: contain;
@@ -572,7 +597,7 @@ button.btn, a.btn {
 
 .atlas-scan {
   z-index: 6;
-  top: 7.6rem; right: 1.1rem; width: min(34rem, calc(100% - 2.2rem));
+  top: calc(var(--atlas-head, 7.6rem) + .4rem); right: 1.1rem; width: min(34rem, calc(100% - 2.2rem));
   max-height: calc(100vh - 10.4rem);
   display: flex; flex-direction: column;
   background: #0d0618f7; border: 1px solid #ffffff24; border-radius: 16px;
@@ -589,8 +614,8 @@ button.btn, a.btn {
 .atlas-scan-actions .btn { font-size: .74rem; padding: .42rem .8rem; }
 
 @media (max-width: 720px) {
-  .atlas-panel-sheet { top: 8.6rem; left: .6rem; right: .6rem; width: auto; max-height: calc(100vh - 12rem); }
-  .atlas-scan { top: 8.6rem; left: .6rem; right: .6rem; width: auto; max-height: calc(100vh - 11rem); }
+  .atlas-panel-sheet { top: calc(var(--atlas-head, 8.6rem) + .3rem); left: .6rem; right: .6rem; width: auto; max-height: calc(100vh - 12rem); }
+  .atlas-scan { top: calc(var(--atlas-head, 8.6rem) + .3rem); left: .6rem; right: .6rem; width: auto; max-height: calc(100vh - 11rem); }
   .atlas-scan-frame { min-height: 12rem; }
 }
 
@@ -837,7 +862,10 @@ button.btn, a.btn {
   .atlas-feel { display: none; }
 }
 
-.atlas-note { margin: .15rem 0 0; font-size: .72rem; color: #f3d3a6; max-width: 34rem; }
+.atlas-note {
+  margin: .15rem 0 0; font-size: .72rem; color: #f3d3a6; max-width: 34rem;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 .atlas-note-retry {
   font: inherit; font-size: .68rem; color: #ffd9a8; background: none; cursor: pointer;
   border: 0; border-bottom: 1px solid #ffd9a866; padding: 0 0 .05rem;
