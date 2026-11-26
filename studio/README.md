@@ -22,7 +22,7 @@ studio/
 ├── src/atlasBriefs.ts    the 14 blog briefs for sitebuildup.co.uk, facts with evidence
 ├── src/atlasEngine.ts    three.js: scene, flight, picking, labels, CSS3D site panels, WebXR
 ├── scripts/write-briefs.mts  renders atlasBriefs.ts → BRIEFS.md
-└── src/components/       Gate, Projects, Packs, Features, Search, Draft, Checks, Atlas
+└── src/components/       Gate, Projects, Packs, Features, Search, Draft, Checks, Atlas, ProjectSpace, SiteThumb
 ```
 
 ## Run it
@@ -104,17 +104,23 @@ The rules live in `src/githubProxy.ts` and are tested without a request; the han
 
 ### The site check's guard rails
 
-`api/site` has two faces: `POST` audits a page, and `GET ?thumb=<url>` returns the **link card** — `og:image` (or `twitter:image`, or `og:image:url`) made absolute, with title and description — which the Atlas draws for site and link nodes. Only https images survive, and a card is cached for an hour.
+`api/site` has three faces: `POST` audits a page, `POST {links:true}` returns the anchors on it (for a project's space), and `GET ?thumb=<url>` returns the **link card** — `og:image` (or `twitter:image`, or `og:image:url`) made absolute, with title and description — which the Atlas draws for site and link nodes. Only https images survive, and a card is cached for an hour.
 
 `src/sitecheck.ts` accepts https only, on the default port, with no credentials, and only public host names: `localhost`, `*.local`, `*.internal`, IP literals (including the decimal and hex aliases) and loopback/link-local addresses are refused before any request is made. `api/site.ts` then refuses redirects, requires `text/html`, times out after 8 seconds and stops reading at 1.5 MB, marking the report truncated.
 
 That is a best-effort guard, **not a security boundary**: a hostname can resolve to a private address after the check. Run the function with restricted egress if that matters, and do not extend it into a crawler.
 
-**Atlas (3D)** — the whole Studio as a place you can fly through: the 13 capabilities on their sphere, the 4 packs above them, the 8 builder steps, the 3 projects, the 14 blog posts, the 7 live sites — and, when the key is set, your apps from anything.com, each with what is inside it — in seven districts, or eight once there are apps.
+**The City** (the tab used to read *Atlas (3D)*) — the whole Studio as a place you can fly through: the 13 capabilities on their sphere, the 4 packs above them, the 8 builder steps, the 3 projects, the 14 blog posts, the 7 live sites — and, when the key is set, your apps from anything.com, each with what is inside it — in seven districts, or eight once there are apps.
 
 The space is a compass, not a scatter. Districts sit on arms of **equal length** (92 units, one ring runs through all four); eight spokes and rim ticks mark the directions; each district has a ring at the radius its own nodes stand at and a pillar up to the height it floats at, all derived from the layout, so a frame cannot drift from the data. Node sizes come from a four-step ladder, so size says what kind of thing it is rather than how loud it is. `WASD` to move, `Q`/`E` for height, drag to look, click a node to inspect, `F` to fly to it, `Z`/`C` to turn. On a phone there are **two sticks** — Move on the left, Look on the right — with lift and boost between them. **Full screen** is a button, and **Notes** is a scratchpad saved in this browser with Copy and Download .md. The district chips filter **and** travel; the search box ranks a title match above a passing mention; the minimap tells you which district you are standing in. `Enter VR` asks for a WebXR session and says **No headset** when there is none.
 
 On a phone it is a different instrument rather than a shrunken one: a thumbstick, lift and boost pads, pinch to dolly, drag to look, a scrollable chip rail and the detail card as a bottom sheet. Portrait gets its own field of view and an overview start pose. Either way there is a **Tour** (six stops, one per district), deep links (`#atlas/<node id>`, with **Copy link** on every card), search that pulses its matches in the world, a map whose districts are buttons, and a camera position remembered between visits.
+
+**Getting in, and the stars.** Four ways into the City: the gate's **Enter the City →**, the **The City** tab, the **Enter the City** button in the header on every tab, and a link — `#city`, `#stars` or `#atlas/<node>` skips the gate, because a room that is already open should not need a key at the door. The look is **City** by default now (Nebula, Observatory and Blueprint remain in the style row and the choice is remembered).
+
+**✷ Stars** at the top of the HUD lists every project — the recorded ones and your own — with its page count, its address, **Fly** (move the camera there) and **Go in**. `#stars` is a link straight to it. Clicking a project star in the space does the same thing: a project is the one kind of node that opens its own room on the first click.
+
+**A project's own space** (`src/components/ProjectSpace.tsx`, `src/atlasSpace.ts`) is a room cut into the City: the front page in the middle, every page of the project on a ring around it, evenly spaced and ordered by name so the shape never changes. The streams are **read off the pages**, not drawn for looks: opening the room asks `POST /api/site {url, links:true}`, which returns the anchors on each page that stay on that site — absolute, deduplicated, `mailto:`/`tel:` and fragments dropped, capped at 40. A link that the record already implied is upgraded from *record* to *read*, never duplicated. A page that refuses shows a dotted ring and says what it got — the status, or "the page map runs on the deployed Studio, not the local preview" — and no streams are invented for it. **Pick a star** shows the page's link card (the same `SiteThumb` the detail panel uses), a button to open it and one to read its links; **Read the N unread pages** works through the rest; **Every page** lists what points at what ("2 read in", "only from the record", "nothing points here"). Escape or **Back to the City** closes the room, and the project is still selected behind it.
 
 Two things are honest by design. Many sites refuse to be framed, so a gallery panel loads its live page only when you ask and says so plainly when the frame stays blank — nothing is proxied. And Chromium does not hit-test CSS3D content, so the panels in the world are display-only: the buttons that load a page live in the HUD.
 

@@ -41,6 +41,9 @@ still is not true. Ordered by what it costs to leave undone.*
 | 22 | **The pitch list lives in one browser** | Sheets, statuses and the email draft are real, but they sit in `localStorage`: one device, clearable, no sync, no team. Fine for one person prospecting; not a CRM. | M |
 | 23 | **The audit endpoint has no rate limit** | `/api/site` fetches any public URL on request, and the pitch sheet sends five at once. A per-IP limit is the next thing before it is public. | S |
 | 24 | **One page is the only length** | A shop and a one-page brochure get the same sheet, with different packages. The faults differ more than the layout does. | S |
+| 31 | **A page whose links are built by JavaScript** | A project's space reads the anchors in the HTML. If a site draws its nav in script, the room shows one ring and few streams — and says so. | M |
+| 32 | **The space reads pages when it opens** | Up to four pages are fetched per visit, which is fine for a handful of projects and would not be for fifty. Nothing is cached between visits. | S |
+| 33 | **Anything is read-only, on purpose** | `/me` and `/projects` are the only endpoints ever called. Create, duplicate, publish and delete exist and are deliberately unused — see [anything-inventory](anything-inventory-2026-11-20.md). | — |
 
 ## Bigger things said out loud, still only said
 

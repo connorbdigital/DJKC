@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { checkSite, checkUrl, pagePreview } from "../src/sitecheck.js";
+import { internalLinks } from "../src/atlasSpace.js";
 
 /**
  * Fetches one public https page and returns a summary of it.
@@ -109,9 +110,9 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
-  let payload: { url?: unknown };
+  let payload: { url?: unknown; links?: unknown };
   try {
-    payload = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}") as { url?: unknown };
+    payload = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}") as { url?: unknown; links?: unknown };
   } catch {
     json(res, 400, { ok: false, error: "That request was not JSON." });
     return;
@@ -133,6 +134,12 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
     const { html } = page;
+    /* The City asks for `links` when it opens a project's space: the anchors on
+       this page that stay on this site, which are the streams between stars. */
+    if (payload.links === true) {
+      json(res, 200, { ok: true, links: internalLinks(html, target.toString(), 40), truncated: page.truncated });
+      return;
+    }
     const report = checkSite(html, target.toString());
     json(res, 200, { ok: true, report: { ...report, truncated: page.truncated } });
   } catch (problem) {

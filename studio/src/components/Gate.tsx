@@ -51,13 +51,14 @@ export function Gate({
               </button>
             )}
             {onPreview && (
-              <button className="btn ghost" type="button" onClick={onPreview}>
-                Walk through the Atlas first →
+              <button className="btn city-door" type="button" onClick={onPreview}>
+                Enter the City →
               </button>
             )}
             <p className="muted small">
-              No token needed: the Atlas, the shelf, the notes and the Anything reading are all open. The repository
-              tabs ask for a key when you reach them, and only there.
+              The City is the 3D space: every project is a star, and opening one shows the pages inside it
+              and the links between them. No token needed — nor for the shelf, the notes or the Anything
+              reading. The repository tabs ask for a key when you reach them, and only there.
             </p>
           </div>
         )}
