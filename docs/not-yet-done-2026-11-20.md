@@ -13,6 +13,16 @@ still is not true. Ordered by what it costs to leave undone.*
 | 4 | **No proof of work anywhere** | No case study, no testimonial, no number. Both sites describe; neither demonstrates. | M |
 | 5 | **Google Business Profile** | Not claimed, so a local search finds nothing. | S |
 
+## The two spaces
+
+| # | What | Where it stands | Effort |
+| --- | --- | --- | --- |
+| 40 | **The Anything room is empty without a key** | No `ANYTHING_API_KEY` means 0 plinths and a chip that reads `Anything 0`. The Atlas has the same gap and says why on the card. | S (the key) |
+| 41 | **The City has no memory** | No minimap, no "4 of 13 opened", no remembered position. The Atlas remembers its camera; the City always starts at the entrance. | S |
+| 42 | **The building is bare** | Rooms, walls, doors, plinths. No windows, no stairs, nothing on the walls, one storey. | M |
+| 43 | **A low-end phone is untested** | The City holds a laptop frame with unlit ceilings and emissive orbs, after 60+ point lights proved unusable. No measurement on real hardware. | S |
+| 44 | **The City and the Atlas do not share state** | Opening something in the City does not mark it in the Atlas, or the reverse. | S |
+
 ## The shop
 
 | # | What | Where it stands | Effort |

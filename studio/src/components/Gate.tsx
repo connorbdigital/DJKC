@@ -52,13 +52,21 @@ export function Gate({
             )}
             {onPreview && (
               <button className="btn city-door" type="button" onClick={onPreview}>
-                Enter the City →
+                Enter the Atlas →
               </button>
             )}
+            {onPreview && (
+              <a className="btn ghost" href="#city">
+                Walk the City →
+              </a>
+            )}
             <p className="muted small">
-              The City is the 3D space: every project is a star, and opening one shows the pages inside it
-              and the links between them. No token needed — nor for the shelf, the notes or the Anything
-              reading. The repository tabs ask for a key when you reach them, and only there.
+              Two spaces, both open without a key. The <strong>Atlas</strong> is the solar system: every
+              project a star, and opening one shows the pages inside it and the links between them. The{" "}
+              <strong>City</strong> is the building: a corridor with a room for every district, at the scale
+              of a person — walk in, read a plinth, open what is on it. No token needed for either, nor for
+              the shelf, the notes or the Anything reading. The repository tabs ask for a key when you reach
+              them, and only there.
             </p>
           </div>
         )}

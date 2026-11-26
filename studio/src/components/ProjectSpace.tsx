@@ -25,9 +25,15 @@ interface Reading {
 const MAX_AUTO = 4;
 
 export default function ProjectSpace({ project, onClose }: ProjectSpaceProps) {
+  /* A project has pages. An anything.com app has modules — parts, not pages —
+     so they stand on the same ring without an address to open. */
+  const parts = useMemo(
+    () => project.pages ?? (project.modules ?? []).map((label) => ({ label, href: "" })),
+    [project.pages, project.modules]
+  );
   const seed = useMemo(
-    () => buildSpace(project.label, project.href ?? "", project.pages ?? []),
-    [project.label, project.href, project.pages]
+    () => buildSpace(project.label, project.href ?? "", parts),
+    [project.label, project.href, parts]
   );
   const [space, setSpace] = useState<Space>(seed);
   const [readings, setReadings] = useState<Record<string, Reading>>({});

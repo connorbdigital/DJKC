@@ -4,19 +4,28 @@ Three questions, three answers, all of them links.
 
 ## 1. How to go into the City
 
+> **Corrected 2026-11-20 (later the same day).** This page was written while the 3D
+> space had been renamed *the City*. It has its name back — the **Atlas (3D)** tab
+> is the solar system again, and **The City** is a second, separate place: a corridor
+> with a room per district. Everywhere below, read *the City* in the tab and link
+> tables as **the Atlas**, and see [atlas-and-city](atlas-and-city-2026-11-20.md)
+> for the City that now exists.
+
 Four ways in, in the order most people meet them:
 
 | Way | Where |
 | --- | --- |
 | **Enter the City** on the gate | `https://studio-connorbdigital.vercel.app/` — the front door. No token needed |
-| **The City** tab | The tab used to read *Atlas (3D)*; same room, its own name now |
+| **Atlas (3D)** tab | The solar system. The **The City** tab next to it walks the building instead |
 | **Enter the City** button | Top right of the Studio, on every tab |
-| A link | `#city` or `#atlas` opens the City **without the gate** — the gate is a front door, not a wall in front of an open room |
+| A link | `#atlas` or `#stars` opens the Atlas, `#city` opens the City — both **without the gate**: the gate is a front door, not a wall in front of an open room |
 | A link to a project | `#atlas/project-djkc` lands **inside that project's room**. `Esc` drops you into the City with the project still selected |
 
-The City's look is now **City** by default (it was Nebula). The other three —
-Nebula, Observatory, Blueprint — are still in the style row at the bottom, and
-whichever you pick is remembered on that device.
+The Atlas's look is **Nebula** by default. The other three — City, Observatory,
+Blueprint — are still in the style row at the bottom, and whichever you pick is
+remembered on that device. (Naming collision, and it is ours: the *City* look is a
+paint job on the Atlas, and the *City* tab is the building. They are not the same
+thing.)
 
 ## 2. Where the stars are
 

@@ -6,6 +6,7 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | Document | What it answers |
 | --- | --- |
 | [anything-inventory-2026-11-20.md](anything-inventory-2026-11-20.md) | Every Anything endpoint, read from the OpenAPI document and the docs index, with a verdict per row: reused, worth copying, or deliberately not for us |
+| [atlas-and-city-2026-11-20.md](atlas-and-city-2026-11-20.md) | The Atlas gets its name back and the City is built as a real place: a 61 m corridor, eight rooms, plinths you can read, and anything.com modules opening as stars |
 | [studio-project-space-2026-11-20.md](studio-project-space-2026-11-20.md) | How to go into the City, where the stars are, and what is inside a project: every page, and the links read off them |
 | [checkout-and-pitch-2026-11-20.md](checkout-and-pitch-2026-11-20.md) | The shop's Stripe checkout end to end (and the honest 503 until a key exists), the Studio's one-page pitch sheet, and the two-key 401 that was hiding the right key |
 | [shop-round-2026-11-20.md](shop-round-2026-11-20.md) | This round's shop work: the name, the 12-department taxonomy, SEO/AEO/GEO, the four product-source routes, and how each piece was checked |
@@ -40,7 +41,12 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [shop-basket-2026-11-20.png](shop-basket-2026-11-20.png) | The basket with two lines*, and the checkout that says it is not connected (*taken before the button was wired: see `shop-checkout-basket-2026-11-20.png`) |
 | [shop-checkout-basket-2026-11-20.png](shop-checkout-basket-2026-11-20.png) | The same basket now: subtotal, delivery, total, a real Checkout button, and the 503 sentence with the arithmetic in it |
 | [studio-pitch-sheet-2026-11-20.png](studio-pitch-sheet-2026-11-20.png) | The pitch sheet: a URL in, five faults with what each costs, three steps, two packages |
-| [studio-stars-2026-11-20.png](studio-stars-2026-11-20.png) | The stars list over the City: every project, its page count, **Fly** and **Go in** |
+| [studio-stars-2026-11-20.png](studio-stars-2026-11-20.png) | The stars list over the Atlas: every project, its page count, **Fly** and **Go in** |
+| [city-corridor-2026-11-20.png](city-corridor-2026-11-20.png) | The City: the corridor from the entrance, with lit signs over the doors |
+| [city-library-2026-11-20.png](city-library-2026-11-20.png) | The Library: 13 capabilities on plinths, names readable from the door |
+| [city-card-2026-11-20.png](city-card-2026-11-20.png) | A card opened from a plinth inside the City |
+| [city-phone-2026-11-20.png](city-phone-2026-11-20.png) | 390px: the corridor, the scrolling chip rail and the walk pad |
+| [atlas-restored-2026-11-20.png](atlas-restored-2026-11-20.png) | The Atlas with its own name back: stars, nebula, eight sites |
 | [studio-project-space-2026-11-20.png](studio-project-space-2026-11-20.png) | A project's own space: the front page in the middle, its pages around it, solid lines read off the pages, dotted where a page refused |
 | [studio-project-space-phone-2026-11-20.png](studio-project-space-phone-2026-11-20.png) | The same room at 390 wide: the map, then the page list, nothing sideways |
 | [studio-pitch-prospects-2026-11-20.png](studio-pitch-prospects-2026-11-20.png) | The same sheet kept: prospect list with status, who to write to first, the email, and the print/copy actions |

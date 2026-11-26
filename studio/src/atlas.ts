@@ -32,6 +32,8 @@ export interface AtlasNode {
   sections?: { title: string; lines: string[] }[];
   /** Pages you can open: a project's own site, tab by tab. */
   pages?: { label: string; href: string }[];
+  /** What is inside an app: the modules anything.com reports. No hrefs — they are parts, not pages. */
+  modules?: string[];
   position: [number, number, number];
   /** Node radius, so the renderer and the ray-picker agree. */
   size: number;
@@ -181,6 +183,30 @@ export const SITES: SiteRecord[] = [
       gives: "A storefront you can lift: the code for it is in commerce/ and installs as one pack.",
       wants: "A product feed and a payment provider — neither is in the repository.",
       check: "commerce/GAPS.md lists what a real shop has that this one does not.",
+    },
+  },
+  {
+    id: "site-studio",
+    label: "studio-connorbdigital.vercel.app",
+    url: "https://studio-connorbdigital.vercel.app/",
+    kind: "This space",
+    what: "The Studio itself: the inventory, the feature library, the draft → pull request → checks gate, the pitch sheet, and both spaces — the Atlas and the City.",
+    built: [
+      "Every project, process, pack and draft in one place, with the Atlas and the City over the top of it",
+      "A feature library copied out of real code, with the manual steps a PR cannot do",
+      "Drafts a change into a branch, opens a pull request, runs the checks, and refuses to merge its own work",
+      "A pitch sheet: a URL in, five faults out, the email to send, and a list that remembers who was written to",
+    ],
+    look: [
+      "The gate: a token asked for where it is used, never at the door",
+      "The City: a corridor with a room per district, and a project with a room of its own inside",
+      "The Anything tab: projects read through the deployment's key, listed and never changed",
+    ],
+    framing: "opens",
+    supply: {
+      gives: "The whole working method, running: the library, the gate, the pitch and the spaces.",
+      wants: "A GitHub token for the repository tabs, and an Anything key for the Anything tab.",
+      check: "Every tab except the repository ones works with no key at all — the shelf, the notes, the Atlas and the City.",
     },
   },
   {
@@ -555,6 +581,7 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
       ],
       position: [round(anythingArm.centre[0] + position[0]), round(anythingArm.centre[1] + position[1]), round(anythingArm.centre[2] + position[2])],
       size: SIZE.large,
+      ...(app.modules.length ? { modules: app.modules.slice(0, 24) } : {}),
       ...(app.url ? { href: app.url } : {}),
     });
   });

@@ -52,7 +52,8 @@ export function buildSpace(label: string, href: string, pages: { label: string; 
   const seen = new Set<string>([hub.id]);
   const ring: SpaceNode[] = [];
   for (const page of pages) {
-    const id = pageId(page.href);
+    /* A module has a name and no address: its name is its identity. */
+    const id = pageId(page.href || page.label);
     if (seen.has(id)) continue;
     seen.add(id);
     ring.push({ id, label: page.label, href: page.href, kind: "page", x: 0, y: 0, r: 0.045, read: false });
