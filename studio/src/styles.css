@@ -1443,3 +1443,9 @@ button.menu-toggle { display: none; }
    the ring itself alternates radius so neighbours do not overlap. */
 .space-map.dense .space-node text { font-size: .03px; }
 .space-map.dense .space-node .space-label { font-size: .036px; }
+
+/* A hundred and forty parts is a real app. Past eighty the ring keeps every star
+   and drops the labels: the list beside it is the index, and a ring of dots with
+   no words is more honest than a hundred and forty words on top of each other. */
+.space-map.dots .space-label { display: none; }
+.space-map.dots .space-node circle { r: 0.018; }
