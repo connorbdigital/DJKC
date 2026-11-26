@@ -18,7 +18,7 @@ still is not true. Ordered by what it costs to leave undone.*
 | # | What | Where it stands | Effort |
 | --- | --- | --- | --- |
 | 40 | **The Anything scan has never been seen against the real account** | The key on Vercel is a *sensitive* variable, so it cannot be read out, and this sandbox cannot reach `api.anything.com`. The code scans 24 projects and 400 parts per app; it was checked on a 3-app / 60-part mock. The real names and count are unconfirmed. | S (the key) |
-| 45 | **A scan of 24 projects is 26 requests on first paint** | Each app's detail is one call. On a slow connection the suns appear before their parts do; nothing is cached between visits. | M (a build-time scan) |
+| 45 | **The build-time scan is unverified against the real API** | It runs in `npm run build` and was proved against a local mock with `ANYTHING_BASE`; whether Vercel's build has the key in scope, and whether the real `files` array is what the spaces expect, is unconfirmed until a deploy with the key prints `scan:anything — N projects, M parts`. | S |
 | 41 | **The City has no memory** | No minimap, no "4 of 13 opened", no remembered position. The Atlas remembers its camera; the City always starts at the entrance. | S |
 | 42 | **The building is bare** | Rooms, walls, doors, plinths. No windows, no stairs, nothing on the walls, one storey. | M |
 | 43 | **A low-end phone is untested** | The City holds a laptop frame with unlit ceilings and emissive orbs, after 60+ point lights proved unusable. No measurement on real hardware. | S |

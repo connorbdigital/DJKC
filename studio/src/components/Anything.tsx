@@ -1,11 +1,42 @@
 import { useCallback, useEffect, useState } from "react";
 import { loadAnythingList, loadAnythingProject, type AnythingApp } from "../anythingClient";
+import { scan, scanLine } from "../anythingScan";
 import type { AnythingMe, AnythingProject } from "../anything";
 
 type State =
   | { kind: "loading" }
   | { kind: "off"; reason: string }
   | { kind: "ready"; me: AnythingMe | null; projects: AnythingProject[] };
+
+/**
+ * The build-time inventory, on the clipboard.
+ *
+ * This is the one way to get the real inventory out of a deployment whose key
+ * cannot be read back: the build read it, so the browser already has it, and a
+ * paste is a smaller favour than a secret.
+ */
+function ScanButton({ extra }: { extra: () => unknown }) {
+  const [said, setSaid] = useState("");
+  return (
+    <>
+      <button
+        className="btn ghost small-btn"
+        type="button"
+        title={scanLine()}
+        onClick={() => {
+          const json = JSON.stringify({ scan, ...(extra() as Record<string, unknown>) }, null, 2);
+          void navigator.clipboard?.writeText(json).then(
+            () => setSaid("Inventory copied — paste it anywhere."),
+            () => setSaid("The browser refused the clipboard.")
+          );
+        }}
+      >
+        Copy the scan
+      </button>
+      {said && <span className="muted small">{said}</span>}
+    </>
+  );
+}
 
 const when = (iso: string) => {
   const date = new Date(iso);
@@ -80,9 +111,13 @@ export function Anything() {
           read-only credential: this tab only ever lists projects and reads what is inside one, it never creates,
           renames or deletes anything.
         </p>
-        <button className="btn ghost" type="button" onClick={() => setReload((count) => count + 1)}>
-          Try again
-        </button>
+        <p className="muted small">{scanLine()}</p>
+        <div className="row-actions">
+          <button className="btn ghost" type="button" onClick={() => setReload((count) => count + 1)}>
+            Try again
+          </button>
+          <ScanButton extra={() => ({ tab: [] })} />
+        </div>
       </div>
     );
 
@@ -115,9 +150,20 @@ export function Anything() {
         <button className="btn ghost small-btn" type="button" onClick={() => setReload((count) => count + 1)}>
           Refresh
         </button>
-        <a className="btn ghost small-btn" href="https://www.anything.com" target="_blank" rel="noopener noreferrer">
-          Open Anything
-        </a>
+        <ScanButton
+          extra={() => ({
+            tab: state.projects.map((project) => {
+              const loaded = details[project.id];
+              return {
+                id: project.id,
+                name: project.name,
+                organization: project.organizationName,
+                updatedAt: project.updatedAt,
+                parts: loaded?.kind === "done" ? loaded.app.modules : null,
+              };
+            }),
+          })}
+        />
       </div>
 
       {organisations.length > 1 && (

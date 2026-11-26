@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { buildAtlas, kindColour, type AtlasNode } from "../atlas";
 import { loadAnythingApps, type AnythingApp } from "../anythingClient";
+import { scannedApps } from "../anythingScan";
 import { CORRIDOR, DOOR, ROOM_HIDDEN_LABEL, doorSign, forwardOf, planCity, roomAt, step, yawFor, type CityRoom } from "../city";
 import ProjectSpace from "./ProjectSpace";
 
@@ -54,7 +55,10 @@ function labelTexture(text: string, colour = "#ffffff", background = "rgba(10,5,
 }
 
 export default function City({ onLeave, onAtlas }: CityProps) {
-  const [apps, setApps] = useState<AnythingApp[]>([]);
+  /* The room is furnished from the build-time scan, then refreshed if the live
+     read succeeds. An Anything room that depends on a request is a room that is
+     empty whenever the API is having a day. */
+  const [apps, setApps] = useState<AnythingApp[]>(() => scannedApps);
   const [selected, setSelected] = useState<AtlasNode | null>(null);
   const [space, setSpace] = useState<AtlasNode | null>(null);
   const [here, setHere] = useState<string>("The corridor");

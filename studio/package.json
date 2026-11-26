@@ -6,11 +6,12 @@
   "description": "Studio: every project, every shipped feature, and an agent that drafts the next one.",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "npm run scan:anything && tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "processes": "tsx scripts/write-processes.mts",
-    "briefs": "tsx scripts/write-briefs.mts"
+    "briefs": "tsx scripts/write-briefs.mts",
+    "scan:anything": "tsx scripts/scan-anything.ts"
   },
   "dependencies": {
     "react": "19.2.6",
