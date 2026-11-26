@@ -147,7 +147,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadAnythingApps({ limit: 12, signal: controller.signal }).then(async (result) => {
+    void loadAnythingApps({ limit: 24, signal: controller.signal }).then(async (result) => {
       if (controller.signal.aborted) return;
       if (result.ok && result.apps.length) {
         setApps(result.apps);
@@ -1142,6 +1142,16 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           </div>
           <h2>{selected.label}</h2>
           <p>{selected.detail}</p>
+          {selected.modules && selected.modules.length > 0 && (
+            <div className="atlas-parts">
+              <p className="eyebrow">Every part inside it · {selected.modules.length}</p>
+              <ul>
+                {selected.modules.map((part) => (
+                  <li key={part}>{part}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {selected.bullets.length > 0 && (
             <ul>
               {selected.bullets.slice(0, 9).map((bullet) => (

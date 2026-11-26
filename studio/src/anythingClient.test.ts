@@ -33,6 +33,21 @@ const info = (overrides: Partial<AnythingProjectInfo> = {}): AnythingProjectInfo
 
 afterEach(() => vi.unstubAllGlobals());
 
+describe("every part, not the first screenful", () => {
+  it("keeps all forty-one modules and says how many the project reported", () => {
+    const files = Array.from({ length: 41 }, (_, index) => ({
+      id: `f${index}`,
+      name: `Part ${index + 1}`,
+      moduleType: "component",
+      path: null,
+    }));
+    const app = toApp(project(), info({ files }));
+    expect(app.modules).toHaveLength(41);
+    expect(app.modules.at(-1)).toBe("Part 41");
+    expect(app.moduleCount).toBe(41);
+  });
+});
+
 describe("what the browser is allowed to believe", () => {
   it("shapes a list, drops entries without an id or a name, and dedupes", () => {
     const parsed = parseProjects({

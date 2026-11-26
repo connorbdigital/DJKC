@@ -21,8 +21,10 @@ export interface AnythingApp {
   organizationName: string;
   /** web, mobile, or both. */
   platform: string;
-  /** Module names — the screens and functions inside the app. */
+  /** Module names — every screen, component and function inside the app. */
   modules: string[];
+  /** How many the project reports, so a capped list can still be honest. */
+  moduleCount?: number;
   /** The live URL, if it has ever been published. */
   url?: string;
   updatedAt: string;
@@ -93,12 +95,13 @@ export function parseProjects(raw: unknown): AnythingProject[] {
 /** One project's detail, made safe: unknown platforms collapse to "web". */
 export function toApp(project: AnythingProject, info: AnythingProjectInfo | null): AnythingApp {
   const platform = info?.platform === "mobile" || info?.platform === "both" ? info.platform : "web";
-  const modules = Array.isArray(info?.files)
-    ? info.files
-        .map((file) => text(file?.name, 60))
-        .filter(Boolean)
-        .slice(0, 24)
+  /* Every module, not the first screenful: the spaces are a map of what is
+     inside an app, and a map that stops at 24 lies about the shape of it. The
+     400 is a guard against a pathological response, not a display choice. */
+  const names = Array.isArray(info?.files)
+    ? info.files.map((file) => text(file?.name, 60)).filter(Boolean)
     : [];
+  const modules = names.slice(0, 400);
   const url = httpsOnly(info?.latestPublishedUrl) ?? httpsOnly(info?.publishedUrls?.[0]);
   return {
     id: project.id,
@@ -106,6 +109,7 @@ export function toApp(project: AnythingProject, info: AnythingProjectInfo | null
     organizationName: project.organizationName,
     platform,
     modules,
+    moduleCount: names.length,
     ...(url ? { url } : {}),
     updatedAt: project.updatedAt,
   };
@@ -156,7 +160,9 @@ export async function loadAnythingProject(
  * app with its name and no modules, which is still worth putting in the space.
  */
 export async function loadAnythingApps(options: { limit?: number; signal?: AbortSignal } = {}): Promise<AnythingLoad> {
-  const limit = Math.min(Math.max(options.limit ?? 8, 1), 24);
+  /* Twenty-four detail calls is already a slow first paint; forty is the cap for
+     an account with more apps than that, and the rest are still listed by name. */
+  const limit = Math.min(Math.max(options.limit ?? 8, 1), 40);
   let projects: AnythingProject[];
   try {
     projects = parseProjects(await POST(`${PROJECTS_PATH}?limit=100`, options.signal));

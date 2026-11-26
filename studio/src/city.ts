@@ -82,7 +82,7 @@ export const CORRIDOR = {
 export const DOOR = { width: 3.2, height: 2.5 } as const;
 
 /** Nobody wants to walk 57 plinths. A room shows its first sixteen and says how many it is holding back. */
-export const MAX_OBJECTS = 16;
+export const MAX_OBJECTS = 24;
 
 const ROOM = { w: 13, d: 9 } as const;
 const COLUMNS = [-24, -8, 8, 24] as const;
@@ -264,7 +264,9 @@ function roomSlots(room: CityRoom, count: number): { x: number; z: number }[] {
   const away = room.side === "left" ? -1 : 1;
   const usableW = room.w - side * 2;
   const usableD = room.d - threshold - side;
-  const cols = Math.min(4, Math.max(1, Math.ceil(Math.sqrt(count * (usableW / Math.max(usableD, 1))))));
+  /* Six across at the most: the room is wider than it is deep, so filling it
+     sideways keeps a metre between plinths where filling it lengthways cannot. */
+  const cols = Math.min(6, Math.max(1, Math.ceil(Math.sqrt(count * (usableW / Math.max(usableD, 1))))));
   const rows = Math.max(1, Math.ceil(count / cols));
   const stepX = cols > 1 ? usableW / (cols - 1) : 0;
   const stepZ = rows > 1 ? usableD / (rows - 1) : usableD / 2;

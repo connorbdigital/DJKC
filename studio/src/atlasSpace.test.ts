@@ -34,6 +34,15 @@ describe("a project's own space", () => {
     expect(modules.nodes.every((node) => node.href === "")).toBe(true);
   });
 
+  it("puts forty parts on two rings, so none of the labels sits on its neighbour", () => {
+    const parts = Array.from({ length: 41 }, (_, index) => ({ label: `Part ${index + 1}`, href: "" }));
+    const space = buildSpace("Kaysie app", "", parts);
+    expect(space.nodes).toHaveLength(41);
+    expect(new Set(space.nodes.map((node) => node.id)).size).toBe(41);
+    const radii = new Set(space.nodes.map((node) => Math.round(Math.hypot(node.x, node.y) * 100) / 100));
+    expect([...radii].sort()).toEqual([0.54, 0.84]);
+  });
+
   it("gives the same shape every time it is opened", () => {
     const a = buildSpace("Kaysie", pages[1]!.href, pages);
     const b = buildSpace("Kaysie", pages[1]!.href, [...pages].reverse());

@@ -74,7 +74,7 @@ export default function City({ onLeave, onAtlas }: CityProps) {
      because the bridge has not answered says so, rather than looking abandoned. */
   useEffect(() => {
     let cancelled = false;
-    void loadAnythingApps({ limit: 100 }).then((result) => {
+    void loadAnythingApps({ limit: 24 }).then((result) => {
       if (cancelled) return;
       if (result.ok) setApps(result.apps);
     }).catch(() => undefined);
@@ -521,6 +521,16 @@ export default function City({ onLeave, onAtlas }: CityProps) {
           </div>
           <p>{selected.line}</p>
           <p className="muted small">{selected.detail.slice(0, 320)}{selected.detail.length > 320 ? "…" : ""}</p>
+          {selected.modules && selected.modules.length > 0 && (
+            <div className="city-parts">
+              <p className="eyebrow">Every part inside it · {selected.modules.length}</p>
+              <ul>
+                {selected.modules.map((part) => (
+                  <li key={part}>{part}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {selected.bullets.length > 0 && (
             <ul>
               {selected.bullets.slice(0, 5).map((bullet) => (

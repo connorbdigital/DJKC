@@ -17,7 +17,8 @@ still is not true. Ordered by what it costs to leave undone.*
 
 | # | What | Where it stands | Effort |
 | --- | --- | --- | --- |
-| 40 | **The Anything room is empty without a key** | No `ANYTHING_API_KEY` means 0 plinths and a chip that reads `Anything 0`. The Atlas has the same gap and says why on the card. | S (the key) |
+| 40 | **The Anything scan has never been seen against the real account** | The key on Vercel is a *sensitive* variable, so it cannot be read out, and this sandbox cannot reach `api.anything.com`. The code scans 24 projects and 400 parts per app; it was checked on a 3-app / 60-part mock. The real names and count are unconfirmed. | S (the key) |
+| 45 | **A scan of 24 projects is 26 requests on first paint** | Each app's detail is one call. On a slow connection the suns appear before their parts do; nothing is cached between visits. | M (a build-time scan) |
 | 41 | **The City has no memory** | No minimap, no "4 of 13 opened", no remembered position. The Atlas remembers its camera; the City always starts at the entrance. | S |
 | 42 | **The building is bare** | Rooms, walls, doors, plinths. No windows, no stairs, nothing on the walls, one storey. | M |
 | 43 | **A low-end phone is untested** | The City holds a laptop frame with unlit ceilings and emissive orbs, after 60+ point lights proved unusable. No measurement on real hardware. | S |

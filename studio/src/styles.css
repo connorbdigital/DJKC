@@ -1430,3 +1430,16 @@ button.menu-toggle { display: none; }
     width: auto; max-height: 46vh;
   }
 }
+
+/* Everything inside an app: a list that scrolls rather than a list that is cut.
+   An app with forty parts is a fact about the app, not a display problem. */
+.atlas-parts, .city-parts { margin: .55rem 0 0; padding: .5rem .6rem .6rem; background: #ffffff0a; border: 1px solid #ffffff14; border-radius: 10px; }
+.atlas-parts .eyebrow, .city-parts .eyebrow { margin: 0 0 .35rem; font-size: .66rem; }
+.atlas-parts ul, .city-parts ul { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .18rem .6rem; max-height: 9rem; overflow: auto; }
+.atlas-parts li, .city-parts li { font-size: .74rem; color: #cfc2e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.city-parts ul { max-height: 7rem; }
+
+/* Forty labels on one ring is a word cloud. A dense map sets them smaller, and
+   the ring itself alternates radius so neighbours do not overlap. */
+.space-map.dense .space-node text { font-size: .03px; }
+.space-map.dense .space-node .space-label { font-size: .036px; }
