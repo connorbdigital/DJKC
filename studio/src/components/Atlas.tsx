@@ -72,9 +72,7 @@ interface Feel {
 
 /** A stored feel that no longer parses is a feel with the defaults. */
 export function readFeel(): Feel {
-  /* The City is the room this space was built to be; Nebula and the others are
-     the alternates you can switch to. */
-  const fallback: Feel = { look: 1, theme: "city", turbo: false };
+  const fallback: Feel = { look: 1, theme: "nebula", turbo: false };
   try {
     const raw = JSON.parse(window.localStorage.getItem(FEEL_KEY) ?? "null") as Partial<Feel> | null;
     if (!raw || typeof raw !== "object") return fallback;
@@ -1237,9 +1235,9 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           )}
 
           <div className="atlas-detail-actions">
-            {selected.kind === "project" && (
+            {(selected.kind === "project" || selected.kind === "app") && (
               <button className="btn" type="button" onClick={() => setSpace(selected)}>
-                Go inside ↗
+                {selected.kind === "project" ? "Go inside ↗" : "What is inside ↗"}
               </button>
             )}
             <button className="btn" type="button" onClick={() => flyTo(selected.id)}>

@@ -18,8 +18,9 @@ import type { Command } from "./palette";
 import { PROJECTS } from "./atlas";
 /* three.js is ~700kB; nobody pays for it until they ask for the space. */
 const Atlas = lazy(() => import("./components/Atlas").then((module) => ({ default: module.Atlas })));
+const City = lazy(() => import("./components/City"));
 
-type Tab = "projects" | "packs" | "features" | "search" | "draft" | "standards" | "pitch" | "resources" | "anything" | "atlas";
+type Tab = "projects" | "packs" | "features" | "search" | "draft" | "standards" | "pitch" | "resources" | "anything" | "atlas" | "city";
 
 /** `#tab=shelf` opens that tab, and `#atlas/<node>` has to open the space.
  *  A link you cannot share is a link you have to describe instead. */
@@ -28,7 +29,9 @@ function tabFromHash(hash: string): Tab {
   /* `#atlas/<node>` opens the space; `#city` and `#stars` are shouted in words. */
   if (wanted.startsWith("atlas/")) return "atlas";
   const named = (wanted.startsWith("tab=") ? wanted.slice(4) : wanted).split("&")[0]!;
-  if (named === "city" || named === "stars") return "atlas";
+  if (named === "stars") return "atlas";
+  if (named === "city") return "city";
+  if (named === "entrance") return "city";
   return TABS.some((entry) => entry.id === named) ? (named as Tab) : "projects";
 }
 
@@ -76,12 +79,19 @@ const TABS: { id: Tab; label: string; blurb: string; group: Group; glyph: string
     blurb: "The todo, the sourcing links, and every key the two deployed projects read.",
   },
   {
+    id: "city",
+    label: "City",
+    group: "look",
+    glyph: "▣",
+    blurb:
+      "Walk the building: a corridor with a room for every district. Stand in the Projects room and open one, and its own room holds every page and the links between them. Everything in the Atlas, at the scale of a person.",
+  },
+  {
     id: "atlas",
-    label: "The City",
+    label: "Atlas (3D)",
     group: "look",
     glyph: "✷",
-    blurb:
-      "Go in: fly through every project, process, pathway and blog post at once. The stars are the projects — open one and its own room holds all its pages, and the links read off them. Works with the keyboard, and in a headset where one is attached.",
+    blurb: "Fly through every project, process, pathway and blog post at once. Works with the keyboard, and in a headset where one is attached.",
   },
 ];
 
@@ -146,7 +156,8 @@ export function App() {
   const [returnTab, setReturnTab] = useState<Tab>("projects");
   /* A link that names the City ("#atlas", "#city", "#stars") opens the City, key
      or no key. Read once, at boot: the tab effect rewrites the hash afterwards. */
-  const [deepCity] = useState(() => /^#(atlas|city|stars)(\/|$)/.test(window.location.hash));
+  const [deepCity, setDeepCity] = useState(() => /^#(atlas|city|entrance|stars)(\/|$)/.test(window.location.hash));
+  const [deepWalk, setDeepWalk] = useState(() => /^#(city|entrance)(\/|$)/.test(window.location.hash));
   const [palette, setPalette] = useState(false);
   const [menu, setMenu] = useState(false);
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
@@ -220,10 +231,17 @@ export function App() {
 
   /* A link clicked while the studio is already open has to land as well. */
   useEffect(() => {
-    const sync = () => setTab((current) => {
-      const named = tabFromHash(window.location.hash);
-      return named === current ? current : named;
-    });
+    const sync = () => {
+      /* Leaving by name (`#tab=atlas`) has to let go of the space, or the space
+         keeps the screen and the link looks broken. */
+      const hash = window.location.hash;
+      setDeepCity(/^#(atlas|city|entrance|stars)(\/|$)/.test(hash));
+      setDeepWalk(/^#(city|entrance)(\/|$)/.test(hash));
+      setTab((current) => {
+        const named = tabFromHash(hash);
+        return named === current ? current : named;
+      });
+    };
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
@@ -235,7 +253,8 @@ export function App() {
     const hash = window.location.hash.replace(/^#/, "");
     /* While the space is open it owns the hash (`#atlas/<node>`); leave it alone
        there, but going back to a tab has to replace the node link. */
-    if (tab === "atlas" && (hash.startsWith("atlas") || hash === "city" || hash === "stars")) return;
+    if (tab === "atlas" && (hash.startsWith("atlas") || hash === "stars")) return;
+    if (tab === "city" && (hash === "city" || hash === "entrance")) return;
     if (hash === `tab=${tab}`) return;
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#tab=${tab}`);
   }, [tab]);
@@ -278,12 +297,24 @@ export function App() {
   };
 
   if (!token && proxy === "unknown") return <p className="atlas-boot">Checking this deployment…</p>;
-  if (!token && !browsing && (preview || deepCity))
+  if (!token && !browsing && (preview || deepCity)) {
+    const leave = () => (preview ? setPreview(false) : setBrowsing(true));
     return (
       <Suspense fallback={<p className="atlas-boot">Loading the space…</p>}>
-        <Atlas onClose={() => (preview ? setPreview(false) : setBrowsing(true))} />
+        {deepWalk ? (
+          <City
+            onLeave={leave}
+            onAtlas={() => {
+              leave();
+              setTab("atlas");
+            }}
+          />
+        ) : (
+          <Atlas onClose={leave} />
+        )}
       </Suspense>
     );
+  }
   if (!token && !browsing) {
     return (
       <Gate
@@ -322,9 +353,20 @@ export function App() {
     })),
     {
       id: "city",
-      label: "Enter the City",
+      label: "Enter the City (walk the building)",
       hint: "the space",
-      aliases: ["atlas", "3d", "fly through"],
+      aliases: ["building", "rooms", "corridor", "walk"],
+      run: () => {
+        if (tab !== "city") setReturnTab(tab);
+        window.location.hash = "city";
+        setTab("city");
+      },
+    },
+    {
+      id: "atlas",
+      label: "The Atlas (3D) — fly through the stars",
+      hint: "the space",
+      aliases: ["3d", "fly", "stars"],
       run: () => {
         if (tab !== "atlas") setReturnTab(tab);
         window.location.hash = "atlas";
@@ -372,11 +414,11 @@ export function App() {
             className="btn city-door"
             type="button"
             onClick={() => {
-              if (tab !== "atlas") setReturnTab(tab);
-              window.location.hash = "atlas";
-              setTab("atlas");
+              if (tab !== "city") setReturnTab(tab);
+              window.location.hash = "city";
+              setTab("city");
             }}
-            title="The City — every project as a star, and a room inside each one"
+            title="The City — walk the building; every district has a room"
           >
             Enter the City
           </button>
@@ -473,6 +515,11 @@ export function App() {
       {tab === "atlas" && (
         <Suspense fallback={<p className="atlas-boot">Loading the space…</p>}>
           <Atlas onClose={() => setTab(token || !REPO_TABS.has(returnTab) ? returnTab : "resources")} />
+        </Suspense>
+      )}
+      {tab === "city" && (
+        <Suspense fallback={<p className="atlas-boot">Unlocking the doors…</p>}>
+          <City onLeave={() => setTab(token || !REPO_TABS.has(returnTab) ? returnTab : "resources")} />
         </Suspense>
       )}
 

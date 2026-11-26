@@ -23,6 +23,17 @@ describe("a project's own space", () => {
     expect(space.nodes.map((node) => node.href)).not.toContain(pages[1]!.href);
   });
 
+  it("keeps every part that has a name and no address (an app's modules)", () => {
+    const modules = buildSpace("Kaysie app", "https://app.example", [
+      { label: "Booking form", href: "" },
+      { label: "Calendar feed", href: "" },
+      { label: "Admin desk", href: "" },
+    ]);
+    expect(modules.nodes.map((node) => node.label)).toEqual(["Admin desk", "Booking form", "Calendar feed"]);
+    expect(new Set(modules.nodes.map((node) => node.id)).size).toBe(3);
+    expect(modules.nodes.every((node) => node.href === "")).toBe(true);
+  });
+
   it("gives the same shape every time it is opened", () => {
     const a = buildSpace("Kaysie", pages[1]!.href, pages);
     const b = buildSpace("Kaysie", pages[1]!.href, [...pages].reverse());
