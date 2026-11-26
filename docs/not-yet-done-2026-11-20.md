@@ -38,8 +38,8 @@ still is not true. Ordered by what it costs to leave undone.*
 | 19 | **WebXR with a headset** | "No headset" is the honest state of the VR button in this environment. | — |
 | 20 | **A deploys tab, server-side projects, the physical-device todo** | Still open on the shelf, as they were before this week. | M |
 | 21 | **Search synonyms and typo tolerance** | Site search matches substrings and nothing else. | S |
-| 22 | **The pitch sheet remembers nothing** | It prints and pastes, but no sheet is saved, no prospect is tracked, and there is no follow-up email. Every sheet starts from a cold URL. | M |
-| 23 | **The audit endpoint has no rate limit** | `/api/site` fetches any public URL on request. Cheap to write, free to abuse, and a public pitch sheet makes that visible. | S |
+| 22 | **The pitch list lives in one browser** | Sheets, statuses and the email draft are real, but they sit in `localStorage`: one device, clearable, no sync, no team. Fine for one person prospecting; not a CRM. | M |
+| 23 | **The audit endpoint has no rate limit** | `/api/site` fetches any public URL on request, and the pitch sheet sends five at once. A per-IP limit is the next thing before it is public. | S |
 | 24 | **One page is the only length** | A shop and a one-page brochure get the same sheet, with different packages. The faults differ more than the layout does. | S |
 
 ## Bigger things said out loud, still only said

@@ -26,7 +26,7 @@ type Tab = "projects" | "packs" | "features" | "search" | "draft" | "standards" 
 function tabFromHash(hash: string): Tab {
   const wanted = hash.replace(/^#/, "");
   if (wanted.startsWith("atlas/")) return "atlas";
-  const named = wanted.startsWith("tab=") ? wanted.slice(4) : wanted;
+  const named = (wanted.startsWith("tab=") ? wanted.slice(4) : wanted).split("&")[0]!;
   return TABS.some((entry) => entry.id === named) ? (named as Tab) : "projects";
 }
 
@@ -57,7 +57,7 @@ const TABS: { id: Tab; label: string; blurb: string; group: Group; glyph: string
     label: "Pitch sheet",
     group: "ask",
     glyph: "◫",
-    blurb: "A prospect's URL in, a one-page audit out: five faults, what each costs, what to do first, and the package that fits. Print it or paste it.",
+    blurb: "A prospect's URL in, a one-page audit out: five faults, what each costs, what to do first, and the package that fits — kept in a list you can reopen, with the email to send and a link to the site.",
   },
   {
     id: "anything",

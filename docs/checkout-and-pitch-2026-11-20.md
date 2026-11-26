@@ -84,12 +84,32 @@ out.
 - **Two exits** — `Print / save as PDF` (print stylesheet: A4, chrome removed) and
   `Copy as text`, which produces an email-ready block under 2,400 characters.
 
-The rules live in `src/pitch.ts` (`buildPitch`, `offerFor`, `pitchText`), the
-screen in `src/components/Pitch.tsx`, and the 8 tests in `src/pitch.test.ts` check
-the failure ordering, the padding, the package choice, the honest empty case, and
-that the paste fits an email.
+**It remembers now.** A sheet that could be printed but not kept was a demo of a
+tool, so the second half of the feature is the part a person actually works in:
+
+| Piece | What it does |
+| --- | --- |
+| Prospect list | Every sheet is saved in this browser, newest first, with a status — *not written to / sent / won / lost* — and a re-run of the same site on the same day replaces its sheet instead of duplicating it. |
+| Who next | One line at the top names who to write to first: most faults, then lowest score, unsent before sent. When nothing is unsent it says *follow up* instead of pretending to be new work. |
+| The email | `emailDraft()` writes a short message — two faults, what each costs, one offer, one question — and `mailtoFor()` opens it in a mail client. Copy it, or copy just the body. |
+| The link | `#tab=pitch&u=<site>` opens the tab and reads the site again, so a link is always today's truth rather than a stale snapshot. |
+| Up to five at once | Paste five URLs, get five sheets and five rows. Sequential, and a failure on one does not lose the others. |
+
+What it deliberately is not: a CRM. `localStorage` is per browser, can be cleared,
+and does not sync between devices — `docs/not-yet-done-2026-11-20.md` says so.
+The sheet is also hidden in print, along with the buttons, so a page out of the
+printer is the sheet and nothing else.
+
+The rules live in `src/pitch.ts` (`buildPitch`, `offerFor`, `pitchText`,
+`emailDraft`, `nextToPitch`) and `src/pitchStore.ts`, the screen in
+`src/components/Pitch.tsx`, and the 16 tests across `pitch.test.ts` and
+`pitchStore.test.ts` cover the failure ordering, the package choice, the honest
+empty case, the email's length and tone, id stability, status that survives a
+re-run, and who comes next.
 
 ![The pitch sheet](../docs/studio-pitch-sheet-2026-11-20.png)
+
+![The prospect list, a sheet, and the email](../docs/studio-pitch-prospects-2026-11-20.png)
 
 It is built from the same `checkSite()` report the Atlas uses, so the sheet and
 the Studio cannot disagree about a page.

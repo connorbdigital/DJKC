@@ -1152,3 +1152,31 @@ button.menu-toggle { display: none; }
   .pitch-sheet h2 { color: #333; border-color: #bbb; }
   .pitch-sheet a { color: #000; text-decoration: none; }
 }
+
+/* ── Prospects: the sheet with a memory ───────────────────────────────────── */
+
+.prospects { margin: 1.4rem 0 .8rem; }
+.prospects h2 { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin: 0 0 .5rem; }
+.prospect-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+.prospect-list li { display: flex; gap: .5rem; align-items: stretch; }
+.prospect-open {
+  flex: 1; display: grid; grid-template-columns: 1fr auto; gap: .1rem .6rem;
+  text-align: left; padding: .55rem .75rem; border: 1px solid var(--line); border-radius: 6px;
+  background: rgba(255,255,255,.03); color: inherit; font: inherit; cursor: pointer;
+}
+.prospect-open:hover, .prospect-open:focus-visible { border-color: var(--gold); outline: none; }
+.prospect-host { grid-row: 1; grid-column: 1; font-weight: 600; }
+.prospect-meta { grid-row: 2; grid-column: 1; font-size: .78rem; color: var(--dim); }
+.prospect-status { grid-row: 1 / span 2; grid-column: 2; justify-self: end; align-self: center; white-space: nowrap; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; padding: .2rem .45rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); }
+.prospect-status.is-sent { color: var(--gold); border-color: var(--gold); }
+.prospect-status.is-won { color: #7fd6a4; border-color: #7fd6a4; }
+.prospect-status.is-lost { color: #c98b8b; border-color: #c98b8b; }
+.prospect-list li[data-status="won"] .prospect-host { text-decoration: line-through; text-decoration-color: #7fd6a4; }
+
+.pitch-email { margin: 1rem 0 2rem; border: 1px solid var(--line); border-radius: 6px; padding: .6rem .8rem; }
+.pitch-email summary { cursor: pointer; font-size: .85rem; }
+.pitch-email pre { white-space: pre-wrap; font-size: .82rem; line-height: 1.5; background: rgba(255,255,255,.03); padding: .8rem; border-radius: 4px; }
+
+@media print {
+  .prospects, .pitch-email { display: none !important; }
+}
