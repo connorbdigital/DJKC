@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AtlasEngine, THEMES, type AtlasTheme } from "../atlasEngine";
 import { checkUrl, type SiteReport } from "../sitecheck";
 import { loadAnythingApps, loadAnythingList, type AnythingApp } from "../anythingClient";
+import { scanLine, scannedApps } from "../anythingScan";
 import { lookFromStick, moveFromStick, stickVector } from "../sticks";
 import { isIdle, pickGamepad, readGamepad, type GamepadInput } from "../gamepad";
 import { NODE_NOTES_KEY, noteCount, parseNodeNotes, setNodeNote, type NodeNotes } from "../nodeNotes";
@@ -138,7 +139,9 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const [ownProjects, setOwnProjects] = useState<CustomProject[]>(() => (typeof window === "undefined" ? [] : readProjects()));
   /* The apps on anything.com arrive after the space has been drawn: the atlas
      rebuilds when they do, and the pose carries across, so nothing jumps. */
-  const [apps, setApps] = useState<AnythingApp[]>([]);
+  /* Seeded from the build-time scan: the suns and their parts are in the bundle
+     before this component asks anything of the network. */
+  const [apps, setApps] = useState<AnythingApp[]>(() => scannedApps);
   /* Why there are no Anything suns, when there are none: a space with a hole in
      it and no explanation is worse than a space with a sentence. */
   const [anythingNote, setAnythingNote] = useState("");
@@ -152,6 +155,12 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
       if (result.ok && result.apps.length) {
         setApps(result.apps);
         setAnythingNote("");
+        return;
+      }
+      /* A live read that fails does not empty the space: the build already read
+         the account, and the scan is the better inventory of the two. */
+      if (scannedApps.length) {
+        setAnythingNote(`Live read failed (${result.ok ? "an empty answer" : result.reason}). ${scanLine()}`);
         return;
       }
       /* The detail calls are what make a sun's modules; the list is enough for

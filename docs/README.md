@@ -6,7 +6,7 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | Document | What it answers |
 | --- | --- |
 | [anything-inventory-2026-11-20.md](anything-inventory-2026-11-20.md) | Every Anything endpoint, read from the OpenAPI document and the docs index, with a verdict per row: reused, worth copying, or deliberately not for us |
-| [anything-in-the-spaces-2026-11-20.md](anything-in-the-spaces-2026-11-20.md) | Every Anything project and every part of it in both spaces: the two caps that hid them, the two-ring layout, and exactly what was and was not verified |
+| [anything-in-the-spaces-2026-11-20.md](anything-in-the-spaces-2026-11-20.md) | Every Anything project and every part of it in both spaces: the two caps that hid them, the build-time scan that fills them, the copy-the-scan button, and exactly what was and was not verified |
 | [atlas-and-city-2026-11-20.md](atlas-and-city-2026-11-20.md) | The Atlas gets its name back and the City is built as a real place: a 61 m corridor, eight rooms, plinths you can read, and anything.com modules opening as stars |
 | [studio-project-space-2026-11-20.md](studio-project-space-2026-11-20.md) | How to go into the City, where the stars are, and what is inside a project: every page, and the links read off them |
 | [checkout-and-pitch-2026-11-20.md](checkout-and-pitch-2026-11-20.md) | The shop's Stripe checkout end to end (and the honest 503 until a key exists), the Studio's one-page pitch sheet, and the two-key 401 that was hiding the right key |
@@ -43,6 +43,8 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [shop-checkout-basket-2026-11-20.png](shop-checkout-basket-2026-11-20.png) | The same basket now: subtotal, delivery, total, a real Checkout button, and the 503 sentence with the arithmetic in it |
 | [studio-pitch-sheet-2026-11-20.png](studio-pitch-sheet-2026-11-20.png) | The pitch sheet: a URL in, five faults with what each costs, three steps, two packages |
 | [studio-stars-2026-11-20.png](studio-stars-2026-11-20.png) | The stars list over the Atlas: every project, its page count, **Fly** and **Go in** |
+| [atlas-scan-at-build-2026-11-20.png](atlas-scan-at-build-2026-11-20.png) | The Atlas with the Anything API blocked: the note explains, the inventory is still there |
+| [anything-copy-the-scan-2026-11-20.png](anything-copy-the-scan-2026-11-20.png) | The Anything tab with the bridge down, still naming and copying the build's scan |
 | [atlas-anything-parts-2026-11-20.png](atlas-anything-parts-2026-11-20.png) | An app in the Atlas: every part inside it, 41 of them, listed |
 | [atlas-anything-space-2026-11-20.png](atlas-anything-space-2026-11-20.png) | The app's own space: 41 parts on two rings |
 | [city-anything-2026-11-20.png](city-anything-2026-11-20.png) | The City's Anything room: an app on a plinth, and its parts in the card |

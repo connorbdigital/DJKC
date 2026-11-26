@@ -58,6 +58,54 @@ as well as **What is inside ↗**.
 
 ![The same app's space, opened from inside the City](city-anything-space-2026-11-20.png)
 
+## The scan moved to the build
+
+The first version of this scanned in the browser: one list call plus one detail
+call per project, on every visit, and nothing shown until the last one answered.
+That is the wrong place to read an account whose key lives on the server.
+
+`scripts/scan-anything.mts` now runs as part of `npm run build`, where the key
+already is, and writes `src/generated/anythingScan.json` — every project, every
+part, once per deploy. `src/anythingScan.ts` reads it through `import.meta.glob`,
+so a checkout with no scan (a test, a type-check, a fresh clone) still builds and
+the spaces say *This build has no Anything scan in it* rather than failing.
+
+The consequences, in order of who benefits:
+
+- **the spaces are full before the first request** — the suns, the plinths and
+  their parts are in the bundle;
+- **an API outage no longer empties a room** — the Atlas keeps the build's
+  inventory and says `Live read failed (…). Read at build on 26 Nov 2026: 3 apps,
+  60 parts.`, which is the difference between a degraded page and a blank one;
+- **one scan per deploy instead of 26 requests per visitor.**
+
+The scan never fails a build. A missing key, a refused connection or one slow
+project becomes `{ ok: false, reason }` in the JSON, and the spaces print the
+reason. `ANYTHING_BASE` overrides the API host so the whole path can be proved
+against a local mock without a key — which is exactly how it was proved:
+
+```
+$ ANYTHING_BASE=http://localhost:4411 ANYTHING_API_KEY=test npm run build
+scan:anything — 3 projects, 60 parts → src/generated/anythingScan.json
+✓ built in 3.30s
+
+# then, with every /api/anything request aborted in the browser:
+atlas  chips "Anything 3" · 41 parts · EVERY PART INSIDE IT · 41
+       head: "Live read failed (Failed to fetch). Read at build on 26 Nov 2026: 3 apps, 60 parts. Try again"
+city   "Anything 3" · Anything room furnished from the scan
+```
+
+![The Atlas with the network to Anything blocked: the note explains, and the inventory is still there](atlas-scan-at-build-2026-11-20.png)
+
+## Getting the real inventory out
+
+The key still cannot be read back, so the deployment offers the next best thing:
+**Copy the scan** on the Anything tab puts the build's inventory on the clipboard
+as JSON — including it in the *Not connected* panel, because a broken key is
+exactly when the last good scan matters most. One click, one paste, no secret.
+
+![The Anything tab with the bridge down: it still names the build's scan, and copies it](anything-copy-the-scan-2026-11-20.png)
+
 ## How this was checked, and what was not
 
 The sandbox cannot read the Anything key: on Vercel it is a **sensitive** variable,

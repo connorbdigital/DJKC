@@ -7,3 +7,6 @@ coverage/
 # Supplier feeds are account data, not source
 commerce/feeds/*
 !commerce/feeds/README.md
+
+# Written by the build (scripts/scan-anything.mts), never committed.
+studio/src/generated/*.json
