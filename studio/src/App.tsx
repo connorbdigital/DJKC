@@ -25,8 +25,10 @@ type Tab = "projects" | "packs" | "features" | "search" | "draft" | "standards" 
  *  A link you cannot share is a link you have to describe instead. */
 function tabFromHash(hash: string): Tab {
   const wanted = hash.replace(/^#/, "");
+  /* `#atlas/<node>` opens the space; `#city` and `#stars` are shouted in words. */
   if (wanted.startsWith("atlas/")) return "atlas";
   const named = (wanted.startsWith("tab=") ? wanted.slice(4) : wanted).split("&")[0]!;
+  if (named === "city" || named === "stars") return "atlas";
   return TABS.some((entry) => entry.id === named) ? (named as Tab) : "projects";
 }
 
@@ -75,10 +77,11 @@ const TABS: { id: Tab; label: string; blurb: string; group: Group; glyph: string
   },
   {
     id: "atlas",
-    label: "Atlas (3D)",
+    label: "The City",
     group: "look",
     glyph: "✷",
-    blurb: "Fly through every project, process, pathway and blog post at once. Works with the keyboard, and in a headset where one is attached.",
+    blurb:
+      "Go in: fly through every project, process, pathway and blog post at once. The stars are the projects — open one and its own room holds all its pages, and the links read off them. Works with the keyboard, and in a headset where one is attached.",
   },
 ];
 
@@ -141,6 +144,9 @@ export function App() {
      repository tabs ask for the key when — and only when — you reach them. */
   const [browsing, setBrowsing] = useState(false);
   const [returnTab, setReturnTab] = useState<Tab>("projects");
+  /* A link that names the City ("#atlas", "#city", "#stars") opens the City, key
+     or no key. Read once, at boot: the tab effect rewrites the hash afterwards. */
+  const [deepCity] = useState(() => /^#(atlas|city|stars)(\/|$)/.test(window.location.hash));
   const [palette, setPalette] = useState(false);
   const [menu, setMenu] = useState(false);
   const [online, setOnline] = useState(() => (typeof navigator === "undefined" ? true : navigator.onLine));
@@ -229,7 +235,8 @@ export function App() {
     const hash = window.location.hash.replace(/^#/, "");
     /* While the space is open it owns the hash (`#atlas/<node>`); leave it alone
        there, but going back to a tab has to replace the node link. */
-    if ((tab === "atlas" && hash.startsWith("atlas/")) || hash === `tab=${tab}`) return;
+    if (tab === "atlas" && (hash.startsWith("atlas") || hash === "city" || hash === "stars")) return;
+    if (hash === `tab=${tab}`) return;
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#tab=${tab}`);
   }, [tab]);
 
@@ -271,10 +278,10 @@ export function App() {
   };
 
   if (!token && proxy === "unknown") return <p className="atlas-boot">Checking this deployment…</p>;
-  if (!token && !browsing && preview)
+  if (!token && !browsing && (preview || deepCity))
     return (
       <Suspense fallback={<p className="atlas-boot">Loading the space…</p>}>
-        <Atlas onClose={() => setPreview(false)} />
+        <Atlas onClose={() => (preview ? setPreview(false) : setBrowsing(true))} />
       </Suspense>
     );
   if (!token && !browsing) {
@@ -313,6 +320,28 @@ export function App() {
         window.location.hash = `atlas/${project.id}`;
       },
     })),
+    {
+      id: "city",
+      label: "Enter the City",
+      hint: "the space",
+      aliases: ["atlas", "3d", "fly through"],
+      run: () => {
+        if (tab !== "atlas") setReturnTab(tab);
+        window.location.hash = "atlas";
+        setTab("atlas");
+      },
+    },
+    {
+      id: "stars",
+      label: "The stars — every project, then inside it",
+      hint: "City",
+      aliases: ["projects", "pages", "links"],
+      run: () => {
+        if (tab !== "atlas") setReturnTab(tab);
+        window.location.hash = "atlas/stars";
+        setTab("atlas");
+      },
+    },
     { id: "lock", label: "Lock the studio", hint: "forget the token", run: lock },
   ];
 
@@ -339,6 +368,18 @@ export function App() {
           {!online && <span className="pill pill-offline">Offline — the space and the shelf still work</span>}
           {login && <span className="pill">{token === PROXY_TOKEN ? `${login} · server key` : login}</span>}
           {!token && <span className="pill">no key — repository tabs ask when you reach them</span>}
+          <button
+            className="btn city-door"
+            type="button"
+            onClick={() => {
+              if (tab !== "atlas") setReturnTab(tab);
+              window.location.hash = "atlas";
+              setTab("atlas");
+            }}
+            title="The City — every project as a star, and a room inside each one"
+          >
+            Enter the City
+          </button>
           <button className="btn ghost" onClick={lock}>{token === PROXY_TOKEN ? "Use my token" : "Lock"}</button>
         </div>
       </header>

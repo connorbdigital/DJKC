@@ -7,6 +7,8 @@ import { isIdle, pickGamepad, readGamepad, type GamepadInput } from "../gamepad"
 import { NODE_NOTES_KEY, noteCount, parseNodeNotes, setNodeNote, type NodeNotes } from "../nodeNotes";
 import { GIST_STORE_KEY, buildBundle, describeBundle, isGistId, mergeBundle, pullNotes, pushNotes } from "../notesSync";
 import { getToken } from "../token";
+import ProjectSpace from "./ProjectSpace";
+import { SiteThumb } from "./SiteThumb";
 import {
   TOUR,
   auditAtlas,
@@ -70,7 +72,9 @@ interface Feel {
 
 /** A stored feel that no longer parses is a feel with the defaults. */
 export function readFeel(): Feel {
-  const fallback: Feel = { look: 1, theme: "nebula", turbo: false };
+  /* The City is the room this space was built to be; Nebula and the others are
+     the alternates you can switch to. */
+  const fallback: Feel = { look: 1, theme: "city", turbo: false };
   try {
     const raw = JSON.parse(window.localStorage.getItem(FEEL_KEY) ?? "null") as Partial<Feel> | null;
     if (!raw || typeof raw !== "object") return fallback;
@@ -208,6 +212,11 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const [touch, setTouch] = useState(false);
   const [hovering, setHovering] = useState(false);
   const [tour, setTour] = useState<number | null>(null);
+  const [space, setSpace] = useState<AtlasNode | null>(null);
+  /* `#atlas/stars` is a link you can send someone straight to the list. */
+  const [stars, setStars] = useState<string | null>(() =>
+    ["atlas/stars", "stars"].includes(window.location.hash.replace(/^#/, "")) ? "" : null
+  );
   /* The feel of the place: how fast a look turns you, which of the three looks
      the room wears, and whether turbo is latched. Kept between visits, because
      a space that resets its own feel every time is a space you re-tune forever. */
@@ -317,6 +326,9 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         {
           onSelect: (node) => {
             setSelected(node);
+            /* A project is a star with an inside: clicking one opens its own
+               space instead of only describing it in the panel. */
+            if (node?.kind === "project") setSpace(node);
             /* Clicking a site means "show me that site": the panel loads its
                page straight away, without waiting for a second click. */
             if (node?.kind === "site") engine.current?.loadSite(node.id);
@@ -741,6 +753,18 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
 
         <div className="atlas-actions">
           <button
+            className="btn stars-open"
+            type="button"
+            onClick={() => {
+              setStars("");
+              setSpace(null);
+            }}
+            aria-expanded={stars !== null}
+            title="Go to the stars — every project, then inside it"
+          >
+            ✷ Stars
+          </button>
+          <button
             className="btn ghost"
             type="button"
             onClick={() => setTour(tour === null ? 0 : null)}
@@ -930,6 +954,66 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           {districtInfo?.label ?? "Library"} · {heading} · {Math.round(position[0])}, {Math.round(position[2])}
         </p>
       </div>
+
+      {stars !== null && (
+        <section className="atlas-hud atlas-panel-sheet atlas-stars" aria-label="The stars — every project">
+          <div className="atlas-sheet-head">
+            <h2>The stars</h2>
+            <input
+              value={stars}
+              onChange={(event) => setStars(event.target.value)}
+              placeholder="Filter the projects…"
+              aria-label="Filter the projects"
+            />
+            <button className="btn ghost" type="button" onClick={() => setStars(null)}>
+              Close
+            </button>
+          </div>
+          <p className="muted small">
+            Every project in the space. <strong>Go in</strong> opens its own room: all its pages, and
+            the links read off them.
+          </p>
+          <ul className="atlas-star-list">
+            {atlas.nodes
+              .filter((node) => {
+                if (node.kind !== "project") return false;
+                const needle = stars.trim().toLowerCase();
+                return !needle || node.label.toLowerCase().includes(needle) || node.line.toLowerCase().includes(needle);
+              })
+              .map((node) => {
+                const pages = node.pages?.length ?? 0;
+                return (
+                  <li key={node.id}>
+                    <span className="atlas-star-name">
+                      {node.label}
+                      <em>
+                        {pages} {pages === 1 ? "page" : "pages"}
+                        {node.href ? ` · ${node.href.replace(/^https?:\/\//, "")}` : " · no address yet"}
+                      </em>
+                    </span>
+                    <span className="atlas-star-actions">
+                      <button className="btn ghost" type="button" onClick={() => jump(node)}>
+                        Fly
+                      </button>
+                      <button
+                        className="btn"
+                        type="button"
+                        onClick={() => {
+                          flyTo(node.id);
+                          setSelected(node);
+                          remember(node);
+                          setSpace(node);
+                        }}
+                      >
+                        Go in
+                      </button>
+                    </span>
+                  </li>
+                );
+              })}
+          </ul>
+        </section>
+      )}
 
       {tour !== null && TOUR[tour] && (
         <div className="atlas-hud atlas-tour" role="status">
@@ -1127,6 +1211,11 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           )}
 
           <div className="atlas-detail-actions">
+            {selected.kind === "project" && (
+              <button className="btn" type="button" onClick={() => setSpace(selected)}>
+                Go inside ↗
+              </button>
+            )}
             <button className="btn" type="button" onClick={() => flyTo(selected.id)}>
               Fly to it
             </button>
@@ -1427,59 +1516,14 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         </section>
       )}
 
+      {space && <ProjectSpace project={space} onClose={() => setSpace(null)} />}
+
       {!ready && !failed && <div className="atlas-hud atlas-loading">Building the space…</div>}
     </div>
   );
 }
 
 /** A thumbstick that reports the vector it is being pushed towards. */
-/**
- * The card a link makes when you paste it somewhere: `og:image`, its title, its
- * one line. Read by /api/site (a browser cannot fetch another site), cached, and
- * quiet when there is nothing to show.
- */
-function SiteThumb({ url, label }: { url: string; label: string }) {
-  const [preview, setPreview] = useState<{ image: string; title: string; description: string } | null>(null);
-  const [state, setState] = useState<"loading" | "ready" | "none" | "failed">("loading");
-
-  useEffect(() => {
-    if (!url) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 9000);
-    setState("loading");
-    setPreview(null);
-    fetch(`/api/site?thumb=${encodeURIComponent(url)}`, { signal: controller.signal })
-      .then((response) => response.json())
-      .then((data: { ok?: boolean; preview?: { image: string; title: string; description: string } }) => {
-        if (!data?.ok || !data.preview) {
-          setState("failed");
-          return;
-        }
-        setPreview(data.preview);
-        setState(data.preview.image ? "ready" : "none");
-      })
-      .catch(() => setState("failed"))
-      .finally(() => window.clearTimeout(timer));
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [url]);
-
-  if (state === "loading") return <p className="atlas-thumb-state">Reading the card for this link…</p>;
-  if (state === "failed") return <p className="atlas-thumb-state">That page would not answer, so there is no card for it.</p>;
-  if (state === "none") return <p className="atlas-thumb-state">{preview?.title ? `“${preview.title}” — no picture to show.` : "That page declares no picture to show."}</p>;
-  if (!preview) return null;
-
-  return (
-    <figure className="atlas-thumb-card">
-      <img src={preview.image} alt={preview.title ? `Preview of ${preview.title}` : `Preview of ${label}`} loading="lazy" referrerPolicy="no-referrer" />
-      {preview.title && <figcaption>{preview.title}</figcaption>}
-      {preview.description && <p>{preview.description}</p>}
-    </figure>
-  );
-}
-
 /** A page cannot be shown inside itself: skip the preview for our own origin. */
 function sameOrigin(href: string): boolean {
   try {
