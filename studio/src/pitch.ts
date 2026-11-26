@@ -217,3 +217,124 @@ export function pitchText(pitch: Pitch): string {
   ];
   return parts.join("\n");
 }
+
+/* ── The email that goes with the sheet ───────────────────────────────────── */
+
+/**
+ * A short, specific email. Not the sheet pasted into a message: a prospect who
+ * gets twelve bullet points reads none of them. Two faults, what they cost, one
+ * offer, one question.
+ */
+export function emailDraft(pitch: Pitch, sender = "SiteBuildup"): { subject: string; body: string } {
+  const host = (() => {
+    try {
+      return new URL(pitch.url).host.replace(/^www\./, "");
+    } catch {
+      return pitch.url;
+    }
+  })();
+  const worst = pitch.findings.slice(0, 2);
+  const subject = worst.length
+    ? `${host}: ${worst.length === 1 ? "one thing" : "two things"} costing you orders`
+    : `${host}: the site is sound — the problem is being found`;
+
+  const body = [
+    `Hello,`,
+    ``,
+    `I read ${host} this morning the way a search engine and a shopper's phone do, and ${worst.length ? "two things stood out" : "one thing stood out"}.`,
+    ``,
+    ...worst.map((finding) => `· ${finding.label} — ${finding.detail.replace(/\.$/, "")}. ${finding.cost.charAt(0).toUpperCase() + finding.cost.slice(1)}.`),
+    ``,
+    worst.length ? `None of that is expensive to fix, and all of it is quiet: nothing on the page looks broken to a person.` : ``,
+    `I have put it on one page, worst first, with what each fault costs and what fixing it involves — happy to send it over.`,
+    ``,
+    `${pitch.offer.name} is ${pitch.offer.price}: ${pitch.offer.what}`,
+    ``,
+    `Worth ten minutes?`,
+    ``,
+    sender,
+    `kaysie.sitebuildup.co.uk`,
+  ]
+    .filter((line, index, all) => !(line === "" && all[index - 1] === ""))
+    .join("\n");
+
+  return { subject, body };
+}
+
+/** The same email, as a link the machine's mail client understands. */
+export function mailtoFor(pitch: Pitch, to = ""): string {
+  const { subject, body } = emailDraft(pitch);
+  return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+/* ── A sheet that is kept ─────────────────────────────────────────────────── */
+
+export type ProspectStatus = "new" | "sent" | "won" | "lost";
+
+export interface Prospect {
+  /** Stable for one site on one day, so a re-run updates rather than duplicates. */
+  id: string;
+  url: string;
+  host: string;
+  /** ISO date, YYYY-MM-DD. */
+  date: string;
+  score: number;
+  findings: number;
+  offer: string;
+  price: string;
+  headline: string;
+  status: ProspectStatus;
+  /** The sheet itself, so it opens later without re-reading the site. */
+  sheet: Pitch;
+}
+
+/** Small, deterministic, and good enough for a browser-local key. */
+export function prospectId(url: string, date: string): string {
+  const host = (() => {
+    try {
+      return new URL(url).host.replace(/^www\./, "");
+    } catch {
+      return url;
+    }
+  })();
+  let hash = 5381;
+  const source = `${host}|${date}`;
+  for (let index = 0; index < source.length; index += 1) hash = (hash * 33) ^ source.charCodeAt(index);
+  return `${host.replace(/[^a-z0-9]+/gi, "-").slice(0, 32)}-${(hash >>> 0).toString(36)}`;
+}
+
+export function toProspect(pitch: Pitch, id = prospectId(pitch.url, pitch.date)): Prospect {
+  let host = pitch.url;
+  try {
+    host = new URL(pitch.url).host.replace(/^www\./, "");
+  } catch {
+    /* keep the raw string */
+  }
+  return {
+    id,
+    url: pitch.url,
+    host,
+    date: pitch.date,
+    score: pitch.score,
+    findings: pitch.findings.length,
+    offer: pitch.offer.name,
+    price: pitch.offer.price,
+    headline: pitch.headline,
+    status: "new",
+    sheet: pitch,
+  };
+}
+
+/**
+ * Who to write to first: the site with the most to fix, and the cheapest of those
+ * to fix, before the near-perfect ones nobody pays to polish. Sent prospects sink
+ * — a follow-up is a different job.
+ */
+export function nextToPitch(prospects: Prospect[]): Prospect | null {
+  const rank = (prospect: Prospect) => (prospect.status === "sent" ? 1 : prospect.status === "new" ? 0 : 2);
+  const open = prospects.filter((prospect) => prospect.status === "new" || prospect.status === "sent");
+  if (!open.length) return null;
+  return [...open].sort(
+    (a, b) => rank(a) - rank(b) || b.findings - a.findings || a.score - b.score || a.host.localeCompare(b.host)
+  )[0]!;
+}

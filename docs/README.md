@@ -38,6 +38,7 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [shop-basket-2026-11-20.png](shop-basket-2026-11-20.png) | The basket with two lines*, and the checkout that says it is not connected (*taken before the button was wired: see `shop-checkout-basket-2026-11-20.png`) |
 | [shop-checkout-basket-2026-11-20.png](shop-checkout-basket-2026-11-20.png) | The same basket now: subtotal, delivery, total, a real Checkout button, and the 503 sentence with the arithmetic in it |
 | [studio-pitch-sheet-2026-11-20.png](studio-pitch-sheet-2026-11-20.png) | The pitch sheet: a URL in, five faults with what each costs, three steps, two packages |
+| [studio-pitch-prospects-2026-11-20.png](studio-pitch-prospects-2026-11-20.png) | The same sheet kept: prospect list with status, who to write to first, the email, and the print/copy actions |
 | [shop-mobile-2026-11-20.png](shop-mobile-2026-11-20.png) | 390px: compact header, scrolling department rail, stacked calls to action |
 | [atlas-gate-2026-11-20.png](atlas-gate-2026-11-20.png) | The Studio gate, with the no-token way into the space |
 | [atlas-opening-2026-11-20.png](atlas-opening-2026-11-20.png) | The Atlas on arrival: builder steps, library, pathways, projects, the blog plan wall |
