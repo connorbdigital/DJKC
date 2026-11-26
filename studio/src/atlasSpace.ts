@@ -61,9 +61,12 @@ export function buildSpace(label: string, href: string, pages: { label: string; 
   /* Even spacing, ordered by label so the shape is the same every time it opens:
      a constellation that rearranges itself is a screenshot, not a map. */
   const ordered = [...ring].sort((a, b) => a.label.localeCompare(b.label));
-  const radius = 0.62;
+  /* Past fourteen, one ring is a crowd: alternate the radius so neighbours are
+     never shoulder to shoulder, and a forty-part app still reads its labels. */
+  const crowded = ordered.length > 14;
   ordered.forEach((node, index) => {
     const angle = -Math.PI / 2 + (index / Math.max(1, ordered.length)) * Math.PI * 2;
+    const radius = crowded ? (index % 2 === 0 ? 0.54 : 0.84) : 0.62;
     node.x = Math.cos(angle) * radius;
     node.y = Math.sin(angle) * radius;
   });

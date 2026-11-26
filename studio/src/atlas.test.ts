@@ -382,7 +382,10 @@ describe("apps built on anything.com", () => {
     const nodes = withApps.nodes.filter((node) => node.district === "anything");
     expect(nodes.map((node) => node.id)).toEqual(["app-prj_9fk2", "app-prj_7hd1"]);
     expect(nodes.every((node) => node.kind === "app")).toBe(true);
-    expect(nodes[0]!.bullets.join(" ")).toMatch(/Booking/);
+    /* Every part is on the node, not the first screenful, and the bullet says
+       how many rather than repeating the first twelve names. */
+    expect(nodes[0]!.modules).toEqual(["Home", "Booking", "Prices"]);
+    expect(nodes[0]!.bullets.join(" ")).toMatch(/3 parts, listed below/);
     expect(nodes[0]!.href).toBe("https://kaysie.sitebuildup.co.uk");
     /* Never published: nothing to open, and it says so rather than inventing one. */
     expect(nodes[1]!.href).toBeUndefined();

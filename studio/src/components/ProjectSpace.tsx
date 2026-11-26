@@ -27,6 +27,9 @@ const MAX_AUTO = 4;
 export default function ProjectSpace({ project, onClose }: ProjectSpaceProps) {
   /* A project has pages. An anything.com app has modules — parts, not pages —
      so they stand on the same ring without an address to open. */
+  /* Modules are parts of an app, not pages of a site: no address to open, and
+     nothing to read off them. The room says which it is holding. */
+  const isApp = Boolean(project.modules?.length) && !project.pages?.length;
   const parts = useMemo(
     () => project.pages ?? (project.modules ?? []).map((label) => ({ label, href: "" })),
     [project.pages, project.modules]
@@ -158,11 +161,12 @@ export default function ProjectSpace({ project, onClose }: ProjectSpaceProps) {
     >
       <header className="space-head">
         <div>
-          <p className="space-kicker">Inside the project</p>
+          <p className="space-kicker">{isApp ? "Inside the app" : "Inside the project"}</p>
           <h2>{project.label}</h2>
           <p className="space-meta">
-            {all.length} {all.length === 1 ? "page" : "pages"} · {readCount} read · {liveEdges}{" "}
-            {liveEdges === 1 ? "link read" : "links read"}
+            {isApp
+              ? `${space.nodes.length} ${space.nodes.length === 1 ? "part" : "parts"} · read through this deployment's key`
+              : `${all.length} ${all.length === 1 ? "page" : "pages"} · ${readCount} read · ${liveEdges} ${liveEdges === 1 ? "link read" : "links read"}`}
           </p>
         </div>
         <div className="space-head-actions">
@@ -172,7 +176,7 @@ export default function ProjectSpace({ project, onClose }: ProjectSpaceProps) {
             </a>
           )}
           <button type="button" className="space-button quiet" onClick={onClose}>
-            Back to the City
+            Back
           </button>
         </div>
       </header>
@@ -235,8 +239,9 @@ export default function ProjectSpace({ project, onClose }: ProjectSpaceProps) {
             })}
           </svg>
           <figcaption className="muted small">
-            Solid lines were read off the pages. Faint ones are pages the project record already
-            held. A dotted ring means that page has not been read yet — no streams guessed.
+            {isApp
+              ? "Every part of the app, as anything.com reports it. Parts have no address, so no link is drawn and none is guessed."
+              : "Solid lines were read off the pages. Faint ones are pages the project record already held. A dotted ring means that page has not been read yet — no streams guessed."}
           </figcaption>
         </figure>
 
@@ -278,7 +283,9 @@ export default function ProjectSpace({ project, onClose }: ProjectSpaceProps) {
             <div className="space-card">
               <h3>Pick a star</h3>
               <p className="muted small">
-                A circle is a page. A line is a link. Tap one to open it or read its links.
+                {isApp
+                  ? "A circle is a part of the app. Nothing to open: the parts have no address of their own."
+                  : "A circle is a page. A line is a link. Tap one to open it or read its links."}
               </p>
               {unread.length > 0 && (
                 <button
@@ -299,7 +306,7 @@ export default function ProjectSpace({ project, onClose }: ProjectSpaceProps) {
           )}
 
           <div className="space-list">
-            <h3>Every page</h3>
+            <h3>{isApp ? "Every part" : "Every page"}</h3>
             <ul>
               {all.map((node) => {
                 const reading = readings[node.id];
@@ -308,13 +315,17 @@ export default function ProjectSpace({ project, onClose }: ProjectSpaceProps) {
                     <button type="button" className="space-row" onClick={() => setActive(node.id)}>
                       <span className="space-row-name">
                         {node.label}
-                        {node.kind === "hub" && <em> front page</em>}
+                        {node.kind === "hub" && <em>{isApp ? " the app itself" : " front page"}</em>}
                       </span>
                       <span className="space-row-tag">
                         {readIn.get(node.id)
                           ? `${readIn.get(node.id)} read in`
                           : ranking.get(node.id)
-                            ? "only from the record"
+                            ? isApp
+                              ? node.kind === "hub"
+                                ? "the app, as anything.com reports it"
+                                : "a part of the app — no address of its own"
+                              : "only from the record"
                             : "nothing points here"}
                         {reading?.state === "read" && " · read"}
                         {reading?.state === "failed" && " · refused"}

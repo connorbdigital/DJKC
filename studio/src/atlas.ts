@@ -554,8 +554,13 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
      library's own, at the foot of the arm — so the arm is one place whether you
      fly at it from the library or arrive from the west. */
   const anythingArm = DISTRICTS.find((district) => district.id === "anything")!;
+  /* Apps fill a ring of eight, then a second ring further out: ten apps on one
+     circle is a crowd, and a ring you cannot count is not a map. */
+  const PER_RING = 8;
   apps.forEach((app, index) => {
-    const position = ringPoint(index, Math.max(apps.length, 3), 17, 0, Math.PI / 4);
+    const ring = Math.floor(index / PER_RING);
+    const inRing = Math.min(PER_RING, apps.length - ring * PER_RING);
+    const position = ringPoint(index % PER_RING, Math.max(inRing, 3), 17 + ring * 11, 0, Math.PI / 4);
     const modules = app.modules.length ? `${app.modules.length} module${app.modules.length === 1 ? "" : "s"}` : "no modules read";
     const where = app.url ? app.url.replace(/^https:\/\//, "").replace(/\/$/, "") : "not published";
     const updated = app.updatedAt ? new Date(app.updatedAt) : null;
@@ -575,13 +580,15 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
       }\n\nRead through this deployment's key: the Atlas can see what is inside the app, and cannot change any of it.`,
       bullets: [
         `Platform: ${app.platform}`,
-        modules ? `Inside: ${app.modules.slice(0, 8).join(", ")}${app.modules.length > 8 ? "…" : ""}` : "Nothing read from inside it yet",
+        /* The parts have their own list in the panel; the bullet says the size
+           of it, not the first twelve names of it. */
+        modules ? `${app.moduleCount ?? app.modules.length} parts, listed below` : "Nothing read from inside it yet",
         ...(app.url ? [app.url] : []),
         `Last changed ${stamp}`,
       ],
       position: [round(anythingArm.centre[0] + position[0]), round(anythingArm.centre[1] + position[1]), round(anythingArm.centre[2] + position[2])],
       size: SIZE.large,
-      ...(app.modules.length ? { modules: app.modules.slice(0, 24) } : {}),
+      ...(app.modules.length ? { modules: app.modules } : {}),
       ...(app.url ? { href: app.url } : {}),
     });
   });
