@@ -97,6 +97,29 @@ city   "Anything 3" · Anything room furnished from the scan
 
 ![The Atlas with the network to Anything blocked: the note explains, and the inventory is still there](atlas-scan-at-build-2026-11-20.png)
 
+## The real account, read for the first time
+
+The next production build printed what no amount of local testing could:
+
+```
+scan:anything — 24 projects, 3396 parts → src/generated/anythingScan.json
+```
+
+So: the key reaches the build, the API answers, and the account has **24 projects
+(capped) and 3,396 parts** — an average of 141 parts per app, which is three times
+the old per-app cap of 24 and explains why apps looked thin.
+
+Two consequences, both fixed here:
+
+- **The ring stops labelling past eighty parts.** Every star is still drawn; the
+  words are dropped, because a hundred and forty labels on top of each other is
+  noise, and the list beside the ring is the index. One app with 141 parts reads
+  as a constellation with a lit index, not a word cloud.
+- **24 projects is the cap, not the account.** `?limit=100` is asked for; if there
+  are more than 24, the extra are absent and the count says 24. Raising it is one
+  number, and the next round should raise it now that a build scan costs nothing
+  per visitor.
+
 ## Getting the real inventory out
 
 The key still cannot be read back, so the deployment offers the next best thing:
