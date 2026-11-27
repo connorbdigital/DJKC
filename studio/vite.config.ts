@@ -54,6 +54,11 @@ function apiInDev(): Plugin {
 
 export default defineConfig({
   plugins: [react(), apiInDev()],
+  /* Stamped into the bundle, so "am I looking at the new build?" has an answer
+     that is not a guess. It appears in the Atlas's own footer. */
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString().slice(0, 16).replace("T", " ")),
+  },
   build: { outDir: "dist" },
   server: {
     /* The preview is served from a proxied host, and the Studio is also deployed

@@ -372,7 +372,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             setSelected(node);
             /* A project is a star with an inside: clicking one opens its own
                space instead of only describing it in the panel. */
-            if (node?.kind === "project") setSpace(node);
+            if (node?.kind === "project" || node?.kind === "app") setSpace(node);
             /* A site opens on its plate, not on an iframe: the picture of the
                page is the point, and the live page is a button away. Loading it
                on selection meant the plate was never seen at all. */
@@ -1209,6 +1209,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           </p>
         )}
         {near && <p className="near">Near: {near}</p>}
+        <p className="atlas-build">build {__BUILD_TIME__}</p>
         {status && <p className="atlas-status">{status}</p>}
         {failed && <p className="error">{failed}</p>}
       </div>
