@@ -1663,3 +1663,34 @@ button.menu-toggle { display: none; }
   .space3d-head .space-head-actions { width: 100%; flex-wrap: wrap; }
   .space3d-head .space-button { flex: 1 1 6rem; min-width: 0; text-align: center; font-size: .74rem; padding: .42rem .5rem; }
 }
+
+/* ------------------------------------------------------------- the universal */
+/* Two panels side by side on a desk, one under the other on a phone: the list is
+   evidence and the audit is a reading, and they are not the same kind of thing. */
+.universal { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+@media (max-width: 1100px) { .universal { grid-template-columns: minmax(0, 1fr); } }
+.universal-list { list-style: none; margin: .6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .1rem; counter-reset: none; }
+.universal-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5rem;
+  gap: .2rem .8rem;
+  padding: .6rem .2rem .65rem;
+  border-top: 1px solid var(--line);
+}
+.universal-row:first-child { border-top: 0; }
+.universal-row h3 { margin: 0 0 .12rem; font-size: .98rem; display: flex; align-items: center; gap: .45rem; }
+.universal-row.is-everywhere h3 { color: #ffd6f6; }
+.universal-main p { margin: .1rem 0; }
+.universal-bar { align-self: center; height: .3rem; border-radius: 999px; background: #ffffff14; grid-column: 2; grid-row: 1; overflow: hidden; }
+.universal-bar span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--violet), var(--pink)); }
+.universal-example { grid-column: 2; grid-row: 2; text-align: right; font-size: .78rem; }
+.universal-where { margin-top: .8rem; }
+.universal-audit-form { display: flex; gap: .5rem; margin: .2rem 0 .8rem; }
+.universal-audit-form .input { flex: 1 1 auto; min-width: 0; }
+.universal-audit h3 { margin: .9rem 0 .3rem; font-size: .82rem; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.universal-found, .universal-missing { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .1rem; }
+.universal-found li { display: flex; justify-content: space-between; gap: .8rem; padding: .34rem 0; border-top: 1px solid var(--line); font-size: .84rem; }
+.universal-found li a { flex: 0 0 auto; }
+.universal-missing li { display: flex; flex-direction: column; gap: .1rem; padding: .34rem 0; border-top: 1px solid var(--line); font-size: .84rem; }
+.universal-missing li > span:first-child { color: #ffb3ea; }
+.warn { color: #ffd166; }
