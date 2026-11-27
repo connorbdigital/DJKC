@@ -54,6 +54,8 @@ export interface AtlasNode {
   pages?: { label: string; href: string }[];
   /** What is inside an app: the modules anything.com reports. No hrefs — they are parts, not pages. */
   modules?: string[];
+  /** The steps a buyer takes, in order, as real pages. Their pictures hang under the site. */
+  funnel?: { label: string; url: string }[];
   position: [number, number, number];
   /** Node radius, so the renderer and the ray-picker agree. */
   size: number;
@@ -149,6 +151,14 @@ export interface SiteRecord {
   look: string[];
   /** Whether the page can be shown inside another site, as far as anyone knows. */
   framing: "opens" | "may refuse";
+  /**
+   * The path a buyer actually walks, as pages on this site. Ours are known
+   * because we built them; for someone else's site this stays empty rather than
+   * guessing at a checkout that may not exist.
+   */
+  funnel?: { step: string; path: string }[];
+  /** What the funnel does *not* do — the honest end of it. */
+  funnelNote?: string;
   /** The supplier-shaped facts: what it gives you, what it asks for, what to check first. */
   supply?: { gives: string; wants: string; check: string };
 }
@@ -174,6 +184,14 @@ export const SITES: SiteRecord[] = [
       "The wording of the availability answer — the honest part of any booking site",
     ],
     framing: "may refuse",
+    funnel: [
+      { step: "Prices", path: "/prices.html" },
+      { step: "The occasion page", path: "/wedding-dj.html" },
+      { step: "What people ask", path: "/faq.html" },
+      { step: "The form", path: "/index.html#booking" },
+    ],
+    funnelNote:
+      "Four pages to an enquiry, and a deposit at the end of the form. There is no cart and no account, because a booking is one conversation, not a basket.",
     supply: {
       gives: "The one page that turns a search into a paid enquiry.",
       wants: "A domain, and the Anything project behind it.",
@@ -199,6 +217,14 @@ export const SITES: SiteRecord[] = [
       "The empty state of the search: it suggests departments instead of apologising",
     ],
     framing: "may refuse",
+    funnel: [
+      { step: "The front door", path: "/" },
+      { step: "All products", path: "/shop.html" },
+      { step: "A department", path: "/department/home.html" },
+      { step: "A product page", path: "/product/bamboo-folding-shelf-rack.html" },
+    ],
+    funnelNote:
+      "It stops at the product page: no payment provider is connected, and the shop says so rather than drawing a checkout it does not have.",
     supply: {
       gives: "A storefront you can lift: the code for it is in commerce/ and installs as one pack.",
       wants: "A product feed and a payment provider — neither is in the repository.",
@@ -806,9 +832,25 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
           ? " If it refuses to be framed the panel says so, and the tab link is still the way in."
           : ""
       }`,
-      bullets: [site.url, site.kind],
+      bullets: [
+        site.url,
+        site.kind,
+        ...(site.funnel ? [`Funnel: ${site.funnel.length} steps, plated under the star`] : []),
+      ],
+      funnel: site.funnel?.map((step) => ({ label: step.step, url: new URL(step.path, site.url).toString() })),
       sections: [
         { title: "What is there", lines: site.built },
+        ...(site.funnel
+          ? [
+              {
+                title: "The funnel, in the order it happens",
+                lines: [
+                  ...site.funnel.map((step, index) => `${index + 1}. ${step.step} — ${step.path}`),
+                  ...(site.funnelNote ? [site.funnelNote] : []),
+                ],
+              },
+            ]
+          : []),
         { title: "What to look at", lines: site.look },
         ...(site.supply
           ? [

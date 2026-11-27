@@ -444,6 +444,10 @@ export class AtlasEngine {
   /** The district signs. They fade as you walk under them, or they fill the sky. */
   private readonly districtLabels: { sprite: THREE.Sprite; centre: THREE.Vector3 }[] = [];
   private readonly cards: { sprite: THREE.Sprite; base: THREE.Vector3 }[] = [];
+  /** The sites whose panel already carries its page's plate: no second read. */
+  private readonly plated = new Set<string>();
+  /** Each panel's face before a live page replaced it, so it can be put back. */
+  private readonly panelFaces = new Map<string, string>();
   /** Touch joystick input, merged with the keyboard in applyKeys(). */
   private touch = { forward: 0, strafe: 0, lift: 0, boost: false };
   /** The right-hand stick: a continuous look input, in the same units as a drag. */
@@ -951,6 +955,8 @@ export class AtlasEngine {
     this.suns.length = 0;
     this.labels.length = 0;
     this.cards.length = 0;
+    this.plated.clear();
+    this.panelFaces.clear();
   }
 
   private clearFocus() {
@@ -1209,6 +1215,13 @@ export class AtlasEngine {
           <span class="atlas-panel-url">${escapeHtml(node.href ?? "")}</span>
         </div>
         <div class="atlas-panel-body">
+          <div class="atlas-panel-plate">
+            <img alt="" />
+            <div class="atlas-panel-steps">
+              ${(node.funnel ?? []).map(() => "<img alt=\"\" />").join("")}
+            </div>
+            <p class="atlas-panel-caption">Reading the page…</p>
+          </div>
           <div class="atlas-panel-card">
             <p class="eyebrow">${escapeHtml(String(node.bullets[1] ?? "Reference site"))}</p>
             <h3>${escapeHtml(node.label)}</h3>
@@ -1228,6 +1241,42 @@ export class AtlasEngine {
       element.style.pointerEvents = "none";
       this.scene.add(object);
     }
+  }
+
+  /* ---------------------------------------------------------------- plates */
+
+  /**
+   * The plate goes in the site's own panel, not floating beside it: the panel is
+   * the page-shaped thing in the gallery, so the picture of the page belongs on
+   * its face. Filled when the read comes back; until then the panel is the card
+   * it always was.
+   */
+  setPanelPlate(nodeId: string, image: string, caption: string) {
+    const element = this.panels.get(nodeId);
+    if (!element) return;
+    const img = element.querySelector<HTMLImageElement>(".atlas-panel-plate img");
+    if (!img) return;
+    img.src = image;
+    img.alt = caption;
+    const note = element.querySelector<HTMLElement>(".atlas-panel-caption");
+    if (note) note.textContent = caption;
+    this.plated.add(nodeId);
+    element.dataset.plated = "true";
+  }
+
+  /** One step of a site's funnel, filled in the order a buyer walks them. */
+  setPanelStep(nodeId: string, index: number, image: string) {
+    const element = this.panels.get(nodeId);
+    if (!element) return;
+    const img = element.querySelectorAll<HTMLImageElement>(".atlas-panel-steps img")[index];
+    if (!img) return;
+    img.src = image;
+    img.alt = `Step ${index + 1} of the funnel`;
+  }
+
+  /** True when this site's panel already holds its plate. */
+  hasPlate(nodeId: string): boolean {
+    return this.plated.has(nodeId);
   }
 
   /* ---------------------------------------------------------------- board */
@@ -1502,6 +1551,10 @@ export class AtlasEngine {
   /* ------------------------------------------------------------ behaviour */
 
   select(id: string | null) {
+    /* Leaving a site puts its plate back: the live page is a visit, not a
+       conversion. Without this the panel would stay a frame for the rest of the
+       session, and the picture of the page would be gone. */
+    if (this.selected && this.selected !== id) this.restorePanel(this.selected);
     this.selected = id;
     const node = id ? this.atlas.nodes.find((entry) => entry.id === id) ?? null : null;
     this.setFocus(node);
@@ -1655,13 +1708,36 @@ export class AtlasEngine {
     const panel = this.panels.get(id);
     const node = this.atlas.nodes.find((entry) => entry.id === id);
     if (!panel || !node?.href) return false;
-    const body = panel.querySelector(".atlas-panel-body");
+    const body = panel.querySelector<HTMLElement>(".atlas-panel-body");
     if (!body) return false;
-    body.innerHTML = `<iframe src="${escapeHtml(node.href)}" title="${escapeHtml(
-      node.label
-    )}" loading="lazy" referrerpolicy="no-referrer"></iframe><p class="atlas-panel-note" style="position:absolute;bottom:0;left:0;right:0;background:#0a0512cc;margin:0;padding:.5rem .75rem">If this is empty, the site sends <code>X-Frame-Options</code> — use the tab link. Nothing is proxied or scraped.</p>`;
+    /* Keep the face we had — the plate, its funnel, its caption — so the live
+       page is something you can step out of rather than a one-way door. */
+    if (body.dataset.live !== "true") this.panelFaces.set(id, body.innerHTML);
+    body.dataset.live = "true";
+    body.innerHTML = `
+      <div class="atlas-panel-live">
+        <iframe src="${escapeHtml(node.href)}" title="${escapeHtml(node.label)}" loading="lazy" referrerpolicy="no-referrer"></iframe>
+      </div>
+      <div class="atlas-panel-live-side">
+        <p class="eyebrow">Live page</p>
+        <p class="atlas-panel-note">If this is empty it is not a fault in this space: many sites send <code>X-Frame-Options</code> and refuse to be framed by another domain. The tab link is the way in. Nothing here is proxied or scraped.</p>
+        <button type="button" class="btn ghost atlas-panel-back">Show the plate again</button>
+      </div>`;
+    const back = body.querySelector(".atlas-panel-back");
+    back?.addEventListener("click", () => this.restorePanel(id));
     this.handlers.onStatus(`${node.label}: live page requested. If the frame stays blank, the site refuses to be framed.`);
     return true;
+  }
+
+  /** Close the live page and put the plate back: the panel's own face. */
+  restorePanel(id: string) {
+    const panel = this.panels.get(id);
+    const body = panel?.querySelector<HTMLElement>(".atlas-panel-body");
+    const face = this.panelFaces.get(id);
+    if (!body || !face) return;
+    body.innerHTML = face;
+    delete body.dataset.live;
+    this.handlers.onStatus("Back to the plate.");
   }
 
   flyToId(id: string) {
@@ -2002,6 +2078,8 @@ export class AtlasEngine {
     window.removeEventListener("keydown", this.onKeyDown);
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("resize", this.resize);
+    this.plated.clear();
+    this.panelFaces.clear();
     this.renderer.dispose();
     this.host.innerHTML = "";
     this.cssHost.innerHTML = "";

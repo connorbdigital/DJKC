@@ -4,6 +4,9 @@ import { buildAtlas, kindColour, type AtlasNode } from "../atlas";
 import { loadAnythingApps, type AnythingApp } from "../anythingClient";
 import { scannedApps } from "../anythingScan";
 import { CORRIDOR, DOOR, ROOM_HIDDEN_LABEL, doorSign, forwardOf, planCity, roomAt, step, yawFor, type CityRoom } from "../city";
+import { plateLayout } from "../plate";
+import { loadPlate } from "../plateClient";
+import { plateTexture } from "../plateDraw";
 import ProjectSpace from "./ProjectSpace";
 
 /**
@@ -266,6 +269,8 @@ export default function City({ onLeave, onAtlas }: CityProps) {
 
     /* ── one plinth and one orb per node ─────────────────────────────── */
     const pickable: THREE.Object3D[] = [];
+    /* The sites whose page will hang over their plinth, once it has been read. */
+    const sitePlates: { url: string; sprite: THREE.Sprite }[] = [];
     const plinthGeometry = new THREE.CylinderGeometry(0.34, 0.4, 0.9, 18);
     const orbGeometry = new THREE.SphereGeometry(0.26, 24, 18);
     for (const object of plan.objects) {
@@ -289,6 +294,21 @@ export default function City({ onLeave, onAtlas }: CityProps) {
 
       /* A sprite, not a plane: it always faces you, so a room full of labels
          stays readable from any angle and never shows its edge. */
+      if (object.node.kind === "site") {
+        /* A site's sign is the page itself: the plate replaces the label, in the
+           same slot, filled when the read comes back. Until then the slot is
+           empty rather than a placeholder pretending to be a page. */
+        const plateSprite = new THREE.Sprite(
+          new THREE.SpriteMaterial({ transparent: true, depthWrite: false, opacity: 0 })
+        );
+        plateSprite.scale.set(1.44, 0.9, 1);
+        plateSprite.position.set(object.x, 2.02 + (Math.round(object.z) % 2 === 0 ? 0 : 0.34), object.z);
+        scene.add(plateSprite);
+        disposables.push(plateSprite.material as THREE.Material);
+        if (object.node.href) sitePlates.push({ url: object.node.href, sprite: plateSprite });
+        continue;
+      }
+
       const texture = labelTexture(object.node.label, "#efe6ff", "rgba(8,4,16,0.72)");
       const sprite = new THREE.Sprite(
         new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false })
@@ -299,6 +319,35 @@ export default function City({ onLeave, onAtlas }: CityProps) {
       scene.add(sprite);
       disposables.push(texture, sprite.material as THREE.Material);
     }
+
+    /* ── the pages themselves ────────────────────────────────────────── */
+    /* Each site in the gallery hangs its own page over its plinth: the plate is
+       read from the live page, so the room shows what the site looks like. Two
+       at a time, and nothing is shown until it is real. */
+    let platesCancelled = false;
+    void (async () => {
+      const queue = [...sitePlates];
+      const runners = Array.from({ length: 2 }, async () => {
+        for (;;) {
+          const entry = queue.shift();
+          if (!entry || platesCancelled) return;
+          const plate = await loadPlate(entry.url);
+          if (!plate || platesCancelled) return;
+          const texture = await plateTexture(plateLayout(plate), plate.image, { scale: 2 });
+          if (!texture) return;
+          if (platesCancelled) {
+            texture.dispose();
+            return;
+          }
+          const material = entry.sprite.material as THREE.SpriteMaterial;
+          material.map?.dispose();
+          material.map = texture;
+          material.opacity = 1;
+          material.needsUpdate = true;
+        }
+      });
+      await Promise.all(runners);
+    })();
 
     /* ── walking ─────────────────────────────────────────────────────── */
     teleport.current = (room: CityRoom) => {
@@ -459,7 +508,12 @@ export default function City({ onLeave, onAtlas }: CityProps) {
       host.removeEventListener("pointerdown", onTouchStart);
       host.removeEventListener("wheel", onWheel);
       renderer.domElement.removeEventListener("pointerup", onClick);
-      for (const item of disposables) item.dispose();
+      platesCancelled = true;
+      for (const item of disposables) {
+        const material = item as THREE.SpriteMaterial;
+        if ((material as { isSpriteMaterial?: boolean }).isSpriteMaterial) material.map?.dispose();
+        item.dispose();
+      }
       plinthGeometry.dispose();
       orbGeometry.dispose();
       wallMaterial.dispose();

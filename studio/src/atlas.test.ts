@@ -484,9 +484,12 @@ describe("what a site says about itself", () => {
     for (const site of SITES) {
       const node = atlas.nodes.find((entry) => entry.id === site.id)!;
       expect(node.kind).toBe("site");
-      expect(node.sections?.map((section) => section.title)).toEqual(
-        site.supply ? ["What is there", "What to look at", "The supplier view"] : ["What is there", "What to look at"]
-      );
+      expect(node.sections?.map((section) => section.title)).toEqual([
+        "What is there",
+        ...(site.funnel ? ["The funnel, in the order it happens"] : []),
+        "What to look at",
+        ...(site.supply ? ["The supplier view"] : []),
+      ]);
       expect(node.sections![0]!.lines).toEqual(site.built);
       expect(node.href).toBe(site.url);
       /* The panel opens the page; the sections explain it. */
@@ -502,6 +505,31 @@ describe("what a site says about itself", () => {
       expect(site.supply!.gives.length).toBeGreaterThan(20);
       expect(site.supply!.wants.length).toBeGreaterThan(10);
       expect(site.supply!.check.length).toBeGreaterThan(20);
+    }
+  });
+
+  it("gives a funnel only to the sites we built, with every step a real page", () => {
+    const withFunnel = SITES.filter((site) => site.funnel);
+    expect(withFunnel.map((site) => site.id).sort()).toEqual(["site-ecommerce", "site-sitebuildup"]);
+    for (const site of withFunnel) {
+      expect(site.funnel!.length).toBeGreaterThanOrEqual(3);
+      expect(site.funnelNote?.length ?? 0).toBeGreaterThan(40);
+      const host = new URL(site.url).host;
+      for (const step of site.funnel!) {
+        const url = new URL(step.path, site.url);
+        expect(url.host).toBe(host);
+        expect(url.protocol).toBe("https:");
+        expect(step.step.length).toBeGreaterThan(3);
+      }
+      /* The node carries the same steps, absolute, so the plate reader can use them. */
+      const node = atlas.nodes.find((entry) => entry.id === site.id)!;
+      expect(node.funnel?.map((step) => step.url)).toEqual(
+        site.funnel!.map((step) => new URL(step.path, site.url).toString())
+      );
+    }
+    /* Nothing is invented for a site that is not ours. */
+    for (const site of SITES.filter((entry) => !entry.funnel)) {
+      expect(atlas.nodes.find((entry) => entry.id === site.id)!.funnel).toBeUndefined();
     }
   });
 });
