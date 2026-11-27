@@ -73,6 +73,104 @@ function labelSprite(text: string, colour = "#f6f1ff", size = 0.34): THREE.Sprit
   return sprite;
 }
 
+/**
+ * A part of an app, as a hologram.
+ *
+ * An app has no pages, so there is no plate to hang and nothing to fetch: what it
+ * has is a list of names — screens, components, functions. Drawn as a lit sheet of
+ * glass with the name on it, hanging above its own star, that list becomes the
+ * room's furniture: you can see at a glance what the app is made of, and the
+ * sheets are the one thing in the room that always faces you.
+ */
+function holoCard(text: string, accent: string, index: number): THREE.Sprite {
+  const width = 512;
+  const height = 288;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d")!;
+
+  /* Glass, not paint: a diagonal wash that fades to almost nothing, so the stars
+     behind a card are still there. */
+  const wash = ctx.createLinearGradient(0, 0, width, height);
+  wash.addColorStop(0, "rgba(30, 46, 82, 0.62)");
+  wash.addColorStop(0.55, "rgba(16, 22, 44, 0.42)");
+  wash.addColorStop(1, "rgba(9, 13, 26, 0.26)");
+  ctx.fillStyle = wash;
+  ctx.beginPath();
+  ctx.roundRect(6, 6, width - 12, height - 12, 22);
+  ctx.fill();
+
+  /* The rim, lit in the card's own colour, and a 1px white inner edge so it reads
+     as glass rather than fog. */
+  ctx.shadowColor = accent;
+  ctx.shadowBlur = 26;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = accent;
+  ctx.beginPath();
+  ctx.roundRect(6, 6, width - 12, height - 12, 22);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(255,255,255,0.34)";
+  ctx.beginPath();
+  ctx.roundRect(8.5, 8.5, width - 17, height - 17, 20);
+  ctx.stroke();
+
+  /* The accent bar and the part's number. */
+  ctx.fillStyle = accent;
+  ctx.fillRect(30, 30, 74, 5);
+  ctx.font = "600 22px ui-monospace, SFMono-Regular, Menlo, monospace";
+  ctx.fillStyle = "rgba(220, 214, 242, 0.62)";
+  ctx.fillText(String(index + 1).padStart(2, "0"), 30, 68);
+
+  /* The name: three lines at most, shrinking a step when it needs to. */
+  const lines: string[] = [];
+  let size = 40;
+  ctx.font = `600 ${size}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`;
+  const words = text.split(/\s+/);
+  let line = "";
+  for (const word of words) {
+    const attempt = line ? `${line} ${word}` : word;
+    if (ctx.measureText(attempt).width > width - 70 && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = attempt;
+    }
+  }
+  if (line) lines.push(line);
+  while (lines.length > 3 && size > 24) {
+    size -= 4;
+    ctx.font = `600 ${size}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`;
+    lines.length = 0;
+    line = "";
+    for (const word of words) {
+      const attempt = line ? `${line} ${word}` : word;
+      if (ctx.measureText(attempt).width > width - 70 && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = attempt;
+      }
+    }
+    if (line) lines.push(line);
+  }
+  ctx.font = `600 ${size}px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif`;
+  ctx.fillStyle = "#f6f1ff";
+  lines.slice(0, 3).forEach((entry, index_) => {
+    ctx.fillText(entry, 30, 118 + index_ * (size + 8));
+  });
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(4.0, 2.25, 1);
+  return sprite;
+}
+
 function starfield(count = 900, spread = 260): THREE.Points {
   const positions = new Float32Array(count * 3);
   for (let index = 0; index < count; index += 1) {
@@ -207,7 +305,10 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
     scene.background = new THREE.Color("#06030c");
     scene.fog = new THREE.FogExp2(0x06030c, 0.012);
 
-    const ring = ringRadius(seed.nodes.length);
+    const moduleNames = !project.pages?.length && project.modules?.length ? project.modules : null;
+    /* An app's parts are sheets to read, so its ring closes in: the same radius
+       that keeps nine posters apart puts twelve names too far away to read. */
+    const ring = moduleNames ? Math.min(ringRadius(seed.nodes.length), 11) : ringRadius(seed.nodes.length);
     const framing = framingFor(ring);
     const camera = new THREE.PerspectiveCamera(framing.fov, 1, 0.1, 600);
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "low-power" });
@@ -255,6 +356,10 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
     hubLabel.position.set(0, -1.75, 0);
     scene.add(hubLabel);
 
+    /* An app has parts, not pages: there is no picture to hang, so each part
+       hangs itself — a hologram with its name on it, above its own star. */
+    const cards: THREE.Sprite[] = [];
+
     /* The ring: one star, one poster, one label each. */
     const layout = ringLayout(seed.nodes.map((node) => node.id), { radius: ring });
     layout.forEach((item, index) => {
@@ -275,9 +380,28 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       stars.set(node.id, star);
       positions.set(node.id, item.position);
 
-      const label = labelSprite(node.label, "#dcd6f2", 0.34);
-      label.position.set(item.position[0] * 1.06, item.position[1] - item.radius - 0.55, item.position[2] * 1.06);
-      scene.add(label);
+      const label = moduleNames ? null : labelSprite(node.label, "#dcd6f2", 0.34);
+      if (label) {
+        label.position.set(item.position[0] * 1.06, item.position[1] - item.radius - 0.55, item.position[2] * 1.06);
+        scene.add(label);
+      }
+
+      if (moduleNames) {
+        /* A hologram above the star, and a hairline down to it, so the sheet
+           belongs to the star it is hanging over. */
+        const sprite = holoCard(moduleNames[index] ?? node.label, tone, index);
+        /* Two heights, alternating: on one ring the sheets read as a fence. */
+        const lift = item.radius + (index % 2 === 0 ? 1.15 : 1.95);
+        sprite.position.set(item.position[0], item.position[1] + lift, item.position[2]);
+        scene.add(sprite);
+        cards.push(sprite);
+        const thread = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(item.position[0], item.position[1] + item.radius, item.position[2]),
+          new THREE.Vector3(item.position[0], item.position[1] + lift - 1.12, item.position[2]),
+        ]);
+        scene.add(new THREE.Line(thread, new THREE.LineBasicMaterial({ color: tone, transparent: true, opacity: 0.45 })));
+        return;
+      }
 
       /* The poster: dark glass until a picture arrives, so a page with no
          picture is a frame in the room rather than a hole in the wall. */
@@ -299,7 +423,7 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       posterAt.set(node.id, { position: item.plate.position, width: item.plate.width, height: item.plate.height });
     });
 
-    if (seed.hub.href) {
+    if (seed.hub.href && !moduleNames) {
       /* The front page has a poster too: a little bigger, straight ahead. */
       const plate = new THREE.Mesh(
         new THREE.PlaneGeometry(PLATE_WIDTH * 1.15, PLATE_HEIGHT * 1.15),
@@ -366,8 +490,11 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       const iframe = document.createElement("iframe");
       /* The page's own markup, fetched and made safe by /api/site?page=, so it can
          be shown even where the site refuses to be framed. Sandboxed with no
-         allow-same-origin: even a script that survived the strip is an orphan. */
-      iframe.src = `/api/site?page=${encodeURIComponent(node.href)}`;
+         allow-same-origin: even a script that survived the strip is an orphan.
+         The read is done *before* the frame is pointed at it: a frame pointed at a
+         refusal is a white rectangle in the middle of the room, and the poster
+         behind it is better than that. */
+      const source = `/api/site?page=${encodeURIComponent(node.href)}`;
       iframe.setAttribute("sandbox", "");
       iframe.setAttribute("loading", "lazy");
       iframe.setAttribute("referrerpolicy", "no-referrer");
@@ -381,6 +508,29 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       });
       frame.appendChild(iframe);
       const object = new CSS3DObject(frame);
+      let cancelled = false;
+      void fetch(source, { headers: { accept: "text/html" } })
+        .then((response) => (response.ok ? response.text() : null))
+        .then((html) => {
+          if (cancelled || !html || !/<body/i.test(html)) {
+            frame.remove();
+            object.element.remove();
+            scene.remove(object);
+            liveObjects.delete(id);
+            const at = liveOrder.indexOf(id);
+            if (at >= 0) liveOrder.splice(at, 1);
+            setLive(liveObjects.size);
+            return;
+          }
+          iframe.srcdoc = html;
+          frame.dataset.ready = "1";
+        })
+        .catch(() => {
+          frame.remove();
+          scene.remove(object);
+          liveObjects.delete(id);
+          setLive(liveObjects.size);
+        });
       object.position.set(...at.position);
       object.scale.setScalar(at.width / LIVE_W);
       scene.add(object);
@@ -636,15 +786,24 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
           <p className="space-kicker">{isApp ? "Inside the app" : "Inside the project"}</p>
           <h2>{project.label}</h2>
           <p className="space-meta">
-            {counts.total} {isApp ? "parts" : "pages"} · {counts.read} read · {counts.live} links read ·{" "}
-            {live ? `${live} ${live === 1 ? "page" : "pages"} live` : "no pages live yet"} · {plated}{" "}
-            {plated === 1 ? "picture" : "pictures"} hanging
+            {isApp ? (
+              <>
+                {counts.total} parts, every one a hologram · {counts.read} read · {counts.live} streams read
+                {live ? ` · the running app is live` : ""}
+              </>
+            ) : (
+              <>
+                {counts.total} pages · {counts.read} read · {counts.live} links read ·{" "}
+                {live ? `${live} ${live === 1 ? "page" : "pages"} live` : "no pages live yet"} · {plated}{" "}
+                {plated === 1 ? "picture" : "pictures"} hanging
+              </>
+            )}
           </p>
         </div>
         <div className="space-head-actions">
           {project.href && (
             <a className="space-button" href={project.href} target="_blank" rel="noopener noreferrer">
-              Open the site ↗
+              {isApp ? "Open the running app ↗" : "Open the site ↗"}
             </a>
           )}
           <button className="space-button quiet" type="button" onClick={() => setView("list")}>
@@ -668,8 +827,9 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       </div>
 
       <p className="space3d-legend">
-        Drag to turn, wheel to fly in · a star is a {isApp ? "part" : "page"} · a panel is that page itself, {isApp ? "" : "fetched and made safe, "}not a drawing of it · a stream is a
-        link read off the page
+        {isApp
+          ? "Drag to turn, wheel to fly in · every star is a part of the app · every sheet is that part's own name, lit"
+          : "Drag to turn, wheel to fly in · a star is a page · a panel is that page itself, fetched and made safe, not a drawing of it · a stream is a link read off the page"}
       </p>
 
       {selectedNode ? (

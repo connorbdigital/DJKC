@@ -454,7 +454,7 @@ function cardSprite(node: AtlasNode) {
   const sprite = new THREE.Sprite(
     new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, depthTest: true })
   );
-  sprite.scale.set(4.4, 2.48, 1);
+  sprite.scale.set(3.4, 1.92, 1);
   return sprite;
 }
 
@@ -828,7 +828,7 @@ export class AtlasEngine {
   private buildEdges() {
     const byId = new Map(this.atlas.nodes.map((node) => [node.id, node]));
     const colours: Record<string, number> = { installs: 0xffd166, proves: 0x7dd3fc, contains: 0x6ee7b7 };
-    const opacity: Record<string, number> = { installs: 0.26, proves: 0.12, contains: 0.16 };
+    const opacity: Record<string, number> = { installs: 0.42, proves: 0.2, contains: 0.3 };
     for (const edge of this.atlas.edges) {
       const from = byId.get(edge.from);
       const to = byId.get(edge.to);
@@ -1972,12 +1972,12 @@ export class AtlasEngine {
       const away = world.distanceTo(this.rig.position);
       const factor = clamp(away / 42, 0.55, 1.9);
       card.sprite.scale.set(card.base.x * factor, card.base.y * factor, 1);
-      /* A brief is a hologram that exists only when you are near it. Beyond about
-         seventy units it is nothing at all — not faint, not a faint rectangle:
-         gone. Fourteen rectangles of text on the horizon are the wall this space
-         exists not to be, and the stars are what you should see from the library. */
+      /* A brief is a hologram that exists only when you are near it: full at
+         fourteen units, gone by forty-six. Not faint — gone. Fourteen rectangles
+         on the horizon are the wall this space exists not to be, and the stars are
+         what you should see from anywhere in the room. */
       const material = card.sprite.material as THREE.SpriteMaterial;
-      material.opacity = clamp(1 - (away - 20) / 44, 0, 1);
+      material.opacity = clamp(1 - (away - 14) / 32, 0, 1);
       card.sprite.visible = material.opacity > 0.02;
     }
 
@@ -2009,8 +2009,8 @@ export class AtlasEngine {
       const focused = this.focusId !== null && (edge.from === this.focusId || edge.to === this.focusId);
       material.opacity =
         (focused
-          ? clamp(0.95 - away / 700, 0.3, 0.95)
-          : clamp(0.52 - away / 700, 0.1, 0.52) * (edge.kind === "proves" ? 0.45 : 1)) * this.edgeScale;
+          ? clamp(1 - away / 700, 0.45, 1)
+          : clamp(0.72 - away / 700, 0.2, 0.72) * (edge.kind === "proves" ? 0.55 : 1)) * this.edgeScale;
     }
 
     /* The streams: particles walking the selected node's wires. */
