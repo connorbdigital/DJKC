@@ -1,7 +1,53 @@
 import { useCallback, useEffect, useState } from "react";
 import { loadAnythingList, loadAnythingProject, type AnythingApp } from "../anythingClient";
 import { scan, scanLine } from "../anythingScan";
+import { accountCategories, categoryOrder } from "../anythingCategories";
+import { CATEGORIES, categoryInfo } from "../features";
 import type { AnythingMe, AnythingProject } from "../anything";
+
+/**
+ * What the account is made of, on the library's own shelves.
+ *
+ * The build reads every module name in every project; this groups them by the
+ * seven shelves the feature library already uses. It is a reading of names, not
+ * of code — the Anything API gives an inventory, not a repository — and the
+ * block says so rather than dressing the guess up as a measurement.
+ */
+function ShelfReading() {
+  if (!scan.ok || !scan.apps.length) return null;
+  const reading = accountCategories(scan.apps);
+  const ranked = categoryOrder
+    .map((id) => ({ id, count: reading.counts[id] }))
+    .sort((a, b) => b.count - a.count);
+  const busiest = ranked[0];
+  if (!busiest || busiest.count === 0) return null;
+  return (
+    <div className="anything-shelves">
+      <p className="eyebrow">What can go in the categories</p>
+      <p className="muted small">
+        {reading.total.toLocaleString("en-GB")} parts across {scan.apps.length} projects, read at build time and grouped by
+        the shelf each would go on here. {busiest.count.toLocaleString("en-GB")} of them are{" "}
+        <strong>{categoryInfo(busiest.id)?.label ?? busiest.id}</strong>. A reading of names, not of code: the Anything API
+        gives an inventory, not a repository.
+      </p>
+      <ul className="chip-row">
+        {categoryOrder.map((id) => (
+          <li key={id} className="chip">
+            {categoryInfo(id)?.label ?? id} · <strong>{reading.counts[id]}</strong>
+          </li>
+        ))}
+        {reading.uncategorised > 0 && (
+          <li className="chip" title="Page copy by default — nothing in the name pointed anywhere else">
+            Reads as page copy · <strong>{reading.uncategorised}</strong>
+          </li>
+        )}
+      </ul>
+      <p className="muted small">
+        Shelves in the library: {CATEGORIES.map((category) => category.label).join(" · ")}.
+      </p>
+    </div>
+  );
+}
 
 type State =
   | { kind: "loading" }
@@ -112,6 +158,7 @@ export function Anything() {
           renames or deletes anything.
         </p>
         <p className="muted small">{scanLine()}</p>
+        <ShelfReading />
         <div className="row-actions">
           <button className="btn ghost" type="button" onClick={() => setReload((count) => count + 1)}>
             Try again
@@ -165,6 +212,8 @@ export function Anything() {
           })}
         />
       </div>
+
+      <ShelfReading />
 
       {organisations.length > 1 && (
         <p className="muted small">

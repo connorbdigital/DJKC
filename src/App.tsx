@@ -9,6 +9,7 @@ import { Hero } from "./components/Hero";
 import { SocialProof } from "./components/SocialProof";
 import { Marquee } from "./components/Marquee";
 import { Experience } from "./components/Experience";
+import { Occasions } from "./components/Occasions";
 import { Music } from "./components/Music";
 import { Benefits } from "./components/Benefits";
 import { Shows } from "./components/Shows";
@@ -149,6 +150,7 @@ export default function App() {
         <SocialProof />
         <Marquee />
         <Experience />
+        <Occasions />
         <Music
           trackIndex={trackIndex}
           playing={playing}

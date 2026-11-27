@@ -101,6 +101,13 @@ export function Footer() {
             ["Questions", "/faq.html"],
             ["Where KC plays", "/coverage.html"],
             ["About KC", "/about.html"],
+            ["Occasions", "/event-types.html"],
+            ["Birthdays", "/birthday-party-dj.html"],
+            ["Corporate", "/corporate-dj.html"],
+            ["Christmas parties", "/christmas-party-dj.html"],
+            ["Club nights", "/club-night-dj.html"],
+            ["Festivals", "/festival-dj.html"],
+            ["Proms", "/prom-dj.html"],
           ].map(([label, href]) => (
             <a key={href} href={href} className="transition-colors hover:text-magenta">
               {label}
