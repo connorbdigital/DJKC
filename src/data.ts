@@ -504,6 +504,18 @@ export const FAQS = [
     a: "Average lead time for a UK DJ booking is around four to five months, and six to twelve for peak Saturdays and weddings. Prime Friday and Saturday dates with KC typically go 6–10 weeks out; December and festival season earlier. Short-notice enquiries are always worth sending — cancellations happen.",
   },
   {
+    q: "How much does a DJ cost for a birthday party or Christmas do?",
+    a: "Birthday parties and Christmas parties are quoted from £650 for two hours with sound, lighting and a mic for speeches, and from £1,100 for three hours with live vocals. December Fridays and Saturdays go first — by October the last two weekends are usually taken, while midweek dates stay open longer and cost less.",
+  },
+  {
+    q: "Do you play festivals and brand events?",
+    a: "Yes. Festival sets and brand takeovers are quoted within 24 hours, and include a production advance, a stage plot and a press kit for your programme. Set lengths run from 45 minutes to two hours, with the live vocal set available on a main stage, and lineup curation on request.",
+  },
+  {
+    q: "Do you play proms and student nights?",
+    a: "Yes — proms, leavers balls and student nights across the North West from £650 for two hours. Every vocal record in a prom set is a clean edit, explicit requests are declined, and DBS-checked crew plus a written risk assessment are available for the school office on request.",
+  },
+  {
     q: "Can we hear a full mix before booking?",
     a: "Press play on this page — the demo deck streams KC-style loops built from her productions. Ask for full-length recorded mixes and live footage in your booking email.",
   },

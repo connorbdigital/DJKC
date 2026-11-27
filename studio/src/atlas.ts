@@ -533,6 +533,13 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
       ],
       position: spherePoint(index, CAPABILITIES.length, 34),
       size: SIZE.small,
+      /* The process has a page of its own, written at build time from the same
+         library entry, so a star is also a thing you can read and link to. */
+      href: `/process/${capability.id}.html`,
+      pages: [
+        { label: "Read the process", href: `/process/${capability.id}.html` },
+        { label: `Source: ${capability.source}`, href: `https://github.com/${capability.source}` },
+      ],
     });
   });
 

@@ -187,7 +187,7 @@ export const CAPABILITIES: Capability[] = [
   {
     id: "static-seo-pages",
     category: "search",
-    version: "1.0.1",
+    version: "1.1.0",
     name: "Crawlable static pages",
     summary:
       "Builds real HTML pages — prices, FAQs, dates, coverage — plus sitemap.xml and llms.txt from your data file, so search engines and answer bots can read the site without running JavaScript.",
@@ -198,6 +198,9 @@ export const CAPABILITIES: Capability[] = [
     source: "connorbdigital/DJKC",
     files: [
       { path: "scripts/build-static-pages.mts", role: "The generator", adapt: true },
+      { path: "src/eventTypes.ts", role: "One entry per kind of booking: answer-first copy, facts, questions", adapt: true },
+      { path: "src/components/Occasions.tsx", role: "The homepage block that links every generated page", adapt: true },
+      { path: "src/components/Reveal.tsx", role: "The scroll-in wrapper that block uses" },
       { path: "index.html", role: "noscript facts, JSON-LD, meta — copy the shape, not the content", adapt: true },
       { path: "public/robots.txt", role: "Sitemap line and answer-engine access", adapt: true },
     ],
@@ -207,6 +210,7 @@ export const CAPABILITIES: Capability[] = [
     manual: [
       "Add a postbuild script: node --experimental-strip-types scripts/build-static-pages.mts",
       "Replace the page bodies with this project's facts",
+      "Give every kind of booking its own entry in src/eventTypes.ts — one page per buyer, not one page listing all of them",
     ],
   },
   {
