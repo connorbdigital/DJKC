@@ -1194,11 +1194,15 @@ export const STUDIO_COMPONENTS: {
   {
     id: "project-space",
     label: "A project's own space",
-    line: "The front page in the middle, every page on a ring, links read off the pages.",
+    line: "A room: the front page as its sun, every page a star on a ring, every picture hanging behind it.",
     detail:
-      "Open a project and the space becomes that project: a circle per page, a line per link, and nothing drawn that was not read from the site itself. An Anything app puts its modules on the same ring.",
-    bullets: ["studio/src/components/ProjectSpace.tsx", "studio/src/atlasSpace.ts", "Streams read via POST /api/site {links:true}"],
-    file: "studio/src/components/ProjectSpace.tsx",
+      "Open a project and the space becomes that project, in three dimensions: you stand inside it, the front page is the sun you are near, and every other page is a star on the ring around you with its own plate hanging above it. Links are drawn only where one was read off the page itself, and the note under the room says which pages would not answer. The list is still there behind a button, because a room you cannot write down is a room you cannot search.",
+    bullets: [
+      "studio/src/components/ProjectSpace3D.tsx",
+      "studio/src/space3d.ts — the ring, the posters, the framing",
+      "The list is studio/src/components/ProjectSpace.tsx",
+    ],
+    file: "studio/src/components/ProjectSpace3D.tsx",
   },
   {
     id: "city-bar",

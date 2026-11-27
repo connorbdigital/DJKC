@@ -12,7 +12,7 @@ import { getToken } from "../token";
 import { plateLayout } from "../plate";
 import { loadPlate } from "../plateClient";
 import { plateCanvas } from "../plateDraw";
-import ProjectSpace from "./ProjectSpace";
+import ProjectSpace3D from "./ProjectSpace3D";
 import { SiteThumb } from "./SiteThumb";
 import {
   TOUR,
@@ -1707,7 +1707,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         </section>
       )}
 
-      {space && <ProjectSpace project={space} onClose={() => setSpace(null)} />}
+      {space && <ProjectSpace3D project={space} onClose={() => setSpace(null)} />}
 
       {!ready && !failed && <div className="atlas-hud atlas-loading">Building the space…</div>}
     </div>
