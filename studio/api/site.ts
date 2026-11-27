@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { checkSite, checkUrl, pagePreview } from "../src/sitecheck.js";
 import { internalLinks } from "../src/atlasSpace.js";
 import { pageFacts } from "../src/plate.js";
+import { PAGE_HEADERS, proxyPage } from "../src/pageProxy.js";
 
 /**
  * Fetches one public https page and returns a summary of it.
@@ -145,6 +146,40 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       } catch (problem) {
         const aborted = problem instanceof Error && problem.name === "AbortError";
         json(res, aborted ? 504 : 502, { ok: false, error: aborted ? "That picture took too long." : "That picture could not be read." });
+      } finally {
+        clearTimeout(timer);
+      }
+      return;
+    }
+
+    /* ?page=<url>: the page itself, fetched here, made safe, and served from this
+       origin so it can be framed where the site refuses framing. Its scripts, its
+       handlers and its nested frames are gone; its markup, its stylesheets and its
+       pictures are not. This is the only way to hang the actual thing in the space
+       rather than a drawing of it. */
+    const pageAsked = params.get("page") ?? "";
+    if (pageAsked) {
+      const verdict = checkUrl(pageAsked);
+      if (!verdict.ok || !verdict.url) {
+        json(res, 400, { ok: false, error: verdict.reason ?? "That page cannot be read." });
+        return;
+      }
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      try {
+        const page = await readPage(verdict.url, controller.signal);
+        if (!page.ok) {
+          json(res, page.status, { ok: false, error: page.error });
+          return;
+        }
+        const proxied = proxyPage(page.html, verdict.url.toString());
+        res.statusCode = 200;
+        for (const [header, value] of Object.entries(PAGE_HEADERS)) res.setHeader(header, value);
+        res.setHeader("X-Truncated", proxied.truncated ? "1" : "0");
+        res.end(proxied.html);
+      } catch (problem) {
+        const aborted = problem instanceof Error && problem.name === "AbortError";
+        json(res, aborted ? 504 : 502, { ok: false, error: aborted ? "That page took too long to answer." : "That page could not be read." });
       } finally {
         clearTimeout(timer);
       }

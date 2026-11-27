@@ -850,9 +850,10 @@ export class AtlasEngine {
         geometry,
         new THREE.LineBasicMaterial({ color: colours[edge.kind] ?? 0xffffff, transparent: true, opacity: opacity[edge.kind] ?? 0.2 })
       );
-      /* The brief → process links are the busiest thing here, so they only appear
-         once a post is selected: the space stays readable until you ask. */
-      line.visible = edge.kind !== "proves";
+      /* Every wire is drawn, always: a space whose shape only appears when you
+         press something is a space with no shape. The brief → process links are
+         the busiest family, so they are drawn faintest rather than not at all. */
+      line.visible = true;
       this.edgeLines.push({ from: edge.from, to: edge.to, kind: edge.kind, line, midpoint: curve.getPoint(0.5), curve });
       this.scene.add(line);
     }
@@ -1971,12 +1972,13 @@ export class AtlasEngine {
       const away = world.distanceTo(this.rig.position);
       const factor = clamp(away / 42, 0.55, 1.9);
       card.sprite.scale.set(card.base.x * factor, card.base.y * factor, 1);
-      /* A brief is a hologram that wakes as you approach: readable when you are
-         near it, and at a distance only a lit edge in the dark. Fourteen slabs of
-         text at two hundred metres is a wall, not a plan, and a wall is the one
-         thing this space must never be. */
+      /* A brief is a hologram that exists only when you are near it. Beyond about
+         seventy units it is nothing at all — not faint, not a faint rectangle:
+         gone. Fourteen rectangles of text on the horizon are the wall this space
+         exists not to be, and the stars are what you should see from the library. */
       const material = card.sprite.material as THREE.SpriteMaterial;
-      material.opacity = clamp(1 - (away - 34) / 120, 0.1, 1);
+      material.opacity = clamp(1 - (away - 20) / 44, 0, 1);
+      card.sprite.visible = material.opacity > 0.02;
     }
 
     /* Stars turn slowly and breathe; edges fade with distance so the far side of
@@ -2007,8 +2009,8 @@ export class AtlasEngine {
       const focused = this.focusId !== null && (edge.from === this.focusId || edge.to === this.focusId);
       material.opacity =
         (focused
-          ? clamp(0.95 - away / 700, 0.25, 0.95)
-          : clamp(0.34 - away / 900, 0.03, 0.34) * (edge.kind === "proves" ? 1.1 : 1)) * this.edgeScale;
+          ? clamp(0.95 - away / 700, 0.3, 0.95)
+          : clamp(0.52 - away / 700, 0.1, 0.52) * (edge.kind === "proves" ? 0.45 : 1)) * this.edgeScale;
     }
 
     /* The streams: particles walking the selected node's wires. */

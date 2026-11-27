@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { CSS3DObject, CSS3DRenderer } from "three/examples/jsm/renderers/CSS3DRenderer.js";
 import type { AtlasNode } from "../atlas";
 import { buildSpace, mergeLive, type Space } from "../atlasSpace";
 import { knownPlate, loadPlate } from "../plateClient";
@@ -111,6 +112,11 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
   /* The room is built once; these are the two things it hands back to React —
      the posters it can paint later, and the streams it redraws when reads land. */
   const plates = useRef(new Map<string, THREE.Mesh>());
+  /* The real thing, not a drawing of it: a page's own markup, framed from this
+     origin. `show` promotes a page to live, and the room remembers the order so
+     it can drop the oldest when a sixth is asked for. */
+  const show = useRef<(id: string) => void>(() => {});
+  const [live, setLive] = useState(0);
   /* A picture is expensive and a room can be rebuilt: the textures outlive the
      scene, so coming back from the list does not reload nine pages. */
   const textures = useRef(new Map<string, THREE.Texture>());
@@ -212,6 +218,16 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
     renderer.domElement.style.height = "100%";
     renderer.domElement.style.touchAction = "none";
 
+    /* A second renderer, on top, for the one thing WebGL cannot draw: real HTML.
+       CSS3D turns a div into a plane in the same scene, so a page's actual header
+       hangs in the room beside the stars, and drags still reach the canvas because
+       the layer takes no pointer events. */
+    const cssRenderer = new CSS3DRenderer();
+    cssRenderer.domElement.style.position = "absolute";
+    cssRenderer.domElement.style.inset = "0";
+    cssRenderer.domElement.style.pointerEvents = "none";
+    host.appendChild(cssRenderer.domElement);
+
     scene.add(starfield());
 
     /* A floor, so the ring has depth without a horizon line drawn through it. */
@@ -223,6 +239,7 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
 
     const stars = new Map<string, THREE.Object3D>();
     const positions = new Map<string, Vec3>();
+    const posterAt = new Map<string, { position: Vec3; width: number; height: number }>();
 
     /* The hub: the page you are standing next to. */
     const hubGeometry = new THREE.SphereGeometry(1.05, 32, 24);
@@ -279,6 +296,7 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       edges.visible = false;
       scene.add(plate);
       plates.current.set(node.id, plate);
+      posterAt.set(node.id, { position: item.plate.position, width: item.plate.width, height: item.plate.height });
     });
 
     if (seed.hub.href) {
@@ -297,6 +315,11 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       plate.userData = { frame: edges };
       scene.add(plate);
       plates.current.set(seed.hub.id, plate);
+      posterAt.set(seed.hub.id, {
+        position: [0, 2.1, -2.2],
+        width: PLATE_WIDTH * 1.15,
+        height: PLATE_HEIGHT * 1.15,
+      });
     }
 
     /* Streams. Redrawn whenever a page's links come back. */
@@ -314,15 +337,69 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
         const points = arcPoints(from, to, { segments: 28, bend: live.edges.length > 20 ? 0.14 : 0.2 });
         const geometry = new THREE.BufferGeometry().setFromPoints(points.map((p) => new THREE.Vector3(...p)));
         const material = new THREE.LineBasicMaterial({
-          color: edge.source === "live" ? "#ff2bd6" : "#8ea2ff",
+          color: edge.source === "live" ? "#ff2bd6" : "#9fb0ff",
           transparent: true,
-          opacity: edge.source === "live" ? 0.55 : 0.16,
+          opacity: edge.source === "live" ? 0.72 : 0.34,
         });
         streams.add(new THREE.Line(geometry, material));
       }
     };
     drawStreams(seed);
     redraw.current = drawStreams;
+
+    /* ---------------------------------------------------------- the real pages */
+    /* Five at once. A room with nine live iframes is nine pages loading at the
+       reader's expense, and the posters already say what the rest look like. */
+    const LIVE_W = 1200;
+    const LIVE_H = 750;
+    const MAX_LIVE = 5;
+    const liveObjects = new Map<string, CSS3DObject>();
+    const liveOrder: string[] = [];
+    const makeLive = (id: string) => {
+      const node = [seed.hub, ...seed.nodes].find((entry) => entry.id === id);
+      const at = posterAt.get(id);
+      if (!node?.href || !at || liveObjects.has(id)) return;
+      const frame = document.createElement("div");
+      frame.className = "space3d-live";
+      frame.style.width = `${LIVE_W}px`;
+      frame.style.height = `${LIVE_H}px`;
+      const iframe = document.createElement("iframe");
+      /* The page's own markup, fetched and made safe by /api/site?page=, so it can
+         be shown even where the site refuses to be framed. Sandboxed with no
+         allow-same-origin: even a script that survived the strip is an orphan. */
+      iframe.src = `/api/site?page=${encodeURIComponent(node.href)}`;
+      iframe.setAttribute("sandbox", "");
+      iframe.setAttribute("loading", "lazy");
+      iframe.setAttribute("referrerpolicy", "no-referrer");
+      iframe.setAttribute("title", `${node.label}, the page itself`);
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+      iframe.style.border = "0";
+      iframe.style.background = "#0b0714";
+      iframe.addEventListener("load", () => {
+        frame.dataset.ready = "1";
+      });
+      frame.appendChild(iframe);
+      const object = new CSS3DObject(frame);
+      object.position.set(...at.position);
+      object.scale.setScalar(at.width / LIVE_W);
+      scene.add(object);
+      liveObjects.set(id, object);
+      liveOrder.push(id);
+      while (liveOrder.length > MAX_LIVE) {
+        const oldest = liveOrder.shift()!;
+        const gone = liveObjects.get(oldest);
+        if (!gone) continue;
+        scene.remove(gone);
+        gone.element.remove();
+        liveObjects.delete(oldest);
+      }
+      setLive(liveObjects.size);
+    };
+    show.current = makeLive;
+    /* The page you are standing next to, and the four after it, live from the
+       start: the room should not open as a gallery of drawings. */
+    [seed.hub, ...seed.nodes].filter((node) => node.href).slice(0, MAX_LIVE).forEach((node) => makeLive(node.id));
     for (const [id, texture] of textures.current) paintPlate(id, texture);
 
     /* ------------------------------------------------------------ the camera */
@@ -361,6 +438,7 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       const width = host.clientWidth || 1;
       const height = host.clientHeight || 1;
       renderer.setSize(width, height, false);
+      cssRenderer.setSize(width, height);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       if (!polarChosen) {
@@ -407,7 +485,9 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(pointer, camera);
       const hits = raycaster.intersectObjects([...stars.values()], false);
-      setSelected((hits[0]?.object.userData.id as string | undefined) ?? null);
+      const hit = (hits[0]?.object.userData.id as string | undefined) ?? null;
+      setSelected(hit);
+      if (hit) makeLive(hit);
     };
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
@@ -446,6 +526,10 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
         const breathe = 1 + Math.sin(frame * 0.02 + id.length) * 0.035;
         star.scale.setScalar(breathe);
       }
+      for (const [id, object] of liveObjects) {
+        void id;
+        object.quaternion.copy(camera.quaternion);
+      }
       /* Posters turn to face you, by the shortest way. A picture of a page you
          have to walk round a room to read is a picture you do not read. */
       for (const [id, plate] of plates.current) {
@@ -453,6 +537,7 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
         plate.rotation.set(id === seed.hub.id ? 0 : -0.06, angle, 0);
       }
       renderer.render(scene, camera);
+      cssRenderer.render(scene, camera);
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -465,7 +550,11 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       renderer.domElement.removeEventListener("pointermove", onMove);
       renderer.domElement.removeEventListener("pointerup", onUp);
       renderer.domElement.removeEventListener("wheel", onWheel);
+      for (const object of liveObjects.values()) object.element.remove();
+      liveObjects.clear();
+      show.current = () => {};
       renderer.dispose();
+      cssRenderer.domElement.remove();
       scene.traverse((object) => {
         const mesh = object as THREE.Mesh;
         mesh.geometry?.dispose?.();
@@ -548,7 +637,8 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
           <h2>{project.label}</h2>
           <p className="space-meta">
             {counts.total} {isApp ? "parts" : "pages"} · {counts.read} read · {counts.live} links read ·{" "}
-            {plated} {plated === 1 ? "picture" : "pictures"} hanging
+            {live ? `${live} ${live === 1 ? "page" : "pages"} live` : "no pages live yet"} · {plated}{" "}
+            {plated === 1 ? "picture" : "pictures"} hanging
           </p>
         </div>
         <div className="space-head-actions">
@@ -578,8 +668,8 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
       </div>
 
       <p className="space3d-legend">
-        Drag to turn the room, wheel to fly in · a star is a {isApp ? "part" : "page"} · a poster is that page's own picture · a
-        stream is a link read off the page
+        Drag to turn, wheel to fly in · a star is a {isApp ? "part" : "page"} · a panel is that page itself, {isApp ? "" : "fetched and made safe, "}not a drawing of it · a stream is a
+        link read off the page
       </p>
 
       {selectedNode ? (
@@ -595,6 +685,15 @@ export default function ProjectSpace3D({ project, onClose }: ProjectSpace3DProps
               <a className="space-button" href={selectedNode.href} target="_blank" rel="noopener noreferrer">
                 Open the page ↗
               </a>
+            ) : null}
+            {selectedNode.href ? (
+              <button
+                className="space-button quiet"
+                type="button"
+                onClick={() => show.current(selectedNode.id)}
+              >
+                Show it live
+              </button>
             ) : null}
             {selectedNode.href ? (
               <button

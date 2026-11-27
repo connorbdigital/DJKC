@@ -407,6 +407,19 @@ export function App() {
           <button className="btn ghost palette-open" onClick={() => setPalette(true)} aria-label="Open the command palette">
             ⌘K
           </button>
+          {/* The 3D space, from anywhere in the 2D Studio: the tab does it too,
+              but a tab is a place you have to know about and this is a door. */}
+          <a
+            className="btn ghost space-door"
+            href="#atlas"
+            onClick={() => {
+              if (tab !== "atlas") setReturnTab(tab);
+              setTab("atlas");
+            }}
+            title="The Atlas (3D) — fly through every project, process and post"
+          >
+            ✷ Atlas (3D)
+          </a>
           {!online && <span className="pill pill-offline">Offline — the space and the shelf still work</span>}
           {login && <span className="pill">{token === PROXY_TOKEN ? `${login} · server key` : login}</span>}
           {!token && <span className="pill">no key — repository tabs ask when you reach them</span>}

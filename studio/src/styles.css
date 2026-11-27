@@ -1591,6 +1591,16 @@ button.menu-toggle { display: none; }
 }
 .space3d-stage:active { cursor: grabbing; }
 .space3d-stage canvas { position: absolute; inset: 0; display: block; }
+/* The real page, hanging in the room. Round the whole panel, not the iframe: a
+   page has its own corners and it should not look pasted on. */
+.space3d-live {
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0b0714;
+  box-shadow: 0 0 0 1px #ffffff2e, 0 0 26px #38bdf83d, 0 18px 40px #00000066;
+  transition: box-shadow .3s;
+}
+.space3d-live[data-ready="1"] { box-shadow: 0 0 0 1px #ffffff40, 0 0 30px #ff2bd63d, 0 20px 44px #00000080; }
 .space3d-zoom {
   position: absolute;
   right: .8rem;
