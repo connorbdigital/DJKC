@@ -9,6 +9,9 @@ import { isIdle, pickGamepad, readGamepad, type GamepadInput } from "../gamepad"
 import { NODE_NOTES_KEY, noteCount, parseNodeNotes, setNodeNote, type NodeNotes } from "../nodeNotes";
 import { GIST_STORE_KEY, buildBundle, describeBundle, isGistId, mergeBundle, pullNotes, pushNotes } from "../notesSync";
 import { getToken } from "../token";
+import { plateLayout } from "../plate";
+import { loadPlate } from "../plateClient";
+import { plateCanvas } from "../plateDraw";
 import ProjectSpace from "./ProjectSpace";
 import { SiteThumb } from "./SiteThumb";
 import {
@@ -370,9 +373,9 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             /* A project is a star with an inside: clicking one opens its own
                space instead of only describing it in the panel. */
             if (node?.kind === "project") setSpace(node);
-            /* Clicking a site means "show me that site": the panel loads its
-               page straight away, without waiting for a second click. */
-            if (node?.kind === "site") engine.current?.loadSite(node.id);
+            /* A site opens on its plate, not on an iframe: the picture of the
+               page is the point, and the live page is a button away. Loading it
+               on selection meant the plate was never seen at all. */
           },
           onHover: (node) => setHovering(Boolean(node)),
           onInteract: () => setTour(null),
@@ -439,6 +442,56 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     engine.current?.setFilter(filter);
   }, [filter]);
+
+  /* The plates: every site's own page, cut from the page, hung under its star —
+     and the steps of the funnels we actually built, one below the last. Reads
+     are queued three at a time and cached for the session, so arriving here
+     does not open sixteen connections at once. A plate that fails is simply not
+     hung: the star and its words are the space, the picture is the addition. */
+  useEffect(() => {
+    if (!ready) return;
+    const instance = engine.current;
+    if (!instance) return;
+    let cancelled = false;
+
+    type Job = { siteId: string; url: string; step?: number };
+    const jobs: Job[] = [];
+    for (const node of atlas.nodes) {
+      if (node.kind !== "site" || !node.href) continue;
+      jobs.push({ siteId: node.id, url: node.href });
+      node.funnel?.forEach((step, index) => jobs.push({ siteId: node.id, url: step.url, step: index }));
+    }
+
+    const worker = async (job: Job) => {
+      if (cancelled) return;
+      const plate = await loadPlate(job.url);
+      if (!plate || cancelled) return;
+      const canvas = await plateCanvas(plateLayout(plate), plate.image);
+      if (!canvas || cancelled) return;
+      const picture = canvas.toDataURL("image/png");
+      if (job.step === undefined) {
+        instance.setPanelPlate(job.siteId, picture, `Cut from ${plate.url} — the page's own heading, colours and picture.`);
+      } else {
+        instance.setPanelStep(job.siteId, job.step, picture);
+      }
+    };
+
+    void (async () => {
+      const queue = [...jobs];
+      const runners = Array.from({ length: 3 }, async () => {
+        for (;;) {
+          const job = queue.shift();
+          if (!job || cancelled) return;
+          await worker(job);
+        }
+      });
+      await Promise.all(runners);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, atlas]);
 
   /* A search should be visible in the dark, not just listed in the HUD. */
   useEffect(() => {
@@ -1361,6 +1414,9 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
               <>
                 <button className="btn ghost" type="button" onClick={() => engine.current?.loadSite(selected.id)}>
                   Preview in the space
+                </button>
+                <button className="btn ghost" type="button" onClick={() => engine.current?.restorePanel(selected.id)}>
+                  Show the plate
                 </button>
                 <button className="btn" type="button" onClick={() => openScan(selected)}>
                   Scan it
