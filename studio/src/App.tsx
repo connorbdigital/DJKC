@@ -12,6 +12,7 @@ import { Draft } from "./components/Draft";
 import { Resources } from "./components/Resources";
 import { Standards } from "./components/Standards";
 import { Pitch } from "./components/Pitch";
+import Universal from "./components/Universal";
 import { Anything } from "./components/Anything";
 import { Palette } from "./components/Palette";
 import type { Command } from "./palette";
@@ -20,7 +21,19 @@ import { PROJECTS } from "./atlas";
 const Atlas = lazy(() => import("./components/Atlas").then((module) => ({ default: module.Atlas })));
 const City = lazy(() => import("./components/City"));
 
-type Tab = "projects" | "packs" | "features" | "search" | "draft" | "standards" | "pitch" | "resources" | "anything" | "atlas" | "city";
+type Tab =
+  | "projects"
+  | "packs"
+  | "features"
+  | "search"
+  | "draft"
+  | "standards"
+  | "pitch"
+  | "universal"
+  | "resources"
+  | "anything"
+  | "atlas"
+  | "city";
 
 /** `#tab=shelf` opens that tab, and `#atlas/<node>` has to open the space.
  *  A link you cannot share is a link you have to describe instead. */
@@ -63,6 +76,14 @@ const TABS: { id: Tab; label: string; blurb: string; group: Group; glyph: string
     group: "ask",
     glyph: "◫",
     blurb: "A prospect's URL in, a one-page audit out: five faults, what each costs, what to do first, and the package that fits — kept in a list you can reopen, with the email to send and a link to the site.",
+  },
+  {
+    id: "universal",
+    label: "Universal",
+    group: "ask",
+    glyph: "⊞",
+    blurb:
+      "What every site should have, worked out from the sites the Studio has actually read — and an audit of one site against it: what it has, what it does not, and the page that proves each one.",
   },
   {
     id: "anything",
@@ -524,6 +545,7 @@ export function App() {
       {tab === "resources" && <Resources />}
       {tab === "standards" && <Standards />}
       {tab === "pitch" && <Pitch />}
+      {tab === "universal" && <Universal />}
       {tab === "anything" && <Anything />}
       {tab === "atlas" && (
         <Suspense fallback={<p className="atlas-boot">Loading the space…</p>}>
