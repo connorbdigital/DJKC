@@ -14,8 +14,28 @@ import { BRIEFS } from "./atlasBriefs";
 import type { AnythingApp } from "./anythingClient";
 import { LINKS, LINK_GROUP_LABEL, TODOS } from "./resources";
 
-export type NodeKind = "project" | "capability" | "step" | "pack" | "brief" | "site" | "app" | "todo" | "link" | "built";
-export type District = "library" | "projects" | "builder" | "packs" | "content" | "gallery" | "anything" | "shelf";
+export type NodeKind =
+  | "project"
+  | "capability"
+  | "step"
+  | "pack"
+  | "brief"
+  | "site"
+  | "app"
+  | "todo"
+  | "link"
+  | "built"
+  | "component";
+export type District =
+  | "library"
+  | "projects"
+  | "builder"
+  | "packs"
+  | "content"
+  | "gallery"
+  | "anything"
+  | "shelf"
+  | "studio";
 
 export interface AtlasNode {
   id: string;
@@ -397,6 +417,14 @@ export const DISTRICTS: Atlas["districts"] = [
     blurb: "The apps on anything.com: what each one is, what is inside it, and where it publishes.",
     centre: [-92, 20, -92],
   },
+  /* The other diagonal: not the work, the instrument. Every piece of the Studio
+     you can see and click is a thing, so every piece of it is a star. */
+  {
+    id: "studio",
+    label: "The Studio itself",
+    blurb: "Every component of this interface — the header, the tabs, the gate, the cards — each one a star you can open.",
+    centre: [92, 20, -92],
+  },
 ];
 
 /**
@@ -590,6 +618,37 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
       size: SIZE.large,
       ...(app.modules.length ? { modules: app.modules } : {}),
       ...(app.url ? { href: app.url } : {}),
+    });
+  });
+
+  /* ------------------------------------------------------------- studio */
+  /* The instrument, on the other diagonal. Small suns on a ring, each with the
+     file that builds it: the space is now a map of the thing it is drawn by. */
+  const studioArm = DISTRICTS.find((district) => district.id === "studio")!;
+  STUDIO_COMPONENTS.forEach((component, index) => {
+    const position = ringPoint(index, Math.max(STUDIO_COMPONENTS.length, 3), 15, 0, -Math.PI / 4);
+    nodes.push({
+      id: `ui-${component.id}`,
+      kind: "component",
+      district: "studio",
+      label: component.label,
+      line: component.line,
+      detail: component.detail,
+      bullets: component.bullets,
+      position: [
+        round(studioArm.centre[0] + position[0]),
+        round(studioArm.centre[1] + position[1]),
+        round(studioArm.centre[2] + position[2]),
+      ],
+      size: SIZE.medium,
+      href: `https://github.com/connorbdigital/DJKC/blob/main/${component.file}`,
+      /* Its own room, with the two links that matter: the file that builds it,
+         and the Studio it is drawn by. A component is only a description until
+         you can open it. */
+      pages: [
+        { label: "The file on GitHub", href: `https://github.com/connorbdigital/DJKC/blob/main/${component.file}` },
+        { label: "The Studio itself", href: "https://studio-connorbdigital.vercel.app" },
+      ],
     });
   });
 
@@ -812,6 +871,7 @@ export const distance = (a: [number, number, number], b: [number, number, number
   Math.round(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]));
 
 export const kindColour: Record<NodeKind, string> = {
+  component: "#38bdf8",
   project: "#8c5bff",
   app: "#f472b6",
   todo: "#a3e635",
@@ -1009,3 +1069,167 @@ export function auditAtlas(atlas: Atlas, options: AuditOptions = {}): AuditFindi
   const rank: Record<AuditSeverity, number> = { high: 0, medium: 1, low: 2 };
   return findings.sort((a, b) => rank[a.severity] - rank[b.severity] || a.title.localeCompare(b.title));
 }
+
+/* ------------------------------------------------------- the instrument */
+
+/**
+ * Every component of the Studio, as data.
+ *
+ * The Atlas was a map of the work; this is a map of the thing you are looking
+ * it through. Each entry is a piece of the interface that is literally on the
+ * screen — the header, the tabs, the gate, the cards — with the file that
+ * builds it, so "where does that come from?" is one click.
+ */
+export const STUDIO_COMPONENTS: {
+  id: string;
+  label: string;
+  line: string;
+  detail: string;
+  bullets: string[];
+  file: string;
+}[] = [
+  {
+    id: "header",
+    label: "The header",
+    line: "Title, ⌘K, Enter the City, Lock — the row that never scrolls away.",
+    detail:
+      "The top of the Studio: what this is, the way into the two spaces, the palette, and the lock. It is one component on every tab, so the shape of the app is the same wherever you are.",
+    bullets: ["studio/src/App.tsx", "One row, three groups", "Holds the door to the Atlas and the City"],
+    file: "studio/src/App.tsx",
+  },
+  {
+    id: "tabs",
+    label: "The tab row",
+    line: "Projects, Packs, Feature library, Search, Agent, Standards, Pitch sheet, Anything, Shelf, City, Atlas (3D).",
+    detail:
+      "Eleven tabs in three groups: build, ask and read, look around. The grouping is the point — a row of eleven names is a row, not a way around.",
+    bullets: ["studio/src/App.tsx", "Grouped: build / ask / look", "Every tab is a hash link"],
+    file: "studio/src/App.tsx",
+  },
+  {
+    id: "gate",
+    label: "The gate",
+    line: "The front door: a token, or the two spaces without one.",
+    detail:
+      "Asked for a GitHub token once, in the tab, and kept in sessionStorage. The Atlas and the City do not need it; the repository tabs ask when you reach them, and only there.",
+    bullets: ["studio/src/components/Gate.tsx", "Enter the Atlas → / Walk the City →", "Token in sessionStorage, never a cookie"],
+    file: "studio/src/components/Gate.tsx",
+  },
+  {
+    id: "palette",
+    label: "The palette",
+    line: "⌘K: every project, pack, process, brief and site, one key away.",
+    detail:
+      "A command palette over everything the space knows. It exists because the tabs are eleven and the things are hundred-and-fifty: the keyboard has to be faster than the mouse.",
+    bullets: ["studio/src/components/Palette.tsx", "⌘K or Ctrl-K", "Search over the whole inventory"],
+    file: "studio/src/components/Palette.tsx",
+  },
+  {
+    id: "stars-sheet",
+    label: "✷ Stars",
+    line: "Every project as a list, with Fly and Go in.",
+    detail:
+      "The list is the index and the space is the map: Stars names each project, its page count and its address, and flies the camera to it. It exists because a constellation you have to hunt through is a wall.",
+    bullets: ["studio/src/components/Atlas.tsx", "Fly moves the camera, Go in opens the room", "#stars is a link straight to it"],
+    file: "studio/src/components/Atlas.tsx",
+  },
+  {
+    id: "detail-card",
+    label: "The detail card",
+    line: "Select anything and it says what it is, in the space, on a board you can read.",
+    detail:
+      "The card is a surface in the world, not a drawer over it: it hangs beside the node you chose, faces you, and scrolls like a page. The panel in the corner keeps the buttons and your own note.",
+    bullets: ["studio/src/components/Atlas.tsx", "studio/src/atlasEngine.ts", "Scroll inside it, wheel to zoom out"],
+    file: "studio/src/components/Atlas.tsx",
+  },
+  {
+    id: "project-space",
+    label: "A project's own space",
+    line: "The front page in the middle, every page on a ring, links read off the pages.",
+    detail:
+      "Open a project and the space becomes that project: a circle per page, a line per link, and nothing drawn that was not read from the site itself. An Anything app puts its modules on the same ring.",
+    bullets: ["studio/src/components/ProjectSpace.tsx", "studio/src/atlasSpace.ts", "Streams read via POST /api/site {links:true}"],
+    file: "studio/src/components/ProjectSpace.tsx",
+  },
+  {
+    id: "city-bar",
+    label: "The City's bar",
+    line: "Where you are, a chip per room, and the way back to the Atlas.",
+    detail:
+      "The City is walked, not flown, so its head is a directory: the room you are standing in, every room with its count, and the two doors out. Click a chip and you are in that room.",
+    bullets: ["studio/src/components/City.tsx", "studio/src/city.ts", "Rooms are data: walls, doors, slots"],
+    file: "studio/src/components/City.tsx",
+  },
+  {
+    id: "notepad",
+    label: "The notepad",
+    line: "A scratchpad in the Atlas, kept in this browser, exported as Markdown.",
+    detail:
+      "Notes belong to the person reading, not to the repository, so they live in local storage with Copy and Download .md. The pinned note on a node is the same idea at a smaller scale.",
+    bullets: ["studio/src/components/Atlas.tsx", "atlas:notes:v1", "Across devices: a gist on your own account"],
+    file: "studio/src/components/Atlas.tsx",
+  },
+  {
+    id: "fullscreen",
+    label: "Full screen",
+    line: "The space without the browser's furniture.",
+    detail:
+      "One button, the Fullscreen API, and an Escape that still works. It matters because a constellation read through two toolbars is a constellation half seen.",
+    bullets: ["studio/src/components/Atlas.tsx", "Fullscreen API", "Escape restores"],
+    file: "studio/src/components/Atlas.tsx",
+  },
+  {
+    id: "pitch-sheet",
+    label: "The pitch sheet",
+    line: "A URL in, five faults out, an email, and a list that remembers.",
+    detail:
+      "The sales instrument: read a public page, name five faults with what each one costs, draft the email and keep the prospect list. The list is the part that makes it a process rather than a demo.",
+    bullets: ["studio/src/components/PitchSheet.tsx", "studio/src/pitch.ts", "Prospects persist between visits"],
+    file: "studio/src/components/PitchSheet.tsx",
+  },
+  {
+    id: "standards",
+    label: "The Standards board",
+    line: "The house rules, and which of them the code actually keeps.",
+    detail:
+      "A board of the decisions this project made — no invented links, honest empty states, a gate that explains itself — each one pointing at where it is enforced.",
+    bullets: ["studio/src/components/Standards.tsx", "studio/src/standards.ts", "Rules are checked in tests where they can be"],
+    file: "studio/src/components/Standards.tsx",
+  },
+  {
+    id: "anything-tab",
+    label: "The Anything tab",
+    line: "Every app on anything.com, with its parts, read and never changed.",
+    detail:
+      "A read-only view of the Anything account through this deployment's key: the projects, what is inside each one, and Copy the scan — which is how the inventory leaves a deployment whose key cannot be read back.",
+    bullets: ["studio/src/components/Anything.tsx", "studio/src/anythingClient.ts", "api/anything.ts is the bridge"],
+    file: "studio/src/components/Anything.tsx",
+  },
+  {
+    id: "feel-row",
+    label: "The feel row",
+    line: "Four looks, a speed switch, and a turbo button that latches.",
+    detail:
+      "Nebula, Observatory, Blueprint and City: the same data, four ways of lighting it. The look is remembered on the device, because a space you have to restyle every visit is a space you stop visiting.",
+    bullets: ["studio/src/components/Atlas.tsx", "studio/src/atlasEngine.ts", "atlas:feel:v2"],
+    file: "studio/src/atlasEngine.ts",
+  },
+  {
+    id: "site-panels",
+    label: "The site panels",
+    line: "A live page hanging in the space, in CSS3D, with a link out if it refuses framing.",
+    detail:
+      "Each site in the gallery is a panel in three dimensions holding a real iframe. Most big sites refuse to be framed; the panel says so and the link is the way in, rather than a blank rectangle with no explanation.",
+    bullets: ["studio/src/atlasEngine.ts", "CSS3DRenderer", "api/site ?thumb= for the link card"],
+    file: "studio/src/atlasEngine.ts",
+  },
+  {
+    id: "search",
+    label: "Search",
+    line: "One box over every star, ranking a title match above a passing mention.",
+    detail:
+      "Search pulses its matches in the world instead of listing them in a column: the answer to \"where is that?\" is a place, so the result is a place.",
+    bullets: ["studio/src/components/Atlas.tsx", "studio/src/atlas.ts searchAtlas", "Matches glow in situ"],
+    file: "studio/src/atlas.ts",
+  },
+];
