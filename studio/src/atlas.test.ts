@@ -21,6 +21,7 @@ import {
   nearestDistrict,
   nearestNode,
   searchAtlas,
+  STUDIO_COMPONENTS,
 } from "./atlas";
 import { CAPABILITIES } from "./features";
 import { LINKS, TODOS } from "./resources";
@@ -43,6 +44,7 @@ describe("the space", () => {
     expect(atlas.nodes.filter((node) => node.kind === "todo")).toHaveLength(TODOS.length);
     expect(atlas.nodes.filter((node) => node.kind === "link")).toHaveLength(LINKS.length);
     expect(atlas.nodes.filter((node) => node.kind === "built")).toHaveLength(BUILT.length);
+    expect(atlas.nodes.filter((node) => node.kind === "component")).toHaveLength(STUDIO_COMPONENTS.length);
     expect(atlas.nodes.length).toBe(
       CAPABILITIES.length +
         PACKS.length +
@@ -52,7 +54,8 @@ describe("the space", () => {
         SITES.length +
         TODOS.length +
         LINKS.length +
-        BUILT.length
+        BUILT.length +
+        STUDIO_COMPONENTS.length
     );
   });
 
@@ -101,6 +104,7 @@ describe("the space", () => {
       "brief",
       "built",
       "capability",
+      "component",
       "link",
       "pack",
       "project",

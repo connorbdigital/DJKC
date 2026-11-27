@@ -203,6 +203,69 @@ button.btn, a.btn {
   border-color: #8ef0d0;
 }
 
+/* The description, as a board hanging in the space rather than a panel stuck to
+   the screen. The engine owns the transform; this owns the page: a fixed 640×860
+   sheet, scaled into the world, with its own scroll. */
+.atlas-detail-line { color: #d9cdf0; font-size: .95rem; margin: 0 0 .6rem; }
+.atlas-board {
+  width: 520px;
+  height: 660px;
+  pointer-events: auto;
+}
+.atlas-board-card {
+  box-sizing: border-box;
+  width: 520px;
+  height: 660px;
+  display: flex;
+  flex-direction: column;
+  gap: .4em;
+  padding: 26px 30px 0;
+  border-radius: 18px;
+  border: 1px solid #ffffff2e;
+  background:
+    radial-gradient(120% 80% at 0% 0%, #1d1030 0%, #0e0719 55%, #0a0512 100%);
+  color: #f4efff;
+  font: 400 18px/1.5 ui-sans-serif, system-ui, sans-serif;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .7), inset 0 0 0 1px #ffffff14;
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+.atlas-board-card header {
+  display: flex;
+  align-items: center;
+  gap: .5em;
+}
+.atlas-board-card header .eyebrow { margin: 0; text-transform: uppercase; letter-spacing: .16em; font-size: 13px; color: #b9a5ff; }
+.atlas-board-card header .swatch { width: 12px; height: 12px; border-radius: 50%; }
+.atlas-board-card header .btn { margin-left: auto; font-size: 14px; padding: .35em .7em; }
+.atlas-board-card h2 { margin: 0; font-size: 33px; line-height: 1.1; letter-spacing: -.01em; }
+.atlas-board-line { margin: 0; color: #d9cdf0; font-size: 19px; }
+.atlas-board-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 6px 10px 34px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #7c5cff #ffffff14;
+}
+.atlas-board-scroll::-webkit-scrollbar { width: 10px; }
+.atlas-board-scroll::-webkit-scrollbar-thumb { background: #7c5cff88; border-radius: 999px; }
+.atlas-board-scroll p { margin: 0 0 .7em; }
+.atlas-board-bullets, .atlas-board-scroll section ul, .atlas-parts ul {
+  margin: 0 0 .9em;
+  padding-left: 1.1em;
+  display: grid;
+  gap: .35em;
+}
+.atlas-board-scroll section h3 { margin: .8em 0 .3em; font-size: 20px; text-transform: uppercase; letter-spacing: .12em; color: #8ef0d0; }
+.atlas-board-foot { color: #8d80a6; font-size: 16px; border-top: 1px solid #ffffff1a; padding-top: .7em; }
+.atlas-board .atlas-parts { margin: 0 0 .9em; }
+.atlas-board .atlas-parts .eyebrow { margin: 0 0 .3em; font-size: 13px; text-transform: uppercase; letter-spacing: .16em; color: #b9a5ff; }
+.atlas-board .atlas-parts ul { padding-left: 1.1em; font-size: 18px; color: #d9cdf0; }
+.atlas.is-vr .atlas-board { display: none; }
+
 .atlas-panel {
   pointer-events: auto;
   display: flex;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AtlasEngine, THEMES, type AtlasTheme } from "../atlasEngine";
 import { checkUrl, type SiteReport } from "../sitecheck";
 import { loadAnythingApps, loadAnythingList, type AnythingApp } from "../anythingClient";
@@ -39,6 +40,7 @@ const KIND_DISTRICT: Record<NodeKind, District> = {
   todo: "shelf",
   link: "shelf",
   built: "shelf",
+  component: "studio",
 };
 
 const FILTERS: { id: NodeKind | "all"; label: string }[] = [
@@ -53,6 +55,7 @@ const FILTERS: { id: NodeKind | "all"; label: string }[] = [
   { id: "built", label: "Shipped" },
   { id: "todo", label: "To do" },
   { id: "link", label: "Links" },
+  { id: "component", label: "Studio parts" },
 ];
 
 const POSE_KEY = "atlas:pose";
@@ -204,6 +207,12 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const host = useRef<HTMLDivElement | null>(null);
   const cssHost = useRef<HTMLDivElement | null>(null);
   const stage = useRef<HTMLDivElement | null>(null);
+  /* The element the detail board lives in. The engine carries it in the world;
+     React renders into it, so the card in the space and the card in the corner
+     are the same text. */
+  const boardHost = useRef<HTMLDivElement | null>(null);
+  const [boardReady, setBoardReady] = useState(false);
+  const [wide, setWide] = useState(() => (typeof window === "undefined" ? true : window.innerWidth >= 900));
   const engine = useRef<AtlasEngine | null>(null);
   const [selected, setSelected] = useState<AtlasNode | null>(null);
   const [query, setQuery] = useState("");
@@ -317,6 +326,12 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   }, [notes, saved]);
 
   useEffect(() => {
+    const sync = () => setWide(window.innerWidth >= 900);
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
+
+  useEffect(() => {
     const sync = () => setFullscreen(Boolean(document.fullscreenElement));
     document.addEventListener("fullscreenchange", sync);
     sync();
@@ -384,6 +399,10 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         fromHash ? null : readPose()
       );
       engine.current = instance;
+      if (boardHost.current) {
+        instance.attachBoard(boardHost.current);
+        setBoardReady(true);
+      }
       instance.setLookSpeed(readFeel().look);
       instance.setTheme(readFeel().theme);
       instance.setBoost(readFeel().turbo);
@@ -740,6 +759,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
       <div className="atlas-stage" ref={stage}>
         <div ref={host} className="atlas-webgl" />
         <div ref={cssHost} className="atlas-css-host" />
+        <div ref={boardHost} className="atlas-board" />
       </div>
 
       {/* The head: name, search, actions, the chips, and the search results, in
@@ -1140,6 +1160,66 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         {failed && <p className="error">{failed}</p>}
       </div>
 
+      {/* The description, hung in the world. Same node, same words as the panel;
+          the panel keeps the buttons and the note. */}
+      {boardReady &&
+        boardHost.current &&
+        selected &&
+        createPortal(
+          <article className="atlas-board-card" style={{ borderColor: `${kindColour[selected.kind]}66` }}>
+            <header>
+              <span className="swatch" style={{ background: kindColour[selected.kind] }} />
+              <p className="eyebrow">{selected.kind}</p>
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => engine.current?.readBoard()}
+                title="Fly up to the card and read it like a page"
+              >
+                Read it close
+              </button>
+            </header>
+            <h2>{selected.label}</h2>
+            <p className="atlas-board-line">{selected.line}</p>
+            <div className="atlas-board-scroll">
+              {selected.detail.split("\n\n").map((para) => (
+                <p key={para.slice(0, 24)}>{para}</p>
+              ))}
+              {selected.modules && selected.modules.length > 0 && (
+                <div className="atlas-parts">
+                  <p className="eyebrow">Every part inside it · {selected.modules.length}</p>
+                  <ul>
+                    {selected.modules.map((part) => (
+                      <li key={part}>{part}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {selected.bullets.length > 0 && (
+                <ul className="atlas-board-bullets">
+                  {selected.bullets.slice(0, 12).map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              )}
+              {selected.sections?.map((section) => (
+                <section key={section.title}>
+                  <h3>{section.title}</h3>
+                  <ul>
+                    {section.lines.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+              <p className="atlas-board-foot">
+                Scroll inside the card · wheel outside it to move · Esc closes · {nodeNotes[selected.id]?.trim() ? "you have a note on this" : "no note yet"}
+              </p>
+            </div>
+          </article>,
+          boardHost.current
+        )}
+
       {selected && (
         <aside className="atlas-hud atlas-detail" aria-live="polite">
           <div className="atlas-detail-head">
@@ -1150,23 +1230,35 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             </button>
           </div>
           <h2>{selected.label}</h2>
-          <p>{selected.detail}</p>
-          {selected.modules && selected.modules.length > 0 && (
-            <div className="atlas-parts">
-              <p className="eyebrow">Every part inside it · {selected.modules.length}</p>
-              <ul>
-                {selected.modules.map((part) => (
-                  <li key={part}>{part}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {selected.bullets.length > 0 && (
-            <ul>
-              {selected.bullets.slice(0, 9).map((bullet) => (
-                <li key={bullet}>{bullet}</li>
-              ))}
-            </ul>
+          <p className="atlas-detail-line">{selected.line}</p>
+          {/* The description is on the board beside the node when there is a
+              screen wide enough for one; the panel keeps the controls, your note
+              and the links, and does not say the same thing twice. */}
+          {boardReady && wide ? (
+            <p className="muted small">
+              Read it on the board beside the node · <button type="button" className="atlas-linkish" onClick={() => engine.current?.readBoard()}>read it close</button>
+            </p>
+          ) : (
+            <>
+              <p>{selected.detail}</p>
+              {selected.modules && selected.modules.length > 0 && (
+                <div className="atlas-parts">
+                  <p className="eyebrow">Every part inside it · {selected.modules.length}</p>
+                  <ul>
+                    {selected.modules.map((part) => (
+                      <li key={part}>{part}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {selected.bullets.length > 0 && (
+                <ul>
+                  {selected.bullets.slice(0, 9).map((bullet) => (
+                    <li key={bullet}>{bullet}</li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
           {(selected.kind === "site" || selected.kind === "link") && selected.href && !sameOrigin(selected.href) && (
             <SiteThumb url={selected.href} label={selected.label} />

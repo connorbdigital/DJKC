@@ -489,6 +489,12 @@ export class AtlasEngine {
   /** Invisible planes over the cards: the engine does the picking, not the DOM. */
   private readonly pageTargets: { mesh: THREE.Mesh; href: string }[] = [];
   private pageLines: THREE.Line[] = [];
+
+  /* The detail board: the description of the selected node, hung in the world in
+     front of you as a panel you can fly up to and scroll. It is the same DOM the
+     React card renders — the engine only decides where it hangs. */
+  private boardObject: CSS3DObject | null = null;
+  private boardPending = false;
   private pageCurves: THREE.QuadraticBezierCurve3[] = [];
   private stream: { points: THREE.Points; curves: THREE.QuadraticBezierCurve3[]; at: number[] } | null = null;
   private readonly stars: {
@@ -1224,6 +1230,82 @@ export class AtlasEngine {
     }
   }
 
+  /* ---------------------------------------------------------------- board */
+
+  /**
+   * Hand the engine the element the card is rendered into. It is moved into the
+   * CSS3D layer and carried in the world from here; React keeps owning what is
+   * inside it.
+   */
+  attachBoard(element: HTMLElement) {
+    if (this.boardObject) return;
+    element.style.pointerEvents = "auto";
+    const object = new CSS3DObject(element);
+    object.scale.setScalar(0.014);
+    object.visible = false;
+    this.boardObject = object;
+    this.scene.add(object);
+    this.placeBoard(null);
+  }
+
+  /**
+   * Hang the board in front of wherever you are standing, to the left, facing
+   * you. Placing it relative to the camera rather than the node means it is
+   * always readable on arrival, whichever side you flew in from — and it stays
+   * put while you move, so you can fly into it and read it like a page.
+   */
+  private placeBoard(node: AtlasNode | null) {
+    const object = this.boardObject;
+    if (!object) return;
+    if (!node) {
+      object.visible = false;
+      this.boardPending = false;
+      return;
+    }
+    /* Place it where you will be standing when the flight lands, not where you
+       are standing now — otherwise the card is hung behind you on the way in. */
+    const from = this.flight
+      ? this.flight.to.clone()
+      : this.camera.getWorldPosition(new THREE.Vector3());
+    /* The axes you are looking along, pitch included, so the card sits in the
+       lower left of the frame however far down you are angled at the star. */
+    const orientation = this.rig.quaternion.clone().multiply(this.camera.quaternion);
+    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(orientation);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(orientation);
+    const up = new THREE.Vector3(0, 1, 0).applyQuaternion(orientation);
+    /* A phone is a narrow window, and its panel already covers the middle of it:
+       a second copy of the same words behind that panel is not a board, it is a
+       hidden duplicate. The card is for screens with room beside the node. */
+    const narrow = this.camera.aspect < 1;
+    if (narrow) {
+      object.visible = false;
+      this.boardPending = false;
+      return;
+    }
+    const stop = from
+      .clone()
+      .addScaledVector(forward, 13)
+      .addScaledVector(right, -3.3)
+      .addScaledVector(up, -1);
+    object.position.copy(stop);
+    /* Show it when you arrive, not before: the flight comes in from behind and
+       would otherwise be a wall of text flying past the camera. */
+    this.boardPending = this.flight !== null;
+    object.visible = !this.boardPending;
+  }
+
+  /** Fly to the board and fill the view with it: the same card, at 2D size. */
+  readBoard() {
+    if (!this.boardObject || !this.boardObject.visible) return;
+    const board = this.boardObject.position.clone();
+    const forward = new THREE.Vector3(0, 0, 1)
+      .applyQuaternion(this.boardObject.quaternion)
+      .multiplyScalar(13);
+    const stop = board.clone().add(forward);
+    this.flight = { from: this.rig.position.clone(), to: stop, look: board, t: 0 };
+    this.handlers.onStatus?.("Reading it up close — scroll inside the card, drag to look away.");
+  }
+
   /* --------------------------------------------------------------- input */
 
   private bindEvents() {
@@ -1239,7 +1321,7 @@ export class AtlasEngine {
   private onPointerDown = (event: PointerEvent) => {
     /* A click inside a live page, or on a panel laid over the world, belongs to
        that panel — including a drag that is really a scroll. */
-    if ((event.target as HTMLElement).closest?.(".atlas-panel, .atlas-hud")) return;
+    if ((event.target as HTMLElement).closest?.(".atlas-panel, .atlas-hud, .atlas-board")) return;
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     this.handlers.onInteract?.();
     if (this.pointers.size === 2) {
@@ -1302,22 +1384,59 @@ export class AtlasEngine {
     return this.pageTargets.find((entry) => entry.mesh === hit.object)?.href ?? null;
   }
 
+  /**
+   * What was clicked.
+   *
+   * The raycast is exact, which is right for a big sun and wrong for everything
+   * else: a two-unit star forty metres away is four pixels wide, and asking a
+   * person to hit four pixels with a mouse — or a thumb — is asking them to miss.
+   * So the geometry gets the first word, and if it misses, the nearest node
+   * within a thumb's width on screen gets the click instead. That is why some of
+   * the planets could not be clicked before.
+   */
   private nodeAt(clientX: number, clientY: number): AtlasNode | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const visible = this.pickables.filter((entry) => entry.mesh.visible);
     const hit = this.raycaster.intersectObjects(visible.map((entry) => entry.mesh), true)[0];
-    if (!hit) return null;
-    const owner = visible.find((entry) => {
-      let object: THREE.Object3D | null = hit.object;
-      while (object) {
-        if (object === entry.mesh) return true;
-        object = object.parent;
+    if (hit) {
+      const owner = visible.find((entry) => {
+        let object: THREE.Object3D | null = hit.object;
+        while (object) {
+          if (object === entry.mesh) return true;
+          object = object.parent;
+        }
+        return false;
+      });
+      if (owner) return owner.node;
+    }
+    return this.nearestOnScreen(clientX, clientY, 20);
+  }
+
+  /**
+   * The node closest to the pointer in two dimensions, within `tolerance` pixels
+   * and in front of the camera. Distance in the world breaks the tie, so a star
+   * behind another is not chosen over the one you can see.
+   */
+  private nearestOnScreen(clientX: number, clientY: number, tolerance: number): AtlasNode | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const projected = new THREE.Vector3();
+    let best: { node: AtlasNode; pixels: number; depth: number } | null = null;
+    for (const entry of this.pickables) {
+      if (!entry.mesh.visible) continue;
+      projected.set(...entry.node.position).project(this.camera);
+      if (projected.z < -1 || projected.z > 1) continue;
+      const x = rect.left + ((projected.x + 1) / 2) * rect.width;
+      const y = rect.top + ((1 - projected.y) / 2) * rect.height;
+      const pixels = Math.hypot(x - clientX, y - clientY);
+      if (pixels > tolerance) continue;
+      const depth = this.camera.position.distanceTo(projected.clone().setFromMatrixPosition(entry.mesh.matrixWorld));
+      if (!best || pixels < best.pixels || (pixels === best.pixels && depth < best.depth)) {
+        best = { node: entry.node, pixels, depth };
       }
-      return false;
-    });
-    return owner?.node ?? null;
+    }
+    return best?.node ?? null;
   }
 
   private onPointerUp = (event: PointerEvent) => {
@@ -1356,6 +1475,22 @@ export class AtlasEngine {
   };
 
   private onWheel = (event: WheelEvent) => {
+    const overBoard = (event.target as HTMLElement).closest?.(".atlas-board");
+    if (overBoard) {
+      /* Inside the card the wheel is the page's: scroll it, and zoom the card
+         itself with the modifier, exactly like a 2D document. The scroll is done
+         by hand because the card hangs in a transformed layer, and a browser
+         will not always find the scroll chain through one. */
+      event.preventDefault();
+      if ((event.ctrlKey || event.metaKey) && this.boardObject) {
+        const next = clamp(this.boardObject.scale.x * (event.deltaY < 0 ? 1.09 : 0.92), 0.008, 0.05);
+        this.boardObject.scale.setScalar(next);
+        return;
+      }
+      const scroller = overBoard.querySelector(".atlas-board-scroll");
+      if (scroller) scroller.scrollTop += event.deltaY;
+      return;
+    }
     if ((event.target as HTMLElement).closest?.(".atlas-panel")) return;
     event.preventDefault();
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.rig.quaternion);
@@ -1370,6 +1505,7 @@ export class AtlasEngine {
     this.selected = id;
     const node = id ? this.atlas.nodes.find((entry) => entry.id === id) ?? null : null;
     this.setFocus(node);
+    this.placeBoard(node);
     this.updateEdges();
     for (const entry of this.pickables) {
       const bright = !node || entry.node.id === node.id;
@@ -1566,10 +1702,13 @@ export class AtlasEngine {
     const target = new THREE.Vector3(...node.position);
     const direction = new THREE.Vector3().subVectors(this.rig.position, target).normalize();
     if (direction.lengthSq() < 0.01) direction.set(0, 0.2, 1).normalize();
+    /* A node with pages is a room: stand back far enough that the ring of cards
+       it opens around itself is in the frame, not just the star at the middle. */
+    const ring = node.pages?.length ? clamp(22 + node.pages.length * 3.6, 28, 56) : 0;
     const stop =
       node.kind === "site"
         ? new THREE.Vector3(target.x, target.y, target.z - 20)
-        : target.clone().addScaledVector(direction, node.kind === "brief" ? 12 : 17);
+        : target.clone().addScaledVector(direction, Math.max(node.kind === "brief" ? 12 : 17, Math.round(ring * 1.1)));
     stop.y = node.kind === "site" ? target.y : Math.max(6, target.y + 4);
     this.flight = { from: this.rig.position.clone(), to: stop, look: target, t: 0 };
     this.select(node.id);
@@ -1658,6 +1797,11 @@ export class AtlasEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     this.cssRenderer.setSize(width, height);
+    /* Turning the device changes which side of the screen has room for the card. */
+    if (this.boardObject && this.selected) {
+      const node = this.atlas.nodes.find((entry) => entry.id === this.selected) ?? null;
+      this.placeBoard(node);
+    }
   };
 
   private start() {
@@ -1686,6 +1830,13 @@ export class AtlasEngine {
       if (this.flight.t >= 1) this.flight = null;
     } else {
       this.applyKeys(delta);
+    }
+
+    /* The card arrives with you: it is kept out of sight until the flight that
+       brings you to it is over, however that flight ended. */
+    if (!this.flight && this.boardPending && this.boardObject) {
+      this.boardPending = false;
+      this.boardObject.visible = true;
     }
 
     /* Gentle drift so the space never looks like a still image; searched-for
