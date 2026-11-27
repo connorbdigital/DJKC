@@ -394,42 +394,67 @@ function cardSprite(node: AtlasNode) {
   const context = canvas.getContext("2d");
   if (context) {
     const accent = kindColour[node.kind];
-    context.fillStyle = "#0d1424";
-    context.fillRect(0, 0, width, height);
-    context.fillStyle = accent;
-    context.fillRect(0, 0, 12, height);
-    context.strokeStyle = "#ffffff2e";
+    /* A hologram, not a card: the glass is mostly void, the rim carries the
+       colour, and the words sit in the air. A brief used to be an opaque slab,
+       which at any distance read as a block pasted over the sky — the space is
+       made of light, so its paper should be too. */
+    context.clearRect(0, 0, width, height);
+    const glass = context.createLinearGradient(0, 0, width, height);
+    glass.addColorStop(0, "rgba(24,38,66,0.52)");
+    glass.addColorStop(1, "rgba(9,13,26,0.22)");
+    context.beginPath();
+    if (typeof context.roundRect === "function") context.roundRect(3, 3, width - 6, height - 6, 18);
+    else context.rect(3, 3, width - 6, height - 6);
+    context.fillStyle = glass;
+    context.fill();
+
+    /* The rim: a lit edge with a soft halo, which is what makes it read as an
+       object floating rather than a rectangle drawn. */
+    context.shadowColor = accent;
+    context.shadowBlur = 28;
+    context.strokeStyle = `${accent}cc`;
     context.lineWidth = 3;
-    context.strokeRect(1.5, 1.5, width - 3, height - 3);
+    context.stroke();
+    context.shadowBlur = 0;
+    context.strokeStyle = "#ffffff1f";
+    context.lineWidth = 1;
+    context.stroke();
 
     context.fillStyle = accent;
-    context.font = "600 20px 'IBM Plex Mono', monospace";
-    context.fillText(`${node.kind.toUpperCase()} · ${(node.bullets[0] ?? "").toUpperCase()}`, 40, 56);
+    context.fillRect(26, 44, 4, height - 92);
 
-    context.fillStyle = "#ffffff";
-    context.font = "700 38px Manrope, system-ui, sans-serif";
+    context.fillStyle = accent;
+    context.font = "600 19px 'IBM Plex Mono', monospace";
+    context.fillText(`${node.kind.toUpperCase()} · ${(node.bullets[0] ?? "").toUpperCase()}`, 46, 60);
+
+    context.fillStyle = "#ffffffee";
+    context.font = "700 37px Manrope, system-ui, sans-serif";
     const words = node.label.split(" ");
     const lines: string[] = [];
     let line = "";
     for (const word of words) {
-      if ((line + " " + word).trim().length > 26 && line) {
+      if ((line + " " + word).trim().length > 24 && line) {
         lines.push(line.trim());
         line = word;
       } else line = `${line} ${word}`.trim();
     }
     if (line) lines.push(line);
-    lines.slice(0, 4).forEach((entry, index) => context.fillText(entry, 40, 122 + index * 44));
+    lines.slice(0, 4).forEach((entry, index) => context.fillText(entry, 46, 126 + index * 42));
 
-    context.fillStyle = "#9fb3c8";
-    context.font = "500 21px Manrope, system-ui, sans-serif";
-    const sub = node.line.split(" ").slice(0, 11).join(" ");
-    context.fillText(sub, 40, height - 52);
+    context.fillStyle = "#9fb3c8dd";
+    context.font = "500 20px Manrope, system-ui, sans-serif";
+    const sub = node.line.split(" ").slice(0, 10).join(" ");
+    context.fillText(sub, 46, height - 46);
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.minFilter = THREE.LinearFilter;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
-  sprite.scale.set(4.6, 2.6, 1);
+  /* Depth-tested but not depth-written: a hologram behind a star is behind it,
+     and two holograms never punch holes in each other. */
+  const sprite = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, depthTest: true })
+  );
+  sprite.scale.set(4.4, 2.48, 1);
   return sprite;
 }
 
@@ -1237,7 +1262,7 @@ export class AtlasEngine {
       const curve = Math.PI + clamp(node.position[0] / 260, -0.22, 0.22);
       object.position.set(node.position[0], node.position[1], node.position[2] - 8);
       object.rotation.set(0, curve, 0);
-      object.scale.setScalar(0.012);
+      object.scale.setScalar(0.0114);
       element.style.pointerEvents = "none";
       this.scene.add(object);
     }
@@ -1946,6 +1971,12 @@ export class AtlasEngine {
       const away = world.distanceTo(this.rig.position);
       const factor = clamp(away / 42, 0.55, 1.9);
       card.sprite.scale.set(card.base.x * factor, card.base.y * factor, 1);
+      /* A brief is a hologram that wakes as you approach: readable when you are
+         near it, and at a distance only a lit edge in the dark. Fourteen slabs of
+         text at two hundred metres is a wall, not a plan, and a wall is the one
+         thing this space must never be. */
+      const material = card.sprite.material as THREE.SpriteMaterial;
+      material.opacity = clamp(1 - (away - 34) / 120, 0.1, 1);
     }
 
     /* Stars turn slowly and breathe; edges fade with distance so the far side of
