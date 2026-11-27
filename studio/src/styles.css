@@ -1544,3 +1544,112 @@ button.menu-toggle { display: none; }
    no words is more honest than a hundred and forty words on top of each other. */
 .space-map.dots .space-label { display: none; }
 .space-map.dots .space-node circle { r: 0.018; }
+
+/* --------------------------------------------------------------- the room */
+/* A project's own space, in three dimensions: the stage is the page, the head
+   and the card are glass over it. On a phone the head wraps to two lines and the
+   card becomes a bar at the bottom, because the room is the thing and the
+   furniture has to know it. */
+.space3d {
+  position: fixed;
+  top: 0;
+  left: 0;
+  /* The layout viewport, not the visual one: on a phone in landscape with the
+     browser's chrome showing, `inset: 0` can be taller than the screen and the
+     bottom of the room ends up under the toolbar. */
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  padding: .9rem clamp(.8rem, 3vw, 2.2rem) .8rem;
+  background:
+    radial-gradient(120% 90% at 10% 0%, rgba(52, 18, 74, .5) 0%, transparent 58%),
+    radial-gradient(90% 80% at 100% 100%, rgba(23, 11, 44, .55) 0%, transparent 55%),
+    rgba(5, 3, 10, .975);
+  outline: none;
+  overflow: hidden;
+}
+.space3d-head { display: flex; align-items: flex-start; justify-content: space-between; gap: .8rem; flex-wrap: wrap; }
+.space3d-head h2 { margin: .1rem 0 .2rem; font-size: clamp(1.3rem, 2.8vw, 1.9rem); }
+.space3d-head .space-meta { font-variant-numeric: tabular-nums; }
+.space3d-stage {
+  position: relative;
+  /* A zero basis, not an auto one: the canvas inside is 100% of its parent, and
+     an auto basis would take the canvas's own height as the content height and
+     grow the stage past the bottom of the phone. */
+  flex: 1 1 0;
+  min-height: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #06030c;
+  border: 1px solid #ffffff17;
+  box-shadow: inset 0 0 90px #2a0f3d55, 0 0 46px #38bdf81a;
+  cursor: grab;
+}
+.space3d-stage:active { cursor: grabbing; }
+.space3d-stage canvas { position: absolute; inset: 0; display: block; }
+.space3d-zoom {
+  position: absolute;
+  right: .8rem;
+  bottom: .8rem;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+.space3d-zoom button {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 10px;
+  border: 1px solid #ffffff2b;
+  background: #0d0718cc;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.space3d-zoom button:hover { border-color: #ffffff5c; background: #1a0f2ee6; }
+.space3d-legend {
+  margin: 0;
+  font-size: .72rem;
+  color: #a99fc0;
+  text-align: center;
+}
+.space3d-card {
+  position: absolute;
+  left: clamp(.8rem, 3vw, 2.2rem);
+  bottom: 3.1rem;
+  width: min(23rem, calc(100vw - 2rem));
+  padding: .8rem .9rem .9rem;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #150a24f2 0%, #0a0512d9 100%);
+  border: 1px solid #ffffff24;
+  box-shadow: 0 0 40px #38bdf81f, 0 18px 40px #00000066;
+  backdrop-filter: blur(8px);
+}
+.space3d-card h3 { margin: .15rem 0 .3rem; font-size: 1.1rem; }
+.space3d-address { margin: 0 0 .35rem; font-size: .78rem; color: #cfc2e0; word-break: break-all; }
+.space3d-state { margin: 0 0 .6rem; font-size: .78rem; color: var(--dim); }
+.space3d-list { position: fixed; inset: 0; }
+.space3d-list-back {
+  position: fixed;
+  right: clamp(.8rem, 3vw, 2.2rem);
+  bottom: 1rem;
+  z-index: 80;
+}
+@media (max-width: 720px) {
+  .space3d-legend { display: none; }
+  .space3d-card {
+    left: .6rem;
+    right: .6rem;
+    width: auto;
+    bottom: .6rem;
+    max-height: 46vh;
+    overflow: auto;
+  }
+  .space3d-head .space-head-actions { width: 100%; flex-wrap: wrap; }
+  .space3d-head .space-button { flex: 1 1 6rem; min-width: 0; text-align: center; font-size: .74rem; padding: .42rem .5rem; }
+}
