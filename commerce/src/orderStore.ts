@@ -58,8 +58,9 @@ interface KvConfig {
 
 /** Upstash Redis over REST: Vercel KV's variables, or Upstash's own. */
 export function kvConfig(env: Record<string, string | undefined>): KvConfig | null {
-  const url = env.KV_REST_API_URL ?? env.UPSTASH_REDIS_REST_URL;
-  const token = env.KV_REST_API_TOKEN ?? env.UPSTASH_REDIS_REST_TOKEN;
+  /* `||` rather than `??`: a variable set to an empty string is not a URL. */
+  const url = (env.KV_REST_API_URL || env.UPSTASH_REDIS_REST_URL || "").trim();
+  const token = (env.KV_REST_API_TOKEN || env.UPSTASH_REDIS_REST_TOKEN || "").trim();
   return url && token ? { url: url.replace(/\/+$/, ""), token } : null;
 }
 
