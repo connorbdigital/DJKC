@@ -864,6 +864,13 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
       position: [round(position[0]), round(30 + position[1]), round(position[2])],
       size: SIZE.large,
       href: site.url,
+      /* The site's own pages, the landing page first: the ring you get when you
+         open it in the space. Its funnel is the record of where people go, so
+         those steps are the pages that exist as stars. */
+      pages: [
+        { label: "The landing page", href: site.url },
+        ...(site.funnel ?? []).map((step) => ({ label: step.step, href: new URL(step.path, site.url).toString() })),
+      ].filter((page, index, all) => all.findIndex((entry) => entry.href === page.href) === index),
     });
   });
 
