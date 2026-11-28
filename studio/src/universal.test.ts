@@ -164,7 +164,7 @@ describe("auditSite", () => {
   it("separates what a site has from what it lacks, and names a page for each it has", () => {
     const result = auditSite(
       [
-        { label: "Kaysie Cork", href: "https://k.example/" },
+        { label: "Front door", href: "https://k.example/" },
         { label: "Prices", href: "https://k.example/prices.html" },
       ],
       universal

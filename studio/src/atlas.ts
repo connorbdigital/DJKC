@@ -83,10 +83,10 @@ export const PROJECTS = [
   {
     id: "project-djkc",
     label: "DJKC — the site",
-    line: "Kaysie Cork, wedding DJ in Manchester. Booking form, prices, availability.",
+    line: "The DJKC artist site on kaysie.sitebuildup.co.uk: a house DJ, live vocalist and producer in the North West. Prices, availability, a priced enquiry and a Stripe deposit.",
     detail:
-      "The first project the Studio was built for: a single-page site with a priced enquiry form, a Stripe deposit, a booking desk and static pages generated for search. 66 tests.",
-    bullets: ["React + Vite + Tailwind", "api/ on Vercel", "66 tests, 9 static pages generated", "Owner: connorbdigital"],
+      "The first project the Studio was built for: a single-page site with a priced enquiry form, a Stripe deposit, a booking desk and static pages generated for search. Its own site on its own subdomain — not the SiteBuildup agency site at the apex, which is a separate property with separate content.",
+    bullets: ["React + Vite + Tailwind", "api/ on Vercel", "386 tests, 18 static pages generated", "Owner: connorbdigital"],
     href: "https://kaysie.sitebuildup.co.uk/",
     pages: [
       { label: "Home", href: "https://kaysie.sitebuildup.co.uk/" },
@@ -167,15 +167,16 @@ export interface SiteRecord {
 export const SITES: SiteRecord[] = [
   {
     id: "site-sitebuildup",
-    label: "sitebuildup.co.uk",
-    url: "https://www.sitebuildup.co.uk/",
+    label: "kaysie.sitebuildup.co.uk",
+    url: "https://kaysie.sitebuildup.co.uk/",
     kind: "Your site",
-    what: "Kaysie Cork's site: a wedding DJ in Manchester, with prices, availability and a booking form that takes a deposit.",
+    what: "DJKC — a house DJ, live vocalist and producer in the North West: prices, availability, a priced enquiry form and a deposit. It lives on a subdomain of sitebuildup.co.uk, but it is not that site: the apex is the SiteBuildup agency, a separate property with separate pages.",
     built: [
       "One page that does the selling: prices, packages, availability, FAQs",
       "An enquiry form priced from the answers, with a Stripe deposit at the end",
       "A booking desk behind it, and a calendar feed for the dates already taken",
       "Static pages generated for search, plus the chat widget",
+      "Its own property on kaysie.sitebuildup.co.uk — the apex sitebuildup.co.uk is a different site",
       "Built on anything.com — so its modules are in the Anything arm of this space",
     ],
     look: [
@@ -194,7 +195,7 @@ export const SITES: SiteRecord[] = [
       "Four pages to an enquiry, and a deposit at the end of the form. There is no cart and no account, because a booking is one conversation, not a basket.",
     supply: {
       gives: "The one page that turns a search into a paid enquiry.",
-      wants: "A domain, and the Anything project behind it.",
+      wants: "A subdomain on the SiteBuildup family, and the Anything project behind it.",
       check: "Open the Anything tab: the modules listed there are this site's actual pages.",
     },
   },

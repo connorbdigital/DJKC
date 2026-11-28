@@ -473,7 +473,7 @@ export const FAQS = [
   },
   {
     q: "How far in advance should we book?",
-    a: "Prime Friday and Saturday dates typically go 6–10 weeks out, and festival season earlier. Midweek and short-notice slots are sometimes available — send the enquiry either way and you'll hear back within 24 hours.",
+    a: "Average lead time for a UK DJ booking is four to five months, and six to twelve for peak Saturdays and weddings. Prime Friday and Saturday dates with KC typically go 6–10 weeks out, and festival season earlier. Midweek and short-notice slots are sometimes available — send the enquiry either way and you'll hear back within 24 hours.",
   },
   {
     q: "Does she play the UK and internationally?",
@@ -498,10 +498,6 @@ export const FAQS = [
   {
     q: "What's the difference between a DJ and a singer-DJ?",
     a: "A DJ plays records; a singer-DJ performs live vocals over them. KC sings her own productions mid-set with her own mic and in-ear monitoring, which is why the Signature Live show sits above a DJ-only booking — you get a vocalist and a DJ for one fee, with no second rider, second contract or second soundcheck.",
-  },
-  {
-    q: "How far in advance should we book?",
-    a: "Average lead time for a UK DJ booking is around four to five months, and six to twelve for peak Saturdays and weddings. Prime Friday and Saturday dates with KC typically go 6–10 weeks out; December and festival season earlier. Short-notice enquiries are always worth sending — cancellations happen.",
   },
   {
     q: "How much does a DJ cost for a birthday party or Christmas do?",

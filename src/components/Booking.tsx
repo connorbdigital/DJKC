@@ -177,7 +177,7 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
             <ul className="mt-8 space-y-4">
               {[
                 { icon: "clock", text: "Reply within 24 hours — usually same day" },
-                { icon: "check", text: "50% deposit locks the date. Simple one-page contract." },
+                { icon: "check", text: "50% deposit locks the date. Simple one-page contract, published terms." },
                 { icon: "headphones", text: "Custom preview mix for your event, free with every quote" },
               ].map((x) => (
                 <li key={x.text} className="flex items-center gap-3.5 text-sm text-ink/85">
@@ -265,7 +265,11 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                       {sent.mode === "full"
                         ? "This clears the whole fee for your quote. "
                         : `This is the ${DEPOSIT_PERCENT}% holding deposit on your quote; the balance is due before the event. `}
-                      Payment runs through Stripe and the refund terms are in the contract KC sends before anything is final.
+                      Payment runs through Stripe.{' '}
+                      <a className="underline hover:text-magenta" href="/terms.html">
+                        The booking terms
+                      </a>{' '}
+                      carry the cancellation rules, and the one-page contract KC sends repeats them before anything is final.
                     </p>
                     <a className="btn-primary mt-3 inline-block rounded-full px-5 py-2.5 text-sm font-bold text-white" href={sent.paymentUrl}>
                       {typeof sent.amount === "number"
@@ -478,8 +482,12 @@ export function Booking({ tier, onTier }: { tier: string; onTier: (t: string) =>
                       </div>
                     </fieldset>
                     <p className="mt-3 text-[11px] leading-relaxed text-faint">
-                      Card payment runs through Stripe once you send the request. Any deposit holds the date; refund terms are set
-                      in the one-page contract KC sends before you pay.
+                      Card payment runs through Stripe once you send the request. Any deposit holds the date; the cancellation
+                      rules are in the{' '}
+                      <a className="underline hover:text-magenta" href="/terms.html">
+                        booking terms
+                      </a>{' '}
+                      and in the one-page contract KC sends before you pay.
                     </p>
                   </div>
                   <div className="sm:col-span-2">
