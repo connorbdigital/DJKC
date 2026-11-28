@@ -210,3 +210,30 @@ describe("/api/world — polling and bridges", () => {
     expect(anything.note).toContain("may be refused");
   });
 });
+
+describe("/api/world — what a refused key means", () => {
+  const withStatus = (status: number, statusText = "") =>
+    vi.stubGlobal("fetch", () => Promise.resolve(new Response("{}", { status, statusText })));
+
+  it("says a 401 means the key is set and refused, and where to rotate it", async () => {
+    withStatus(401, "Unauthorized");
+    const { json } = await call();
+    const note = (json.world as { sources: { id: string; note: string }[] }).sources.find((s) => s.id === "anything")!.note;
+    expect(note).toContain("refused");
+    expect(note).toContain("rotate it in Anything");
+  });
+
+  it("says a 503 means the key is missing, not that Anything is wrong", async () => {
+    withStatus(503, "Service Unavailable");
+    const { json } = await call();
+    const note = (json.world as { sources: { id: string; note: string }[] }).sources.find((s) => s.id === "anything")!.note;
+    expect(note).toContain("no anything key on this deployment");
+  });
+
+  it("does not blame the key for a server-side failure", async () => {
+    withStatus(500, "Internal Server Error");
+    const { json } = await call();
+    const note = (json.world as { sources: { id: string; note: string }[] }).sources.find((s) => s.id === "anything")!.note;
+    expect(note).toContain("not a key problem");
+  });
+});

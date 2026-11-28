@@ -50,6 +50,24 @@ which broke the Vercel build until it was pinned — leave the file and the lock
    - `ANYTHING_API_KEY` — an Anything API key (anything.com → account → API keys). Without it the Anything tab says so and reads nothing.
 4. Deploy. It is `noindex, nofollow` and should stay that way.
 
+**Which variable, on which environment.** A variable scoped to production only is
+absent on every preview deployment, which is where a pull request is looked at —
+so the Anything key is set on all three. Verified on the `studio` project
+(28 Nov):
+
+| Variable | production | preview | development | what it unlocks |
+| --- | --- | --- | --- | --- |
+| `ANYTHING_API_KEY` | yes (sensitive) | yes | yes | the Anything tab, the send, and the world's Anything row + credits |
+| `GITHUB_TOKEN` | yes | yes | yes | the Projects tab without the gate |
+| `ANTHROPIC_API_KEY` | yes | **no** | **no** | the Agent tab — a preview deployment answers 503 |
+| `VERCEL_TOKEN` | **no** | **no** | **no** | the world's deployment row; without it the row says `no VERCEL_TOKEN` |
+
+Sensitive variables cannot be read back, by this repository or by the Vercel API —
+`value` comes back empty. That is the point of the type, and it means "is the key
+good?" can only be answered by *using* it: `/api/anything` answers 401 when the key
+is refused and 503 when it is missing, and `/api/world` turns those into two
+different sentences rather than one status code.
+
 The Studio has **no database**. Three secrets can live on the deployment and nowhere else: the model key, `GITHUB_TOKEN`, and `ANYTHING_API_KEY`. When they are set, reads go through `/api/github` and `/api/anything`, so the browser never holds a credential just to look at something — and `/api/anything` will do exactly one write, `POST /v0/api/projects/{id}/generate`, so a brief can be sent to a project from the Anything tab without the key leaving the server. Writes — opening a branch, a file, a pull request — still ask for a token at the gate, where the person authorising it can see what they are authorising, and that token stays in `sessionStorage` and dies with the tab.
 
 ## The eight tabs
