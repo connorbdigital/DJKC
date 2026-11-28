@@ -28,7 +28,9 @@ built it. Where a doc and code disagree, the tests are right and the doc is a bu
 | [../commerce/SUPPLIERS.md](../commerce/SUPPLIERS.md) | Where product feeds come from, what each contains, what it costs, and the vetting questions |
 | [../commerce/GAPS.md](../commerce/GAPS.md) | What a real shop has that this one does not, ranked, with effort estimates |
 | [../studio/PROCESSES.md](../studio/PROCESSES.md) | Every process the Studio can generate, including the product-catalogue one |
-| [anything-2026-11-20.md](anything-2026-11-20.md) | Anything.com: the API's real auth, the read-only proxy, and the two key names it accepts |
+| [anything-2026-11-20.md](anything-2026-11-20.md) | Anything.com: the API's real auth, the proxy, and the two key names it accepts (it now performs one write, a brief into a project) |
+| [sitebuildup-apex-audit-2026-11-20.md](sitebuildup-apex-audit-2026-11-20.md) | The apex agency site, audited against our own six services: 34/100, three identities, four price lists, template legal pages, and the SEO page failing its own checklist |
+| [anything-prompt-digital-solutions-agency.md](anything-prompt-digital-solutions-agency.md) | The ready-to-paste Anything brief that fixes it, in the order the fixes matter, with acceptance checks |
 | [../studio/README.md](../studio/README.md) | The Studio: inventory, feature library, draft → PR → checks → merge gate, and the Shelf (todo, sourcing links, keys) |
 | [../README.md](../README.md) | The DJKC site itself and the two products that live beside it |
 | [split-pr-2026-11-20.md](split-pr-2026-11-20.md) | *Process note:* how to split PR #18 into two PRs, with the commands that were tested and the coupling that argues against it |

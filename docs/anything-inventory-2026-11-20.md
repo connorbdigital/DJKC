@@ -50,7 +50,7 @@ that document. "Untested" means exactly that: we have only ever called `/me` and
 | `POST /v0/api/projects` | Create a project and start generating from a prompt | Not used: the Studio does not spend anyone's credits |
 | `GET /v0/api/projects/{id}` | Project detail, modules, dev-server status | **Worth copying** — see §3.1 |
 | `GET …/{id}/status` | "Small status document (latest revision + deployment summary)" for cheap polling | **Worth copying** — the pattern is the point; see §3.2 |
-| `POST …/{id}/messages` (`request-a-change`) | Send a prompt to change the project; continues or starts a thread | Not used: read-only by decision |
+| `POST …/{id}/messages` (`request-a-change`) | Send a prompt to change the project; continues or starts a thread | **Used since 20 Nov** as `POST /v0/api/projects/{id}/generate` — the bridge's single write, for a brief from the Studio |
 | `GET …/{id}/messages` | Chat messages, filterable by thread | Later: "what was asked for, in the project's own words" |
 | `POST …/{id}/duplicate`, `rename`, `delete`, `restore` | Lifecycle | Not used |
 | `POST …/{id}/publish`, `unpublish` | Take it public, optionally claim a slug | Not used; our deploy path is Vercel |

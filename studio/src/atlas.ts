@@ -394,7 +394,7 @@ export const BUILT = [
     label: "Anything, read-only",
     line: "Your anything.com projects and their modules, read server-side so the key never reaches the page.",
     detail:
-      "An Anything tab that lists projects with credits left, and a route that forwards two list reads and one project's detail — nothing that can create, rename or delete. Anything's Basic auth puts the key in the username, which is exactly why it lives on the server.",
+      "An Anything tab that lists projects with credits left, and a route that forwards two list reads, one project's detail, and one write — a brief into a project you have opened, which starts a revision. Nothing that can create, rename, publish or delete. Anything's Basic auth puts the key in the username, which is exactly why it lives on the server.",
     bullets: ["PR #22", "3 paths, exact", "Missing key ≠ rejected key"],
   },
   {

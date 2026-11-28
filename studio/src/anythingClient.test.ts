@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { loadAnythingApps, loadAnythingList, loadAnythingProject, parseProjects, toApp } from "./anythingClient";
+import { loadAnythingApps, loadAnythingList, loadAnythingProject, parseProjects, sendBrief, toApp } from "./anythingClient";
 import type { AnythingProject, AnythingProjectInfo } from "./anything";
 
 const project = (overrides: Partial<AnythingProject> = {}): AnythingProject => ({
@@ -198,5 +198,49 @@ describe("the Anything list on its own", () => {
     const result = await loadAnythingProject({ id: "prj_x", name: "gone", organizationName: "o", organizationId: "o", slug: null, createdAt: "", updatedAt: "" });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toContain("not found");
+  });
+});
+
+describe("sending the brief", () => {
+  it("posts one generate request and believes only a revision id", async () => {
+    const bodies: unknown[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      return new Response(JSON.stringify({ revisionId: "6b0c0d1e-1111-4222-8333-444455556666", threadId: "aa11bb22-3333-4444-8555-666677778888" }), { status: 200 });
+    });
+
+    const result = await sendBrief("prj_9fk2");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.sent.revisionId).toBe("6b0c0d1e-1111-4222-8333-444455556666");
+      expect(result.sent.threadId).toBe("aa11bb22-3333-4444-8555-666677778888");
+    }
+    expect(bodies).toHaveLength(1);
+    const sent = bodies[0] as { generate: { projectId: string; prompt: string } };
+    expect(sent.generate.projectId).toBe("prj_9fk2");
+    /* The default brief is the audit, and it is long: this is the whole point. */
+    expect(sent.generate.prompt.length).toBeGreaterThan(1000);
+    expect(sent.generate.prompt).toContain("sitebuildup.co.uk");
+  });
+
+  it("reports the bridge's own words when it refuses, and never invents a success", async () => {
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ ok: false, error: "Anything refused the stored key, so the brief was not sent." }), { status: 401 }));
+    const refused = await sendBrief("prj_9fk2", "a brief that is long enough to be a brief, not a typo");
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.reason).toMatch(/was not sent/i);
+
+    /* A 200 with no revision id is not a sent brief. */
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const empty = await sendBrief("prj_9fk2", "a brief that is long enough to be a brief, not a typo");
+    expect(empty.ok).toBe(false);
+    if (!empty.ok) expect(empty.reason).toMatch(/no revision id/i);
+
+    /* A network failure is a sentence, not an exception in the render. */
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("offline");
+    });
+    const broken = await sendBrief("prj_9fk2");
+    expect(broken.ok).toBe(false);
+    if (!broken.ok) expect(broken.reason).toBe("offline");
   });
 });

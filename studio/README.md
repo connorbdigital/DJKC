@@ -50,7 +50,7 @@ which broke the Vercel build until it was pinned — leave the file and the lock
    - `ANYTHING_API_KEY` — an Anything API key (anything.com → account → API keys). Without it the Anything tab says so and reads nothing.
 4. Deploy. It is `noindex, nofollow` and should stay that way.
 
-The Studio has **no database**. Three secrets can live on the deployment and nowhere else: the model key, `GITHUB_TOKEN`, and `ANYTHING_API_KEY`. When they are set, reads go through `/api/github` and `/api/anything`, both read-only, so the browser never holds a credential just to look at something. Writes — opening a branch, a file, a pull request — still ask for a token at the gate, where the person authorising it can see what they are authorising, and that token stays in `sessionStorage` and dies with the tab.
+The Studio has **no database**. Three secrets can live on the deployment and nowhere else: the model key, `GITHUB_TOKEN`, and `ANYTHING_API_KEY`. When they are set, reads go through `/api/github` and `/api/anything`, so the browser never holds a credential just to look at something — and `/api/anything` will do exactly one write, `POST /v0/api/projects/{id}/generate`, so a brief can be sent to a project from the Anything tab without the key leaving the server. Writes — opening a branch, a file, a pull request — still ask for a token at the gate, where the person authorising it can see what they are authorising, and that token stays in `sessionStorage` and dies with the tab.
 
 ## The eight tabs
 

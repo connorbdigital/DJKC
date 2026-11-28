@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { loadAnythingList, loadAnythingProject, type AnythingApp } from "../anythingClient";
+import { loadAnythingList, loadAnythingProject, sendBrief, type AnythingApp } from "../anythingClient";
+import { APEX_AUDIT_BRIEF, briefLength } from "../anythingAudit";
 import { scan, scanLine } from "../anythingScan";
 import { accountCategories, categoryOrder } from "../anythingCategories";
 import { CATEGORIES, categoryInfo } from "../features";
@@ -45,6 +46,75 @@ function ShelfReading() {
       <p className="muted small">
         Shelves in the library: {CATEGORIES.map((category) => category.label).join(" · ")}.
       </p>
+    </div>
+  );
+}
+
+
+/**
+ * The one place this Studio changes anything on Anything.
+ *
+ * Read-only was the right default and stays the default: nothing is sent until
+ * somebody presses a second button that says what it does. The brief is visible
+ * and editable first, because a prompt that starts a build should be read before
+ * it is sent — and what comes back is a revision id, so the change can be watched
+ * where it happens rather than guessed at from here.
+ */
+function SendBrief({ project }: { project: AnythingProject }) {
+  const [draft, setDraft] = useState(APEX_AUDIT_BRIEF.prompt);
+  const [step, setStep] = useState<"idle" | "confirm" | "sending">("idle");
+  const [result, setResult] = useState<{ kind: "sent"; revisionId: string } | { kind: "failed"; reason: string } | null>(null);
+
+  const send = () => {
+    setStep("sending");
+    setResult(null);
+    void sendBrief(project.id, draft).then((answer) => {
+      setStep("idle");
+      setResult(answer.ok ? { kind: "sent", revisionId: answer.sent.revisionId } : { kind: "failed", reason: answer.reason });
+    });
+  };
+
+  return (
+    <div className="anything-brief">
+      <details>
+        <summary className="muted small">
+          The brief: the sitebuildup.co.uk audit, {briefLength({ ...APEX_AUDIT_BRIEF, prompt: draft }).toLocaleString("en-GB")} characters
+        </summary>
+        <p className="muted small">
+          From {APEX_AUDIT_BRIEF.source}. Edit it here if you want to send something else — only what is in this box is sent.
+        </p>
+        <textarea
+          className="anything-brief-text"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          rows={10}
+          aria-label="The brief that will be sent to Anything"
+        />
+      </details>
+
+      {step === "idle" && (
+        <button className="btn ghost small-btn" type="button" onClick={() => setStep("confirm")}>
+          Send this brief to {project.name}
+        </button>
+      )}
+      {step === "confirm" && (
+        <span className="anything-brief-confirm">
+          <span className="muted small">This starts a revision in the project. Anything will build it; you can stop it there.</span>
+          <button className="btn ghost small-btn" type="button" onClick={send}>
+            Send it
+          </button>
+          <button className="btn ghost small-btn" type="button" onClick={() => setStep("idle")}>
+            Cancel
+          </button>
+        </span>
+      )}
+      {step === "sending" && <span className="muted small">Sending the brief…</span>}
+      {result?.kind === "sent" && (
+        <p className="muted small">
+          Sent. Revision <code>{result.revisionId}</code> is building on anything.com — the project page shows the files as they change.
+        </p>
+      )}
+      {result?.kind === "failed" && <p className="muted small">Not sent: {result.reason}</p>}
     </div>
   );
 }
@@ -285,6 +355,7 @@ export function Anything() {
                         ) : (
                           <p className="muted small">The API lists no files for this project yet.</p>
                         )}
+                        <SendBrief project={project} />
                       </>
                     )}
                   </div>
@@ -296,10 +367,11 @@ export function Anything() {
       )}
 
       <p className="muted small">
-        Read-only: this deployment holds an Anything API key and reads two things with it — the list of projects (asked
-        for 100 at a time, the API's own ceiling) and, when you open one, its files and published URL. Creating,
-        renaming or deleting still happens on anything.com, where you can see what you are doing. Each project also
-        appears in the <strong>Atlas</strong> as a sun, once it can be read.
+        This deployment holds an Anything API key and does two things with it. It reads: the list of projects (asked for
+        100 at a time, the API's own ceiling) and, when you open one, its files and published URL. And it writes once:
+        a brief into a project you open, which starts a revision — one endpoint, one shape, a project id and a prompt.
+        Creating, renaming, publishing and deleting still happen on anything.com, where you can see what you are doing.
+        Each project also appears in the <strong>Atlas</strong> as a sun, once it can be read.
       </p>
     </div>
   );

@@ -97,6 +97,37 @@ export function anythingTarget(rawPath: unknown): AnythingTarget {
   return { ok: true, url: `${ANYTHING_API}${path}${query ? `?${query}` : ""}` };
 }
 
+/**
+ * The one write the bridge performs: a prompt into an existing project.
+ *
+ * `POST /v0/api/projects/{id}/generate` starts a new revision, so it is the only
+ * endpoint with a side effect worth having, and it is reachable for exactly one
+ * shape — a project id, a suffix, and nothing else. Anything's delete and rename
+ * endpoints take the same prefix, which is why this is a separate function with
+ * its own rules rather than a flag on `anythingTarget`.
+ */
+export const GENERATE_SUFFIX = "/generate";
+
+/** A prompt has to say something, and not be a paste of a whole repository. */
+export const PROMPT_MIN = 40;
+export const PROMPT_MAX = 12_000;
+
+export type AnythingGenerate =
+  | { ok: true; url: string; path: string; prompt: string }
+  | { ok: false; reason: string };
+
+export function generateTarget(projectId: unknown, prompt: unknown): AnythingGenerate {
+  if (typeof projectId !== "string" || !PROJECT_ID.test(projectId)) {
+    return { ok: false, reason: "Send a project id in the form prj_… or a uuid." };
+  }
+  if (typeof prompt !== "string") return { ok: false, reason: "Send the prompt as a string." };
+  const text = prompt.trim();
+  if (text.length < PROMPT_MIN) return { ok: false, reason: `A prompt shorter than ${PROMPT_MIN} characters is a mistake, not a brief.` };
+  if (text.length > PROMPT_MAX) return { ok: false, reason: `That prompt is over ${PROMPT_MAX.toLocaleString("en-GB")} characters; Anything rejects it and the revision fails after it has started.` };
+  const path = `${PROJECT_PREFIX}${projectId}${GENERATE_SUFFIX}`;
+  return { ok: true, path, url: `${ANYTHING_API}${path}`, prompt: text };
+}
+
 /** Anything's auth: key as username, empty password. */
 export function basicAuth(key: string): string {
   return `Basic ${btoa(`${key}:`)}`;
