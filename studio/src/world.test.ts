@@ -1,0 +1,189 @@
+import { describe, expect, it } from "vitest";
+import {
+  WORLD_POLL_MS,
+  chipLine,
+  describeSources,
+  describeWorld,
+  readApps,
+  readWorld,
+  sameWorld,
+  worldTone,
+  worldVersion,
+  type WorldSnapshot,
+} from "./world";
+
+const snapshot = (over: Partial<WorldSnapshot> = {}): WorldSnapshot => ({
+  version: "v1",
+  builtAt: Date.now(),
+  sources: [
+    { id: "studio", label: "Studio", ok: true, at: Date.now(), note: "123 stars", count: 123 },
+    { id: "anything", label: "Anything", ok: true, at: Date.now(), note: "2 projects", count: 2 },
+  ],
+  apps: [],
+  deployments: [],
+  counts: { nodes: 123, edges: 210, districts: 9, apps: 2, deployments: 0 },
+  ...over,
+});
+
+describe("the world version", () => {
+  const nodes = [{ id: "a" }, { id: "b" }];
+  const apps = [{ name: "sitebuildup", modules: ["Home", "Prices"] }];
+  const deployments = [{ url: "studio.example", state: "READY" }];
+
+  it("does not change when the order changes", () => {
+    const one = worldVersion({ nodes, apps, deployments });
+    const two = worldVersion({ nodes: [...nodes].reverse(), apps, deployments });
+    expect(two).toBe(one);
+  });
+
+  it("changes when a star is added", () => {
+    expect(worldVersion({ nodes: [...nodes, { id: "c" }], apps, deployments })).not.toBe(
+      worldVersion({ nodes, apps, deployments })
+    );
+  });
+
+  it("changes when an app grows a part, because that is a different world", () => {
+    expect(
+      worldVersion({ nodes, apps: [{ name: "sitebuildup", modules: ["Home", "Prices", "FAQ"] }], deployments })
+    ).not.toBe(worldVersion({ nodes, apps, deployments }));
+  });
+
+  it("changes when a deployment changes state", () => {
+    expect(worldVersion({ nodes, apps, deployments: [{ url: "studio.example", state: "ERROR" }] })).not.toBe(
+      worldVersion({ nodes, apps, deployments })
+    );
+  });
+
+  it("is short enough to put in an ETag", () => {
+    expect(worldVersion({ nodes, apps, deployments }).length).toBeLessThan(20);
+  });
+});
+
+describe("reading a snapshot", () => {
+  it("accepts the server's envelope and unwraps it", () => {
+    const world = readWorld({ ok: true, world: snapshot() });
+    expect(world?.version).toBe("v1");
+    expect(world?.counts.nodes).toBe(123);
+  });
+
+  it("refuses anything without a version", () => {
+    expect(readWorld({ ok: true, world: { sources: [] } })).toBeNull();
+    expect(readWorld(null)).toBeNull();
+    expect(readWorld("nope")).toBeNull();
+    expect(readWorld([])).toBeNull();
+  });
+
+  it("drops sources it does not know, and keeps the ones it does", () => {
+    const world = readWorld({
+      world: snapshot({
+        sources: [
+          { id: "studio", label: "Studio", ok: true, at: 5, note: "x" },
+          { id: "made-up", label: "Nope", ok: true, at: 5, note: "x" },
+        ] as WorldSnapshot["sources"],
+      }),
+    });
+    expect(world?.sources.map((source) => source.id)).toEqual(["studio"]);
+  });
+
+  it("treats a missing count as absent rather than zero", () => {
+    const world = readWorld({ world: snapshot({ sources: [{ id: "github", label: "GitHub", ok: false, at: 0, note: "no token" }] }) });
+    expect(world?.sources[0]?.count).toBeUndefined();
+  });
+
+  it("reads apps the way the browser's own loader does", () => {
+    expect(
+      readApps([
+        { id: "p1", name: "sitebuildup", organizationName: "Kaysie", platform: "web", modules: ["Home"], updatedAt: "now" },
+        { name: "" },
+        { name: "storefront", modules: [] },
+      ])
+    ).toEqual([
+      {
+        id: "p1",
+        name: "sitebuildup",
+        organizationName: "Kaysie",
+        platform: "web",
+        modules: ["Home"],
+        moduleCount: 1,
+        updatedAt: "now",
+      },
+      {
+        id: "app-storefront",
+        name: "storefront",
+        organizationName: "",
+        platform: "web",
+        modules: [],
+        moduleCount: 0,
+        updatedAt: "",
+      },
+    ]);
+  });
+});
+
+describe("how the world stands", () => {
+  it("is 'none' with no snapshot — not an error", () => {
+    expect(worldTone(null)).toBe("none");
+  });
+
+  it("is live when every source answered and it is fresh", () => {
+    expect(worldTone(snapshot())).toBe("live");
+  });
+
+  it("is partial when one source did not, because the rest still did", () => {
+    const world = snapshot({
+      sources: [
+        { id: "studio", label: "Studio", ok: true, at: 1, note: "ok" },
+        { id: "vercel", label: "Vercel", ok: false, at: 0, note: "no token" },
+      ],
+    });
+    expect(worldTone(world)).toBe("partial");
+  });
+
+  it("is stale when it is older than a quarter of an hour", () => {
+    const world = snapshot({ builtAt: Date.now() - 16 * 60_000 });
+    expect(worldTone(world)).toBe("stale");
+  });
+
+  it("says the counts in one line", () => {
+    const line = describeWorld(snapshot());
+    expect(line).toContain("123 stars");
+    expect(line).toContain("210 wires");
+    expect(line).toContain("2/2 sources");
+  });
+
+  it("names the source that did not answer, and says why", () => {
+    const world = snapshot({
+      sources: [
+        { id: "studio", label: "Studio", ok: true, at: 1, note: "123 stars" },
+        { id: "vercel", label: "Vercel", ok: false, at: 0, note: "no VERCEL_TOKEN on this project" },
+      ],
+    });
+    expect(describeSources(world)).toContain("Vercel: no — no VERCEL_TOKEN");
+  });
+
+  it("compares by version, so a poll that finds nothing new rebuilds nothing", () => {
+    expect(sameWorld(snapshot(), snapshot())).toBe(true);
+    expect(sameWorld(snapshot(), snapshot({ version: "v2" }))).toBe(false);
+    expect(sameWorld(null, snapshot())).toBe(false);
+  });
+
+  it("says it in a chip a phone can hold", () => {
+    expect(chipLine(null)).toBe("◉ World not read");
+    expect(chipLine(snapshot())).toMatch(/^◉ Synced \d\d:\d\d$/);
+    expect(
+      chipLine(
+        snapshot({
+          sources: [
+            { id: "studio", label: "Studio", ok: true, at: 1, note: "ok" },
+            { id: "vercel", label: "Vercel", ok: false, at: 0, note: "no token" },
+          ],
+        })
+      )
+    ).toMatch(/^◉ Partial 1\/2 · \d\d:\d\d$/);
+    expect(chipLine(snapshot({ builtAt: Date.now() - 20 * 60_000 }))).toMatch(/^◉ Stale · built /);
+  });
+
+  it("polls slowly enough to be polite", () => {
+    expect(WORLD_POLL_MS).toBe(60_000);
+  });
+});

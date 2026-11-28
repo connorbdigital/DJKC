@@ -595,6 +595,9 @@ export class AtlasEngine {
     base: THREE.Color;
     spin: number;
   }[] = [];
+  /* The world's own beacons: one small planet per source the space is fed by,
+     so "is this live?" is answered by looking rather than by reading a badge. */
+  private worldGroup: THREE.Group | null = null;
   private frame = 0;
   private yaw = 0;
   private pitch = -0.13;
@@ -2244,6 +2247,81 @@ export class AtlasEngine {
     const target = new THREE.Vector3(...centre);
     const stop = target.clone().add(new THREE.Vector3(0, 8, distance));
     this.flight = { from: this.rig.position.clone(), to: stop, look: target, t: 0 };
+  }
+
+  /**
+   * What the space is fed by, drawn in the space.
+   *
+   * A ring of beacons above the hub: the Studio's own inventory, the sites and
+   * their pages, GitHub, Anything, Vercel. Green answered, red did not, and the
+   * name under each carries the count or the reason. The HUD says the same thing
+   * in a sentence; this says it where you are standing.
+   */
+  setSources(sources: { id: string; label: string; ok: boolean; note: string; count?: number }[]) {
+    if (this.worldGroup) {
+      this.scene.remove(this.worldGroup);
+      this.worldGroup.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        mesh.geometry?.dispose?.();
+        const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        if (Array.isArray(material)) material.forEach((entry) => entry.dispose());
+        else material?.dispose?.();
+      });
+      this.worldGroup = null;
+    }
+    if (!sources.length) return;
+    const group = new THREE.Group();
+    const hub = this.atlas.districts.find((district) => district.id === "library")?.centre ?? [0, 0, 0];
+    const centre = new THREE.Vector3(hub[0], hub[1] + 26, hub[2]);
+    const radius = 58;
+    const good = new THREE.Color(0x5ef0c0);
+    const bad = new THREE.Color(0xff7a6b);
+    sources.forEach((source, index) => {
+      const angle = (index / sources.length) * Math.PI * 2 + Math.PI / 2;
+      const colour = source.ok ? good : bad;
+      const position = new THREE.Vector3(
+        centre.x + Math.cos(angle) * radius,
+        centre.y + 14 + Math.sin(index * 1.3) * 3,
+        centre.z + Math.sin(angle) * radius
+      );
+      const planet = new THREE.Mesh(sphereFor(1.6, 24, 16), sunMaterial(colour, index * 1.9));
+      planet.position.copy(position);
+      group.add(planet);
+      const halo = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: haloTexture(),
+          color: colour,
+          transparent: true,
+          opacity: 0.5,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: false,
+          fog: false,
+        })
+      );
+      halo.renderOrder = 3;
+      halo.position.copy(position);
+      halo.scale.setScalar(9);
+      group.add(halo);
+      const caption = labelSprite(
+        `${source.label}${source.ok && typeof source.count === "number" ? ` · ${source.count}` : ""}`,
+        { size: 40, max: 26, weight: 700, colour: source.ok ? "#c7ffe9" : "#ffd9d3" }
+      );
+      /* Bigger than a node's own name: five beacons are read from across the
+         room, where a star's label is read from a few paces away. */
+      caption.scale.multiplyScalar(2.3);
+      caption.position.copy(position).add(new THREE.Vector3(0, -4.2, 0));
+      group.add(caption);
+      /* A spoke back to the middle: the beacons are a ring around the world,
+         not five things stranded in the dark. */
+      const spoke = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([position.clone(), centre.clone()]),
+        new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity: 0.16, depthWrite: false })
+      );
+      group.add(spoke);
+    });
+    this.scene.add(group);
+    this.worldGroup = group;
   }
 
   setFilter(kind: NodeKind | "all") {

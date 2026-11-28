@@ -658,8 +658,11 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
   /* The instrument, on the other diagonal. Small suns on a ring, each with the
      file that builds it: the space is now a map of the thing it is drawn by. */
   const studioArm = DISTRICTS.find((district) => district.id === "studio")!;
+  const STUDIO_PER_RING = 12;
   STUDIO_COMPONENTS.forEach((component, index) => {
-    const position = ringPoint(index, Math.max(STUDIO_COMPONENTS.length, 3), 15, 0, -Math.PI / 4);
+    const ring = Math.floor(index / STUDIO_PER_RING);
+    const inRing = Math.min(STUDIO_PER_RING, STUDIO_COMPONENTS.length - ring * STUDIO_PER_RING);
+    const position = ringPoint(index % STUDIO_PER_RING, Math.max(inRing, 3), 15 + ring * 11, 0, -Math.PI / 4);
     nodes.push({
       id: `ui-${component.id}`,
       kind: "component",
@@ -680,6 +683,9 @@ export function buildAtlas(custom: CustomProject[] = [], apps: AnythingApp[] = [
          you can open it. */
       pages: [
         { label: "The file on GitHub", href: `https://github.com/connorbdigital/DJKC/blob/main/${component.file}` },
+        ...(component.tab
+          ? [{ label: "Open it in the Studio", href: `${STUDIO_ORIGIN}/#tab=${component.tab}` }]
+          : []),
         { label: "The Studio itself", href: "https://studio-connorbdigital.vercel.app" },
       ],
     });
@@ -1143,6 +1149,9 @@ export const STUDIO_COMPONENTS: {
   detail: string;
   bullets: string[];
   file: string;
+  /** The tab this part is, when it is a surface rather than a piece of chrome:
+   *  then its page ring opens it directly instead of opening the Studio's front. */
+  tab?: string;
 }[] = [
   {
     id: "header",
@@ -1244,8 +1253,9 @@ export const STUDIO_COMPONENTS: {
     line: "A URL in, five faults out, an email, and a list that remembers.",
     detail:
       "The sales instrument: read a public page, name five faults with what each one costs, draft the email and keep the prospect list. The list is the part that makes it a process rather than a demo.",
-    bullets: ["studio/src/components/PitchSheet.tsx", "studio/src/pitch.ts", "Prospects persist between visits"],
-    file: "studio/src/components/PitchSheet.tsx",
+    bullets: ["studio/src/components/Pitch.tsx", "studio/src/pitch.ts", "Prospects persist between visits"],
+    file: "studio/src/components/Pitch.tsx",
+    tab: "pitch",
   },
   {
     id: "standards",
@@ -1255,6 +1265,7 @@ export const STUDIO_COMPONENTS: {
       "A board of the decisions this project made — no invented links, honest empty states, a gate that explains itself — each one pointing at where it is enforced.",
     bullets: ["studio/src/components/Standards.tsx", "studio/src/standards.ts", "Rules are checked in tests where they can be"],
     file: "studio/src/components/Standards.tsx",
+    tab: "standards",
   },
   {
     id: "anything-tab",
@@ -1264,6 +1275,7 @@ export const STUDIO_COMPONENTS: {
       "A read-only view of the Anything account through this deployment's key: the projects, what is inside each one, and Copy the scan — which is how the inventory leaves a deployment whose key cannot be read back.",
     bullets: ["studio/src/components/Anything.tsx", "studio/src/anythingClient.ts", "api/anything.ts is the bridge"],
     file: "studio/src/components/Anything.tsx",
+    tab: "anything",
   },
   {
     id: "feel-row",
@@ -1291,5 +1303,52 @@ export const STUDIO_COMPONENTS: {
       "Search pulses its matches in the world instead of listing them in a column: the answer to \"where is that?\" is a place, so the result is a place.",
     bullets: ["studio/src/components/Atlas.tsx", "studio/src/atlas.ts searchAtlas", "Matches glow in situ"],
     file: "studio/src/atlas.ts",
+    tab: "search",
+  },
+
+  /* ------------------------------------------------------- the five surfaces */
+  /* The Studio's own tabs that had no star. They were the last things you could
+     reach in the app and not in the space, which is the wrong way round: the
+     space is supposed to hold everything. Each one carries the tab it opens, so
+     its ring is a way in rather than a description of a way in. */
+  {
+    id: "universal",
+    label: "Universal",
+    line: "One site against the inventory: what it has, what it does not, and the page that proves it.",
+    detail:
+      "The audit: pick a site, and the Universal says what each function would look like there, whether it is there, and the page that proves either answer. A score without a page is an opinion.",
+    bullets: ["studio/src/components/Universal.tsx", "api/site reads the pages", "17 tests on the inventory"],
+    file: "studio/src/components/Universal.tsx",
+    tab: "universal",
+  },
+  {
+    id: "pitch",
+    label: "Pitch sheet",
+    line: "A prospect's URL in, a one-page audit out: five faults, what each costs, what to do first.",
+    detail:
+      "Point it at a stranger's site and it writes the page you would send them: the five faults that matter, what each one costs, the first thing to fix, the package that fits, and the email. Kept in a list you can reopen, because a pitch you cannot find again is a pitch you make twice.",
+    bullets: ["studio/src/components/Pitch.tsx", "studio/src/sitecheck.ts", "Saved pitches, with the email"],
+    file: "studio/src/components/Pitch.tsx",
+    tab: "pitch",
+  },
+  {
+    id: "agent",
+    label: "Agent",
+    line: "Describe the change; it drafts the files; you read them and open the pull request.",
+    detail:
+      "The one place the Studio writes rather than reads. A change is described in a sentence, the draft comes back as files you can read line by line, and nothing reaches the repository until you open the pull request yourself.",
+    bullets: ["studio/src/components/Draft.tsx", "api/draft", "Review, then pull request"],
+    file: "studio/src/components/Draft.tsx",
+    tab: "draft",
+  },
+  {
+    id: "search-tab",
+    label: "Repository search",
+    line: "Look inside every project's files, and at one public page outside them.",
+    detail:
+      "The other search: the one in the tab reads the files, not the space. Code search over every project on the account, plus a single public page, so a question about what the code does is answered by the code.",
+    bullets: ["studio/src/components/Search.tsx", "studio/src/codeSearch.ts", "The in-space search is the same idea, placed"],
+    file: "studio/src/components/Search.tsx",
+    tab: "search",
   },
 ];

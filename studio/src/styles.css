@@ -216,6 +216,31 @@ button.btn, a.btn {
   background: #1a0d10f0;
 }
 
+/* The world snapshot: how old the space is, and whether each source answered.
+   A button because a stale world is worth asking again. */
+.atlas-world {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.atlas-world.is-live { border-color: rgba(94, 240, 192, .6); color: #c7ffe9; }
+.atlas-world.is-partial { border-color: rgba(255, 196, 92, .55); color: #ffe3ae; }
+.atlas-world.is-stale { border-color: rgba(255, 122, 107, .6); color: #ffd9d3; }
+.atlas-world.is-none { border-color: rgba(160, 150, 190, .5); color: #cfc6e6; }
+.atlas-world-note {
+  position: absolute;
+  top: calc(var(--atlas-head, 120px) + 44px);
+  left: 20px;
+  max-width: min(560px, 46vw);
+  margin: 0;
+  padding: .35rem .6rem;
+  border-radius: 10px;
+  background: #1a0f14f0;
+  border: 1px solid rgba(255, 122, 107, .45);
+  color: #ffd9d3;
+  font-size: .78rem;
+  z-index: 4;
+}
+
 /* Which node is open in the space, and the way back out. */
 .atlas-inside-bar {
   position: absolute;
