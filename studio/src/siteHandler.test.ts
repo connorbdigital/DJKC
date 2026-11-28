@@ -2,11 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import handler from "../api/site";
 
 /** A stand-in for the bits of IncomingMessage/ServerResponse the handler touches. */
-function request(url: string, payload?: unknown, method = "GET") {
+function request(url: string, payload?: unknown, method = "GET", headers: Record<string, string> = {}) {
   const body = payload === undefined ? "" : JSON.stringify(payload);
   return {
     method,
     url,
+    headers,
     async *[Symbol.asyncIterator]() {
       yield Buffer.from(body);
     },
@@ -102,5 +103,35 @@ describe("the page-preview handler", () => {
     await handler(request("/api/site", undefined, "DELETE"), res);
     expect(out.status).toBe(405);
     expect(out.body).toContain("?thumb=");
+  });
+});
+
+
+describe("the audit's rate limit", () => {
+  it("refuses the twenty-first audit in a minute from one address, and says when to return", async () => {
+    const fetch = vi.fn(async () => html(page));
+    vi.stubGlobal("fetch", fetch);
+    const headers = { "x-forwarded-for": "203.0.113.44" };
+    const payload = { url: "https://kaysie.sitebuildup.co.uk/" };
+
+    for (let i = 0; i < 20; i++) {
+      const { res, out } = response();
+      await handler(request("/api/site", payload, "POST", headers), res);
+      expect(out.status).toBe(200);
+    }
+
+    const { res, out } = response();
+    await handler(request("/api/site", payload, "POST", headers), res);
+    expect(out.status).toBe(429);
+    expect(out.body).toContain("21 audits in a minute");
+    expect(Number(out.headers["retry-after"])).toBeGreaterThan(0);
+
+    /* A refused audit does not fetch anything: the limit is before the work. */
+    expect(fetch).toHaveBeenCalledTimes(20);
+
+    /* Another address still works, so the limit is per visitor and not per site. */
+    const other = response();
+    await handler(request("/api/site", payload, "POST", { "x-forwarded-for": "203.0.113.45" }), other.res);
+    expect(other.out.status).toBe(200);
   });
 });

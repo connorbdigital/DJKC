@@ -109,7 +109,7 @@ export const CAPABILITIES: Capability[] = [
   {
     id: "booking-chat",
     category: "bookings",
-    version: "1.0.1",
+    version: "1.1.0",
     name: "Booking chat",
     summary:
       "A themed chat panel that answers booking questions and hands off to the enquiry form, with a serverless endpoint that rates-limits and fails safe.",
@@ -120,6 +120,7 @@ export const CAPABILITIES: Capability[] = [
     source: "connorbdigital/DJKC",
     files: [
       { path: "api/chat.ts", role: "Serverless reply endpoint" },
+      { path: "src/rateLimit.ts", role: "The per-visitor limit the endpoint spends against" },
       { path: "src/components/BookingChat.tsx", role: "The panel, launcher and invitation card", adapt: true },
       { path: "src/bookingGuide.ts", role: "The answer set — rewrite these for this business", adapt: true },
       { path: "src/components/Logo.tsx", role: "The mark in the header — swap in your own", adapt: true },
@@ -128,7 +129,7 @@ export const CAPABILITIES: Capability[] = [
     expects: [{ path: "src/data.ts", role: "tiers and copy the guide answers with — your own content" }],
     env: ["CHAT_TOKEN", "OPENAI_API_KEY"],
     requires: [],
-    manual: ["Rewrite the answer set for this project", "Add a real rate limiter before it faces the public"],
+    manual: ["Rewrite the answer set for this project", "Set the allowance to what one conversation costs you — twenty a minute is this project's guess"],
   },
   {
     id: "blocked-dates",

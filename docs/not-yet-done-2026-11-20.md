@@ -34,7 +34,7 @@ still is not true. Ordered by what it costs to leave undone.*
 | 9 | **Analytics with consent, and four named events** | Nothing measured on either site. | S |
 | 10 | **Shipping choice** | "Free over £40" is now enforced in the basket and in the Stripe session. Standard only: no express, no nominated day, no collection. | M |
 | 11 | **Stock from a feed, not a column** | Stock is a CSV column, checked at build; nothing syncs it. | M |
-| 12 | **Custom 404, installable shop (manifest), Core Web Vitals** | None. | S each |
+| 12 | **Core Web Vitals** | The 404 and the installable manifest are done (see below). Nothing measures LCP, CLS or INP on the shop, so "fast" is still a claim rather than a number. | S |
 | 13 | **A nicer domain than `ecommerce-two-psi-13.vercel.app`** | The Vercel project name was taken; add a domain and change one constant. | S |
 
 ## The Studio and the Atlas
@@ -42,15 +42,15 @@ still is not true. Ordered by what it costs to leave undone.*
 | # | What | Where it stands | Effort |
 | --- | --- | --- | --- |
 | 14 | **~~Anything projects, verified live~~ Done** | **Verified 20 Nov, from a build that could reach the API:** `ANYTHING_API_KEY` is the only key configured (production, preview and development), and it answers **200** — `/v0/api/me` names the account and two organizations, `/v0/api/projects` returns **89**. The 401 the pulse used to report came from the duplicate `Anything_Key`, which is no longer there. | Done |
-| 15 | **Rate-limit `/api/chat`** | An unauthenticated endpoint that spends money. The one item that can cost you overnight. | S |
+| 15 | **~~Rate-limit `/api/chat`~~ Done** | Twenty messages a minute per address, plus 240 a minute for everyone, both sliding windows; a refusal answers 429 with `Retry-After`. `src/rateLimit.ts`, ten tests, and the per-visitor case proved against the handler. Still true: the counters are per warm instance, so a cold start forgets. | Done |
 | 16 | **The Agent's key on previews** | `ANTHROPIC_API_KEY` is production-only, so the Agent refuses on a preview deployment. | S |
 | 17 | **Orrery and Constellation looks** | City, Blueprint, Observatory and Nebula ship; the other two directions from the earlier list do not. | M each |
 | 18 | **Real-device testing** | Everything is checked in headless Chromium at 390 and 1500 wide. No iPhone, no Android, no Safari. | S |
 | 19 | **WebXR with a headset** | "No headset" is the honest state of the VR button in this environment. | — |
 | 20 | **A deploys tab, server-side projects, the physical-device todo** | Still open on the shelf, as they were before this week. | M |
 | 21 | **Search synonyms and typo tolerance** | Site search matches substrings and nothing else. | S |
-| 22 | **The pitch list lives in one browser** | Sheets, statuses and the email draft are real, but they sit in `localStorage`: one device, clearable, no sync, no team. Fine for one person prospecting; not a CRM. | M |
-| 23 | **The audit endpoint has no rate limit** | `/api/site` fetches any public URL on request, and the pitch sheet sends five at once. A per-IP limit is the next thing before it is public. | S |
+| 22 | **The pitch list lives in one browser** | Still `localStorage` — one device, no sync, no team — but no longer trapped: **Back up the list** writes a named JSON file and **Restore a backup** merges one back, keeping the further status rather than overwriting a "sent" with a "new". Not a CRM; no longer one cleared cache away from nothing. | M (half done) |
+| 23 | **~~The audit endpoint has no rate limit~~ Done** | `/api/site` now allows 20 audits and 60 link cards a minute per address, counted separately so a wall of cards cannot spend the audits. The pitch sheet's five-at-once still fits with room to spare. | Done |
 | 24 | **One page is the only length** | A shop and a one-page brochure get the same sheet, with different packages. The faults differ more than the layout does. | S |
 | 31 | **A page whose links are built by JavaScript** | A project's space reads the anchors in the HTML. If a site draws its nav in script, the room shows one ring and few streams — and says so. | M |
 | 32 | **The space reads pages when it opens** | Up to four pages are fetched per visit, which is fine for a handful of projects and would not be for fifty. Nothing is cached between visits. | S |
@@ -68,6 +68,15 @@ still is not true. Ordered by what it costs to leave undone.*
 | 30 | **Newsletter capture and a list** | No form, no list, no provider. |
 
 ## Changed since this list was written
+
+- **The chat and audit endpoints have limits** (items 15, 23), in
+  `src/rateLimit.ts` and `studio/src/rateLimit.ts` — one small sliding-window
+  limiter each, because the two projects do not share a build root.
+- **The shop has a 404 and a manifest**: `404.html` carries the search box and
+  the twelve departments, every page links a `manifest.webmanifest` and an icon,
+  and a test runs the real build and follows every link on the 404.
+- **The pitch list can be backed up and restored** (item 22), as a named JSON
+  file rather than a bare array.
 
 - **The apex audit has been sent** to the project that runs sitebuildup.co.uk —
   revision `9b15569d`, 3,070 credits. Record:

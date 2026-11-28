@@ -42,10 +42,10 @@ _This is the shelf that makes money: the form, the deposit, the answers that sto
 
 **What breaks without it.** The same questions arrive by hand every week, and anyone who will not fill in a form leaves without asking at all.
 
-- Version: 1.0.1 · source: `connorbdigital/DJKC`
-- Files: `api/chat.ts`, `src/components/BookingChat.tsx` (needs editing), `src/bookingGuide.ts` (needs editing), `src/components/Logo.tsx` (needs editing), `src/components/Icons.tsx`
+- Version: 1.1.0 · source: `connorbdigital/DJKC`
+- Files: `api/chat.ts`, `src/rateLimit.ts`, `src/components/BookingChat.tsx` (needs editing), `src/bookingGuide.ts` (needs editing), `src/components/Logo.tsx` (needs editing), `src/components/Icons.tsx`
 - Environment: `CHAT_TOKEN`, `OPENAI_API_KEY`
-- By hand: Rewrite the answer set for this project; Add a real rate limiter before it faces the public
+- By hand: Rewrite the answer set for this project; Set the allowance to what one conversation costs you — twenty a minute is this project's guess
 
 ## Running the desk
 

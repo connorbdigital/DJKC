@@ -867,6 +867,74 @@ ${breadcrumbs([{ label: "Home", href: "../index.html" }, { label: title }])}
     "utf8"
   );
 
+  /* ------------------------------------------------------ the shop as an app */
+
+  /* An installable shop is a manifest and an icon: no service worker, no offline
+     promise the basket could not keep, just a name, a colour and a start page so a
+     phone can put it on a home screen instead of a bookmark. */
+  const icon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="${escapeHtml(BRAND.name)}">
+  <rect width="192" height="192" rx="28" fill="#e8607f"/>
+  <text x="96" y="126" font-family="Georgia, serif" font-size="84" font-weight="700" fill="#fffdf9" text-anchor="middle">H&amp;G</text>
+</svg>`;
+  await writeFile(path.join(OUT, "assets", "icon.svg"), icon, "utf8");
+  await writeFile(
+    path.join(OUT, "manifest.webmanifest"),
+    JSON.stringify(
+      {
+        name: BRAND.name,
+        short_name: "Hearth & Grain",
+        description: BRAND.description,
+        start_url: "/index.html",
+        scope: "/",
+        display: "browser",
+        background_color: "#fdfaf6",
+        theme_color: "#e8607f",
+        lang: "en-GB",
+        icons: [{ src: "/assets/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }],
+      },
+      null,
+      2
+    ) + "\n",
+    "utf8"
+  );
+
+  /* A 404 is a page, not a server default. On a static host every miss lands here,
+     and a visitor who mistyped a product has one useful question: what else is
+     there? So the page carries the search box and the departments, and says plainly
+     that it is a 404 rather than pretending the URL was right. */
+  const notFoundBody = `
+<div class="wrap" style="padding-top:1rem;max-width:44rem">
+  <p class="muted small">404 — page not found</p>
+  <h1>That page is not here</h1>
+  <p style="color:var(--ink-2)">The address may have a typo in it, or the product may have been renamed. Nothing is broken: the shop is right behind this page.</p>
+  <form class="search" action="search.html" method="get" role="search" style="margin:1rem 0">
+    <label class="visually-hidden" for="q404">Search products</label>
+    <input id="q404" type="search" name="q" placeholder="Search ${products.length} products — try “oak” or “planter”">
+    <button type="submit">Search</button>
+  </form>
+  <h2 style="font-size:1.2rem;margin-top:1.5rem">Departments</h2>
+  <ul style="color:var(--ink-2);line-height:1.7">
+    ${groups.map((group) => `<li><a href="department/${group.department.id}.html">${escapeHtml(group.department.label)}</a></li>`).join("\n    ")}
+  </ul>
+  <p style="margin-top:1.5rem"><a class="btn" href="index.html">Back to the shop</a> · <a href="pages/contact.html">Tell us what you were looking for</a></p>
+  <p class="notice">${escapeHtml(BRAND.notice)}</p>
+</div>`;
+  await writeFile(
+    path.join(OUT, "404.html"),
+    renderPage({
+      depth: 0,
+      title: `Page not found — ${BRAND.name}`,
+      description: "That page is not here. Search the shop, or browse the departments.",
+      canonical: `${BRAND.url}/404.html`,
+      body: notFoundBody,
+      nav: navFor(groups),
+      jsonLd: [organisation()],
+      updated: UPDATED,
+      robots: "noindex,follow",
+    }),
+    "utf8"
+  );
+
   /* The search box runs in the browser, so the index ships with the pages: the
      same tokeniser and synonyms the framework's own search uses, without a server. */
   await writeFile(

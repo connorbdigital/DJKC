@@ -1,9 +1,20 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { AREA_GROUPS, FAQS, TIERS } from '../src/data.js';
+import { clientKey, createLimiter, retryAfterSeconds } from '../src/rateLimit.js';
 
-// A coarse cost ceiling per warm instance; use an edge rate limit in production too.
-let windowStart = 0;
-let requests = 0;
+/**
+ * The only endpoint here that spends money on an anonymous request, so it is the
+ * only one that was ever going to be abused by accident: a stuck widget retrying
+ * in a loop looks exactly like an attacker and costs the same.
+ *
+ * Twenty a minute for one visitor is generous for a booking assistant — the
+ * widget sends one message per press — and 240 a minute for everyone together
+ * stops a botnet of single requests that never trips an individual limit. Both
+ * are per warm instance; a cold start forgets, and the bill is the reason this
+ * exists rather than a promise that it cannot be beaten.
+ */
+const perVisitor = createLimiter({ limit: 20, windowMs: 60_000 });
+const overall = createLimiter({ limit: 240, windowMs: 60_000, maxKeys: 1 });
 const instructions = `You are DJ KC’s booking assistant. Answer only questions about KC’s services. Use only the catalogue below; if unsure direct the visitor to the booking enquiry. Use concise UK English, plain text and GBP. Never claim a date is free or booked, promise discounts, send emails or request personal or payment details. The enquiry form prepares an email that visitors send themselves.\n${JSON.stringify({packages: TIERS, areas: AREA_GROUPS.map(a => ({name:a.formValue,cities:a.cities})), faqs: FAQS})}`;
 
 /**
@@ -27,9 +38,16 @@ export default async function chat(req: IncomingMessage & { body?: unknown }, re
   }
   const key = openAiKey();
   if (!key) return send(503, {error:'AI unavailable'});
-  if (Date.now() - windowStart >= 60000) { windowStart = Date.now(); requests = 0; }
-  if (requests >= 30) return send(429, {error:'Try again shortly'});
-  requests++;
+  const visitor = perVisitor.check(clientKey(req.headers));
+  const everyone = overall.check('everyone');
+  if (!visitor.allowed || !everyone.allowed) {
+    const blocked = visitor.allowed ? everyone : visitor;
+    res.setHeader('Retry-After', retryAfterSeconds(blocked));
+    res.setHeader('X-RateLimit-Limit', '20');
+    res.setHeader('X-RateLimit-Remaining', '0');
+    return send(429, {error:'Try again shortly'});
+  }
+  res.setHeader('X-RateLimit-Remaining', String(visitor.remaining));
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST', signal: AbortSignal.timeout(12000),
