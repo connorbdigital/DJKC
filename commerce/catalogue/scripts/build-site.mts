@@ -1262,7 +1262,7 @@ Sitemap: ${BRAND.url}/sitemap.xml
   console.log(`departments   ${groups.map((group) => `${group.department.id} ${group.products.length}`).join(", ")}`);
   console.log(`pages         home + ${groups.length} departments (${groups.filter((group) => !group.products.length).length} opening soon) + ${products.length} products + shop + search + 3 policy pages`);
   console.log(`schema        Product, Offer, ReturnPolicy, Breadcrumb, CollectionPage, ItemList, FAQPage, OnlineStore, WebSite+SearchAction`);
-  console.log(`data          products.json, search-index.json, google-feed.csv (${feed.rows.length} rows, ${feed.rejected.length} rejected), llms.txt, llms-full.txt, sitemap.xml, robots.txt`);
+  console.log(`data          products.json, search-index.json, google-feed.csv (${feed.rows.length} rows, ${feed.rejected.length} rejected, ${feed.warnings.length} warned), llms.txt, llms-full.txt, sitemap.xml, robots.txt`);
   console.log(`validation    ${validation.length === 0 ? "0 issues" : `${validation.length} issues: ${validation.slice(0, 4).join("; ")}`}`);
   console.log(`images        ${products.length + 1} generated placeholders`);
   console.log(`checks        ${IMPORT_CHECKS.length} supplier checks still apply to this file`);

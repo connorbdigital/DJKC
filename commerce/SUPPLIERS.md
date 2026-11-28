@@ -233,3 +233,51 @@ The same run also writes `products.json` (for an app or a front end), `llms.txt`
 Images in the sample are SVG placeholders generated at build time. Swapping in
 real photography means replacing the `images` array after import — nothing else in
 the pipeline cares where the URL points.
+
+---
+
+## What each one will actually let you automate
+
+The feed is one question; ordering is another. A supplier can give you a perfect
+CSV every night and still require a portal login to place each order, and that
+difference decides whether `SupplierAdapter` can be code or has to be a person.
+
+| Supplier | Catalogue | Place an order | Verdict |
+| --- | --- | --- | --- |
+| **Prodigi** | price/quote endpoint | **Yes — REST API, free, with a sandbox** (`POST /v4.0/Orders`, `X-API-Key`, `merchantReference` for idempotency, callbacks on create/shipment/completion) | the only free end-to-end automation on the list |
+| **BigBuy** | **Yes — REST catalogue** (`GET /rest/catalog/productsinformation.json`) | **Yes** — `order/check` then `order/create`, plus `shipping/orders` for real carrier prices and a tracking endpoint | real API, but **API access needs a paid Ecommerce package**, and one basket can split across warehouses |
+| **CJdropshipping** | documented API | documented API, portal as well | workable, but Chinese dispatch makes the delivery promise long |
+| **AppScenic** | app import | automated ordering + wallet, **~3% transaction fee** | no public API of its own; automation is their app, so it does not fit our checkout |
+| **Aosom** | live UK feed | portal / trade account, no public API | the best *stock* on the list, fulfilled by hand or by adapter-as-a-person |
+| **Dropship For You** | documented CSV + stock feed URLs | portal | feeds are easy, orders are manual |
+| **SDW / Something Different** | feed | portal, same-day cut-off before 1pm | fast, small, manual |
+| **Syncee, Spocket, Avasam, GoDropship, Dropora, Pound Wholesale, Matterhorn, Costway, AW** | feed or app | portal or app | catalogue sources, not automations |
+
+Nothing in the "portal" rows is a dead end. It is a five-minute job per order for
+the first hundred orders, and it sells real stock next week instead of after an
+integration. `FULFILMENT.md` describes that adapter.
+
+## Where to start, in order
+
+1. **Prodigi** — a free sandbox, print-on-demand, UK fulfilment, no stock to sync
+   and no minimum. This is the only route where the whole chain (quote → place →
+   callback → tracking email) can be tested for nothing. Start here to *prove* the
+   plumbing, not to make money: POD margins on a £30 print are thin.
+2. **Aosom** — UK warehouses, live feed, home and garden, which is the catalogue's
+   subject. No API, so it is the manual adapter and a next-day cut-off. This is
+   where the actual margin is.
+3. **Dropship For You / SDW** — a documented feed and a 1pm cut-off, for breadth
+   without a new account for every niche.
+4. **BigBuy** — only once volume can pay for the Ecommerce package and the
+   multi-warehouse split; the £3.71 arithmetic in `COMMISSION.md` does not survive
+   a monthly fee at ten orders a month.
+5. **Awin and the affiliate networks** — the other direction entirely: not a
+   supplier but a way to earn 5–10% (home and garden benchmark) by *linking* to
+   other shops. No stock, no support, no refunds, no orders at our checkout, and a
+   30-day cookie. Worth doing early because it needs nothing built: publisher
+   accounts are free, individual programmes approve you one at a time, and payouts
+   are net-30 over a £20 threshold. It is commission, not margin — say so, because
+   mixing the two makes both numbers wrong.
+
+Sources: <https://api.bigbuy.eu/rest/doc> · <https://www.prodigi.com/print-api/docs/>
+· <https://www.awin.com>
