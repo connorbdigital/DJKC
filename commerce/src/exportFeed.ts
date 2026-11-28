@@ -24,6 +24,7 @@ export const GOOGLE_HEADERS = [
   "condition",
   "gtin",
   "mpn",
+  "identifier_exists",
   "google_product_category",
   "product_type",
   "shipping",
@@ -56,10 +57,20 @@ export interface FeedResult {
   rows: Record<string, string>[];
   /** Products Google would reject, and why. */
   rejected: { id: string; reason: string }[];
+  /**
+   * Rows the feed can still write but Merchant Center will complain about.
+   * Kept separate from `rejected` because a warning is fixable later without
+   * removing the product from Shopping in the meantime.
+   */
+  warnings: { id: string; reason: string }[];
 }
+
+/** Merchant Center takes JPEG, PNG, WebP and GIF. An SVG is a page, not a photo. */
+const RECOGNISED_IMAGE = /\.(jpe?g|png|webp|gif)(\?|#|$)/i;
 
 export function googleFeed(products: Product[], options: FeedOptions): FeedResult {
   const rejected: FeedResult["rejected"] = [];
+  const warnings: FeedResult["warnings"] = [];
   const rows: Record<string, string>[] = [];
 
   for (const product of products) {
@@ -76,6 +87,17 @@ export function googleFeed(products: Product[], options: FeedOptions): FeedResul
       rejected.push({ id: product.id, reason: "description too short for a feed" });
       continue;
     }
+    if (!RECOGNISED_IMAGE.test(product.images[0]!.url)) {
+      warnings.push({
+        id: product.id,
+        reason: "image_link is not JPEG, PNG, WebP or GIF — Merchant Center will reject this row until real photography replaces the placeholder",
+      });
+    }
+    /* Google needs to be told when a product genuinely has no barcode. Saying
+       nothing is read as "forgot", and inventing one attaches the listing to
+       somebody else's product. */
+    const hasIdentifier = Boolean(variant.gtin || variant.mpn);
+
     const price = `${toDecimalString(variant.price)} ${variant.price.currency}`;
     const category = options.googleCategory?.(product);
 
@@ -91,6 +113,7 @@ export function googleFeed(products: Product[], options: FeedOptions): FeedResul
       condition: "new",
       gtin: variant.gtin ?? "",
       mpn: variant.mpn ?? "",
+      identifier_exists: hasIdentifier ? "yes" : "no",
       google_product_category: category ?? "",
       product_type: product.category,
       shipping: options.shipping ?? "",
@@ -104,6 +127,7 @@ export function googleFeed(products: Product[], options: FeedOptions): FeedResul
     ),
     rows,
     rejected,
+    warnings,
   };
 }
 

@@ -33,6 +33,9 @@ scripts/fetch-feed.mts    npm run feed — fetch, date, hash and describe a supp
 COMMISSION.md             margin, marketplace commission and affiliate rates, worked out
 SUPPLIERS.md              where the CSVs come from, with links
 GAPS.md                   what a real store has that this does not
+FULFILMENT.md             a paid basket to a parcel: the state machine, the supplier contract, what to build
+SEO-AEO.md                what the build already emits, and the five gaps that cost money
+RESEARCH.md               five suppliers in depth, Stripe at catalogue scale, the BigBuy verdict
 ```
 
 Pure TypeScript, no runtime dependencies, no React. `npm test` runs 119 tests; `npm run typecheck` is clean.

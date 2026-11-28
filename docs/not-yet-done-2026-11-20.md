@@ -30,7 +30,8 @@ still is not true. Ordered by what it costs to leave undone.*
 | --- | --- | --- | --- |
 | 6 | **A real supplier account** | `commerce/SUPPLIERS.md` documents ten feeds; the catalogue is invented. No trade account, no sample order. | M |
 | 7 | **Real product photography** | 33 generated SVG placeholders, honest but not sellable. | M |
-| 8 | **Order record and confirmation email** | Checkout exists; nothing writes the order down or mails it. Stripe's receipt is the only confirmation, and the Stripe dashboard the only record. | M |
+| 8 | **Order record and confirmation email** | Half done: `api/stripe-webhook.ts` verifies Stripe's signature and writes each paid session down as an order (`commerce/src/orderStore.ts`, Upstash/Vercel KV), and `charge.refunded` is recorded as a delta so it cannot refund twice. Still missing: the confirmation and tracking emails, and the two variables that switch it on — `STRIPE_WEBHOOK_SECRET` and the KV pair. | S (config) + M (email) |
+| 8b | **A supplier adapter, live** | `commerce/src/suppliers/bigbuy.ts` is written and tested against BigBuy's documented responses (check → create, `ER003` stockout → cancellation, per-warehouse split, tracking by poll). No key, no account, no Prodigi adapter, nothing placed for real. | M |
 | 9 | **Analytics with consent, and four named events** | Nothing measured on either site. | S |
 | 10 | **Shipping choice** | "Free over £40" is now enforced in the basket and in the Stripe session. Standard only: no express, no nominated day, no collection. | M |
 | 11 | **Stock from a feed, not a column** | Stock is a CSV column, checked at build; nothing syncs it. | M |
@@ -79,6 +80,12 @@ still is not true. Ordered by what it costs to leave undone.*
   file rather than a bare array.
 - **The shop has its four legal pages** (item 2) and the Agent has its key on
   previews (item 16).
+- **The paid-order path is real** (item 8): signature-verified webhook → order
+  rebuilt from the session and re-priced from the catalogue → KV → supplier
+  adapter. `commerce/RESEARCH.md` has the supplier depth and the Stripe arithmetic
+  (1.5% + 20p UK, 100 line-item limit, why the catalogue is not mirrored into
+  Stripe); `commerce/FULFILMENT.md` has the state machine and what is still
+  missing.
 
 - **The apex audit has been sent** to the project that runs sitebuildup.co.uk —
   revision `9b15569d`, 3,070 credits. Record:

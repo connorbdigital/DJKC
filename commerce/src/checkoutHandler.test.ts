@@ -39,6 +39,8 @@ function response() {
 afterEach(() => {
   vi.unstubAllGlobals();
   delete process.env.STRIPE_SECRET_KEY;
+  delete process.env.STRIPE_WEBHOOK_SECRET;
+  delete process.env.KV_REST_API_URL;
 });
 
 describe("the checkout function", () => {
@@ -47,11 +49,15 @@ describe("the checkout function", () => {
     vi.stubGlobal("fetch", spy);
     const { res, out } = response();
     await handler(request(undefined, "GET"), res);
-    const body = JSON.parse(out.body) as { checkout: string; key: string; catalogue: number };
+    const body = JSON.parse(out.body) as { checkout: string; key: string; catalogue: number; webhook: string; orders: string };
     expect(out.status).toBe(200);
     expect(body.checkout).toBe("alive");
     expect(body.key).toBe("missing");
     expect(body.catalogue).toBe(CATALOGUE.length);
+    /* A key takes the money; without the other two, nobody is told. The pulse
+       says both, so "checkout is broken" can be read instead of guessed. */
+    expect(body.webhook).toBe("missing");
+    expect(body.orders).toBe("no store");
     expect(spy).not.toHaveBeenCalled();
   });
 

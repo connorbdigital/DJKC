@@ -51,6 +51,32 @@ describe("Google Merchant feed", () => {
     expect(result.rejected[0]!.reason).toContain("image");
   });
 
+  it("tells Google honestly when a product has no barcode, rather than leaving it blank", () => {
+    const table = parseCsv(feed.csv);
+    expect(table.rows[0]!.identifier_exists).toBe("yes");
+    /* The basket has an MPN but no EAN: still identifiable. */
+    expect(table.rows[1]!.identifier_exists).toBe("yes");
+
+    const bare = importCsv(
+      "id,title,price,description,image\nbare,Plain thing,9.99,A perfectly ordinary description of a thing that runs long enough to pass.,https://cdn.example.com/t.jpg"
+    ).products;
+    const row = parseCsv(googleFeed(bare, { linkBase: "https://shop.example" }).csv).rows[0]!;
+    expect(row.gtin).toBe("");
+    expect(row.identifier_exists).toBe("no");
+  });
+
+  it("warns, without dropping the row, when the image is one Merchant Center cannot read", () => {
+    const svg = importCsv(
+      "id,title,price,description,image\nsvg,Thing,9.99,A perfectly ordinary description of a thing that runs long enough to pass.,https://cdn.example.com/thing.svg"
+    ).products;
+    const result = googleFeed(svg, { linkBase: "https://shop.example" });
+    expect(result.rows).toHaveLength(1);
+    expect(result.rejected).toEqual([]);
+    expect(result.warnings[0]!.reason).toContain("Merchant Center will reject");
+    /* The sample feed uses real photography, so nothing to warn about. */
+    expect(feed.warnings).toEqual([]);
+  });
+
   it("keeps the identifier fields it was given", () => {
     const row = parseCsv(feed.csv).rows[0]!;
     expect(row.gtin).toBe("5061234567890");

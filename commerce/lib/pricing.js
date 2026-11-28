@@ -104,6 +104,14 @@ export function sessionBody({ lines, shipping, baseUrl, successPath, cancelPath,
   body.set("locale", "en-GB");
   body.set("metadata[shop]", "Hearth & Grain");
 
+  /* The basket, in the smallest form that can be rebuilt: ids and quantities.
+     The webhook reads this, re-prices every line from the catalogue and refuses
+     the order if the total does not agree. Stripe allows 500 characters, which
+     is about forty different products; a larger basket is not silently truncated
+     — it is left off, and the webhook reports that it could not rebuild it. */
+  const cart = lines.map((line) => `${line.id}x${line.qty}`).join(",");
+  if (cart.length <= 500) body.set("metadata[cart]", cart);
+
   lines.forEach((line, index) => {
     body.set(`line_items[${index}][quantity]`, String(line.qty));
     body.set(`line_items[${index}][price_data][currency]`, "gbp");

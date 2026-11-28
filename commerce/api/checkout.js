@@ -49,6 +49,10 @@ async function handle(req, res) {
       key: keyOf() ? "set" : "missing",
       mode: keyOf().startsWith("sk_live") ? "live" : keyOf() ? "test" : "none",
       catalogue: CATALOGUE.length,
+      /* Whether the other half of the shop is wired: a key alone takes money
+         that nobody is told about. */
+      webhook: (process.env.STRIPE_WEBHOOK_SECRET ?? "").trim() ? "set" : "missing",
+      orders: (process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL ?? "").trim() ? "store" : "no store",
       freeOver: formatMoney(DELIVERY.freeOver),
       delivery: formatMoney(DELIVERY.standard),
       currency: "GBP",
