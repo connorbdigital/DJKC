@@ -11,6 +11,16 @@ import { GIST_STORE_KEY, buildBundle, describeBundle, isGistId, mergeBundle, pul
 import { getToken } from "../token";
 import { plateLayout } from "../plate";
 import { loadPlate } from "../plateClient";
+import {
+  WORLD_POLL_MS,
+  chipLine,
+  describeSources,
+  describeWorld,
+  loadWorld,
+  sameWorld,
+  worldTone,
+  type WorldSnapshot,
+} from "../world";
 import { plateCanvas } from "../plateDraw";
 import ProjectSpace3D from "./ProjectSpace3D";
 import { SiteThumb } from "./SiteThumb";
@@ -222,6 +232,11 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const [status, setStatus] = useState("");
   /* The node whose insides are open *in the space*, if any. */
   const [insideNode, setInsideNode] = useState<AtlasNode | null>(null);
+  /* The world snapshot: what the space is made of, how old it is, and which
+     source did not answer. Null means the build's own data. */
+  const [world, setWorld] = useState<WorldSnapshot | null>(null);
+  const [worldNote, setWorldNote] = useState("");
+  const [syncing, setSyncing] = useState(false);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState("");
   const [filter, setFilter] = useState<NodeKind | "all">("all");
@@ -359,6 +374,39 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
     };
   }, []);
 
+  /* The snapshot, once on arrival and then on a slow loop. A poll that finds the
+     same version does nothing at all — no rebuild, no flash, no lost pose. */
+  useEffect(() => {
+    const controller = new AbortController();
+    let stopped = false;
+    const ask = async (fresh: boolean) => {
+      const result = await loadWorld({ signal: controller.signal, fresh });
+      if (stopped || controller.signal.aborted) return;
+      if (!result.ok) {
+        setWorldNote(result.reason === "aborted" ? "" : result.reason);
+        return;
+      }
+      setWorldNote("");
+      setWorld((current) => {
+        if (sameWorld(current, result.world)) return current;
+        /* The snapshot's apps are names and ids; the browser's own loader brings
+           the modules. So the world only supplies apps when the space has none. */
+        if (result.world.apps.length && !apps.length) setApps(result.world.apps);
+        return result.world;
+      });
+    };
+    void ask(false);
+    const timer = window.setInterval(() => void ask(false), WORLD_POLL_MS);
+    return () => {
+      stopped = true;
+      controller.abort();
+      window.clearInterval(timer);
+    };
+    /* `apps` is read to decide whether to adopt the snapshot's list; re-running
+       the poll when it changes would restart the interval for nothing. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!host.current || !cssHost.current || !stage.current) return;
     let instance: AtlasEngine | null = null;
@@ -449,6 +497,12 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   useEffect(() => {
     engine.current?.setFilter(filter);
   }, [filter]);
+
+  /* The beacons are the snapshot in the space: green answered, red did not. */
+  useEffect(() => {
+    if (!ready) return;
+    engine.current?.setSources(world?.sources ?? []);
+  }, [ready, world]);
 
   /* The plates: every site's own page, cut from the page, hung under its star —
      and the steps of the funnels we actually built, one below the last. Reads
@@ -863,6 +917,28 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         </form>
 
         <div className="atlas-actions">
+          <button
+            className={`btn ghost atlas-world is-${worldTone(world)}`}
+            type="button"
+            disabled={syncing}
+            onClick={() => {
+              setSyncing(true);
+              void loadWorld({ fresh: true })
+                .then((result) => {
+                  if (result.ok) {
+                    setWorld(result.world);
+                    setWorldNote("");
+                    if (result.world.apps.length && !apps.length) setApps(result.world.apps);
+                  } else {
+                    setWorldNote(result.reason);
+                  }
+                })
+                .finally(() => setSyncing(false));
+            }}
+            title={`${describeWorld(world)}\n${describeSources(world)}${worldNote ? `\n${worldNote}` : ""}`}
+          >
+            {syncing ? "Syncing…" : chipLine(world)}
+          </button>
           {selected?.pages?.length ? (
             <button
               className="btn inside-open"
@@ -962,6 +1038,12 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             ← Back to the space
           </button>
         </div>
+      )}
+
+      {worldNote && (
+        <p className="atlas-hud atlas-world-note">
+          The world snapshot did not answer ({worldNote}). Everything here is still the build.
+        </p>
       )}
 
       <div className="atlas-hud atlas-filters" role="group" aria-label="Show only">
