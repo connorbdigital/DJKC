@@ -5,6 +5,7 @@
  * page; every shape that comes back is treated as untrusted, because it crossed
  * a network and a third party's release schedule to get here.
  */
+import { APEX_AUDIT_BRIEF } from "./anythingAudit";
 import {
   ME_PATH,
   PROJECTS_PATH,
@@ -186,4 +187,43 @@ export async function loadAnythingApps(options: { limit?: number; signal?: Abort
     return toApp(project, result?.status === "fulfilled" ? result.value : null);
   });
   return { ok: true, apps, me };
+}
+
+/**
+ * The one write: send a brief to a project and start a revision.
+ *
+ * The prompt defaults to the SiteBuildup audit brief because that is what this
+ * Studio has an opinion about; anything else can be passed in. The response is
+ * Anything's own — a revision id and a thread — and it is treated like every
+ * other shape that crossed the network: checked, and only then believed.
+ */
+export interface BriefSent {
+  revisionId: string;
+  threadId: string | null;
+}
+
+export async function sendBrief(
+  projectId: string,
+  prompt: string = APEX_AUDIT_BRIEF.prompt
+): Promise<{ ok: true; sent: BriefSent } | { ok: false; reason: string }> {
+  try {
+    const response = await fetch("/api/anything", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ generate: { projectId, prompt } }),
+    });
+    const body = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!response.ok) {
+      const said = typeof body?.error === "string" ? body.error : `${response.status} ${response.statusText}`.trim();
+      return { ok: false, reason: said };
+    }
+    const revisionId = typeof body?.revisionId === "string" ? body.revisionId : "";
+    const threadId = typeof body?.threadId === "string" ? body.threadId : null;
+    if (!revisionId) {
+      return { ok: false, reason: "Anything accepted the brief but sent back no revision id, so there is nothing to follow. Check the project on anything.com before sending again." };
+    }
+    return { ok: true, sent: { revisionId, threadId } };
+  } catch (problem) {
+    return { ok: false, reason: problem instanceof Error ? problem.message : "The brief could not be sent." };
+  }
 }

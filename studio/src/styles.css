@@ -890,6 +890,23 @@ button.btn, a.btn {
   color: #e2d3f7; font-size: .72rem;
 }
 
+/* The brief: visible before it is sent, and honest about what pressing does. */
+.anything-brief {
+  margin-top: .6rem; padding-top: .55rem; border-top: 1px dashed var(--line);
+  display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-start;
+}
+.anything-brief details { flex: 1 1 100%; min-width: 0; }
+.anything-brief summary { cursor: pointer; }
+.anything-brief-text {
+  width: 100%; min-width: 0; margin-top: .4rem; padding: .55rem .65rem;
+  border-radius: .6rem; border: 1px solid var(--line);
+  background: rgba(12, 10, 20, .72); color: var(--ink);
+  font: 400 .74rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+.anything-brief-confirm { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.anything-brief code { font-size: .72rem; color: #e2d3f7; overflow-wrap: anywhere; }
+
 @media (max-width: 560px) {
   .anything-list li { flex-direction: column; align-items: stretch; gap: .55rem; }
   /* A column that wraps wraps sideways; the stack is already the layout here. */

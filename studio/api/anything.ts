@@ -3,6 +3,9 @@ import {
   ANYTHING_KEYS,
   ME_PATH,
   PROJECTS_PATH,
+  PROJECT_PREFIX,
+  GENERATE_SUFFIX,
+  generateTarget,
   ANYTHING_AUTH_SCHEMES,
   anythingTarget,
   authHeaders,
@@ -14,12 +17,17 @@ import {
 } from "../src/anything.js";
 
 /**
- * Lists the Anything projects this account can open, without the key ever
- * reaching the browser.
+ * Lists the Anything projects this account can open — and will start a build in
+ * one of them — without the key ever reaching the browser.
  *
- * Read-only by construction: the endpoint accepts POST, forwards a GET, and only
- * to the two documented paths. Auth is Anything's own — the key as Basic
- * username, empty password — and it is added here, never returned.
+ * Reads are the two documented paths plus one project's detail. The single write
+ * is `POST /v0/api/projects/{id}/generate`, and it is deliberately one call with
+ * one shape: a project id and a prompt. Anything's delete and rename live under
+ * the same prefix, so the write is a separate rule with its own validation rather
+ * than a flag on the read path.
+ *
+ * Auth is Anything's own — the key as Basic username, empty password — and it is
+ * added here, never returned.
  */
 
 const TIMEOUT_MS = 12_000;
@@ -185,6 +193,103 @@ async function listAttempts(key: string, asked: string, signal: AbortSignal) {
   return { ok: false as const, attempts, email, organizations: organizations.length };
 }
 
+/** One POST upstream: the whole of the bridge's write surface. */
+async function send(
+  key: string,
+  target: { url: string; prompt: string },
+  threadId: string | null,
+  signal: AbortSignal,
+  scheme: AuthScheme
+): Promise<{ ok: true; status: number; text: string } | { ok: false; attempt: Attempt }> {
+  try {
+    const upstream = await fetch(target.url, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...authHeaders(key, scheme),
+      },
+      /* A new thread unless one is named: continuing someone else's conversation
+         by accident puts this brief in the middle of another job. */
+      body: JSON.stringify(threadId ? { prompt: target.prompt, threadId } : { prompt: target.prompt, createNewThread: true }),
+      redirect: "error",
+      signal,
+    });
+    const text = await upstream.text();
+    if (text.length > MAX_BYTES) {
+      return { ok: false, attempt: { path: target.url, status: 502, detail: "the response is too large to pass through" } };
+    }
+    if (!upstream.ok) return { ok: false, attempt: { path: target.url, status: upstream.status, detail: words(text) } };
+    return { ok: true, status: upstream.status, text };
+  } catch (problem) {
+    const detail =
+      problem instanceof Error && problem.name === "AbortError"
+        ? "it did not answer in time"
+        : "api.anything.com could not be reached from here";
+    return { ok: false, attempt: { path: target.url, status: 0, detail } };
+  }
+}
+
+/**
+ * Start a revision from a prompt.
+ *
+ * Every stored key is tried, and within a key every scheme until one is accepted:
+ * a write is the one call where "no answer" and "wrong header" look identical
+ * from the outside, and a second attempt costs nothing compared with telling
+ * someone their project failed when it did not.
+ */
+async function generate(raw: unknown, candidates: KeyCandidate[], res: ServerResponse): Promise<void> {
+  const record = (raw ?? {}) as { projectId?: unknown; prompt?: unknown; threadId?: unknown };
+  const target = generateTarget(record.projectId, record.prompt);
+  if (!target.ok) {
+    json(res, 400, { ok: false, error: target.reason });
+    return;
+  }
+  const threadId =
+    typeof record.threadId === "string" && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(record.threadId)
+      ? record.threadId
+      : null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS * Math.max(1, candidates.length));
+  try {
+    const rejected: Attempt[] = [];
+    for (const candidate of candidates) {
+      const known = schemeCache.get(candidate.value);
+      const first: AuthScheme = known && Date.now() - known.at < SCHEME_TTL ? known.scheme : "basic";
+      for (const scheme of [first, ...ANYTHING_AUTH_SCHEMES.filter((entry) => entry !== first)]) {
+        const answer = await send(candidate.value, target, threadId, controller.signal, scheme);
+        if (answer.ok) {
+          schemeCache.set(candidate.value, { scheme, at: Date.now() });
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "application/json; charset=utf-8");
+          res.setHeader("Cache-Control", "no-store");
+          res.setHeader("X-Anything-Key", candidate.name);
+          res.setHeader("X-Anything-Path", target.path);
+          res.end(answer.text);
+          return;
+        }
+        rejected.push({ ...answer.attempt, path: `${candidate.name} (${scheme}) → ${target.path}` });
+        /* Only a refusal is worth another header; a 5xx or a timeout is the API. */
+        if (answer.attempt.status !== 401) break;
+      }
+      if (!rejected.every((attempt) => attempt.status === 401)) break;
+    }
+    const last = rejected[rejected.length - 1]!;
+    const unauthorised = rejected.every((attempt) => attempt.status === 401);
+    json(res, unauthorised ? 401 : 502, {
+      ok: false,
+      status: last.status,
+      attempts: rejected,
+      error: unauthorised
+        ? "Anything refused the stored key, so the brief was not sent. Open /api/anything?probe=1 for what the key itself answers, then replace it with a key from Anything → Settings → API keys."
+        : `Anything answered ${last.status || "nothing"} on ${target.path}: ${last.detail}. The brief was not sent, and no revision was started.`,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   /* A GET is the bridge's own pulse: open /api/anything in a browser and the
      function answers about itself, with no key and no upstream call. When the
@@ -201,8 +306,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       keyNames: configured.map((candidate) => candidate.name),
       keyNamesLookedFor: ANYTHING_KEYS,
       node: process.version,
-      readOnly: true,
+      readOnly: false,
       forwards: [ME_PATH, PROJECTS_PATH, `${PROJECTS_PATH}/{id}`],
+      writes: [`${PROJECT_PREFIX}{id}${GENERATE_SUFFIX}`],
     };
 
     /* ?probe=1 is the diagnostic: ask Anything about each stored key and report
@@ -295,11 +401,18 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
 
-  let payload: { path?: unknown };
+  let payload: { path?: unknown; generate?: unknown };
   try {
-    payload = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}") as { path?: unknown };
+    payload = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}") as { path?: unknown; generate?: unknown };
   } catch {
-    json(res, 400, { ok: false, error: 'Send JSON like {"path":"/v0/api/projects"}.' });
+    json(res, 400, { ok: false, error: 'Send JSON like {"path":"/v0/api/projects"} to read, or {"generate":{"projectId":"prj_…","prompt":"…"}} to start a build.' });
+    return;
+  }
+
+  /* The one write. Checked before the path rules, because it is a rule of its
+     own: the read allowlist has no way to express "and this one POST". */
+  if (payload.generate !== undefined) {
+    await generate(payload.generate, candidates, res);
     return;
   }
 

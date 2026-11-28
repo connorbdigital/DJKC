@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ANYTHING_API, basicAuth, anythingTarget, cleanKey, keyCandidates, keyDiagnosis } from "./anything";
+import { ANYTHING_API, basicAuth, anythingTarget, cleanKey, generateTarget, keyCandidates, keyDiagnosis, PROMPT_MAX } from "./anything";
 import handler from "../api/anything";
 
 function request(payload: unknown, method = "POST") {
@@ -314,5 +314,73 @@ describe("the scheme anything actually wants", () => {
     expect(out.status).toBe(200);
     expect(seen.some((header) => header.startsWith("Bearer anything_"))).toBe(true);
     expect(out.body).not.toContain("anything_9f2c");
+  });
+});
+
+describe("the one write", () => {
+  it("builds a generate path for a project id and nothing else", () => {
+    const answer = generateTarget("prj_9fk2", "a brief that is long enough to be a brief, not a typo");
+    expect(answer.ok).toBe(true);
+    if (answer.ok) {
+      expect(answer.url).toBe(`${ANYTHING_API}/v0/api/projects/prj_9fk2/generate`);
+      expect(answer.path).toBe("/v0/api/projects/prj_9fk2/generate");
+    }
+
+    const uuid = generateTarget("3c90c3cc-0d44-4b50-8888-8dd25736052a", "a brief that is long enough to be a brief, not a typo");
+    expect(uuid.ok).toBe(true);
+  });
+
+  it("refuses anything that is not one project id, and refuses a non-brief", () => {
+    for (const id of ["", "prj_", "../../me", "prj_9fk2/files", "prj_9fk2/delete", "anything_ok", "prj_9fk2?x=1"]) {
+      expect(generateTarget(id, "a brief that is long enough to be a brief, not a typo").ok).toBe(false);
+    }
+    expect(generateTarget("prj_9fk2", "too short").ok).toBe(false);
+    expect(generateTarget("prj_9fk2", 42).ok).toBe(false);
+    expect(generateTarget("prj_9fk2", "x".repeat(PROMPT_MAX + 1)).ok).toBe(false);
+  });
+
+  it("posts the prompt to generate, with the key on the upstream request only", async () => {
+    process.env.ANYTHING_API_KEY = "anything_ok";
+    const calls: { url: string; init: RequestInit }[] = [];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({ revisionId: "rev_1", threadId: "thr_1" }), { status: 200 });
+    });
+    const { res, out } = response();
+    await handler(request({ generate: { projectId: "prj_9fk2", prompt: "a brief that is long enough to be a brief, not a typo" } }), res);
+
+    expect(out.status).toBe(200);
+    expect(out.body).toContain("rev_1");
+    expect(out.body).not.toContain("anything_ok");
+
+    const write = calls.find((call) => call.url.endsWith("/generate"));
+    expect(write).toBeTruthy();
+    expect(write!.init.method).toBe("POST");
+    const body = JSON.parse(String(write!.init.body)) as { prompt: string; createNewThread?: boolean };
+    expect(body.prompt).toContain("brief that is long enough");
+    expect(body.createNewThread).toBe(true);
+    const headers = write!.init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe(basicAuth("anything_ok"));
+  });
+
+  it("does not start a revision when the prompt is wrong, and says why", async () => {
+    process.env.ANYTHING_API_KEY = "anything_ok";
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    const { res, out } = response();
+    await handler(request({ generate: { projectId: "prj_9fk2", prompt: "no" } }), res);
+    expect(out.status).toBe(400);
+    expect(out.body).toMatch(/characters/i);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("reports a refusal as a refusal, not as a sent brief", async () => {
+    process.env.ANYTHING_API_KEY = "anything_bad";
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 }));
+    const { res, out } = response();
+    await handler(request({ generate: { projectId: "prj_9fk2", prompt: "a brief that is long enough to be a brief, not a typo" } }), res);
+    expect(out.status).toBe(401);
+    expect(out.body).toMatch(/was not sent/i);
+    expect(out.body).not.toContain("anything_bad");
   });
 });

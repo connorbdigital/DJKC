@@ -54,7 +54,7 @@ still is not true. Ordered by what it costs to leave undone.*
 | 24 | **One page is the only length** | A shop and a one-page brochure get the same sheet, with different packages. The faults differ more than the layout does. | S |
 | 31 | **A page whose links are built by JavaScript** | A project's space reads the anchors in the HTML. If a site draws its nav in script, the room shows one ring and few streams — and says so. | M |
 | 32 | **The space reads pages when it opens** | Up to four pages are fetched per visit, which is fine for a handful of projects and would not be for fifty. Nothing is cached between visits. | S |
-| 33 | **Anything is read-only, on purpose** | `/me` and `/projects` are the only endpoints ever called. Create, duplicate, publish and delete exist and are deliberately unused — see [anything-inventory](anything-inventory-2026-11-20.md). | — |
+| 33 | **Anything was read-only, on purpose** | `/me`, `/projects` and one project's detail are the only reads. Since 20 Nov there is one write: `POST …/{id}/generate`, called from the Anything tab to send an audit brief. Create, duplicate, publish and delete remain deliberately unused — see [anything-inventory](anything-inventory-2026-11-20.md). | Changed 20 Nov |
 
 ## Bigger things said out loud, still only said
 
