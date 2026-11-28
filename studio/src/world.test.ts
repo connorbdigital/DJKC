@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   WORLD_POLL_MS,
   chipLine,
+  creditsLeft,
+  describeBridges,
   describeSources,
   describeWorld,
   readApps,
+  readBridges,
   readWorld,
   sameWorld,
   worldTone,
@@ -21,6 +24,7 @@ const snapshot = (over: Partial<WorldSnapshot> = {}): WorldSnapshot => ({
   ],
   apps: [],
   deployments: [],
+  bridges: [],
   counts: { nodes: 123, edges: 210, districts: 9, apps: 2, deployments: 0 },
   ...over,
 });
@@ -185,5 +189,53 @@ describe("how the world stands", () => {
 
   it("polls slowly enough to be polite", () => {
     expect(WORLD_POLL_MS).toBe(60_000);
+  });
+});
+
+describe("the bridges", () => {
+  it("reads what a deployment can do, and refuses to invent the rest", () => {
+    const parsed = readBridges([
+      { id: "anything", label: "Anything", read: true, write: "/v0/api/projects/{id}/generate", credits: 13_000, note: "13,000 credits" },
+      { id: "vercel", label: "Vercel", read: false, write: null, credits: null, note: "no token" },
+      /* Junk: an id it does not know, a duplicate, a write that is not a string. */
+      { id: "salesforce", label: "?", read: true, write: "/x", credits: 1, note: "" },
+      { id: "anything", label: "Anything again", read: true, write: null, credits: 0, note: "" },
+      { id: "github", label: "GitHub", read: true, write: 42, credits: "lots", note: "" },
+      "nonsense",
+      null,
+    ]);
+    expect(parsed.map((bridge) => bridge.id)).toEqual(["anything", "vercel", "github"]);
+    expect(parsed[0]!.credits).toBe(13_000);
+    expect(parsed[2]!.write).toBeNull();
+    expect(parsed[2]!.credits).toBeNull();
+    expect(readBridges(undefined)).toEqual([]);
+    expect(readBridges({})).toEqual([]);
+  });
+
+  it("travels through readWorld, so the browser sees it", () => {
+    const world = readWorld({
+      world: {
+        ...snapshot(),
+        bridges: [{ id: "anything", label: "Anything", read: true, write: "/v0/api/projects/{id}/generate", credits: 42, note: "" }],
+      },
+    });
+    expect(world?.bridges).toHaveLength(1);
+    expect(creditsLeft(world)).toBe(42);
+    /* A snapshot from before bridges has none — and none is the honest answer. */
+    expect(readWorld({ world: snapshot() })?.bridges).toEqual([]);
+    expect(creditsLeft(null)).toBeNull();
+  });
+
+  it("says what can be written and what is left to pay with, in one line per bridge", () => {
+    const world = snapshot({
+      bridges: [
+        { id: "anything", label: "Anything", read: true, write: "/v0/api/projects/{id}/generate", credits: 13_000, note: "" },
+        { id: "vercel", label: "Vercel", read: false, write: null, credits: null, note: "" },
+      ],
+    });
+    const said = describeBridges(world);
+    expect(said).toContain("Anything: can /v0/api/projects/{id}/generate · 13,000 credits");
+    expect(said).toContain("Vercel: no read");
+    expect(describeBridges(null)).toContain("No bridges read");
   });
 });

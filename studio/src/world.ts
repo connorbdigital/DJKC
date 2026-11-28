@@ -37,6 +37,32 @@ export interface WorldDeployment {
   at: number;
 }
 
+/**
+ * What the space can *do* through a third party, not only what it can see.
+ *
+ * A world made of reads can describe itself and nothing else. The Studio now
+ * performs one write, so the snapshot has to say whether that write is available
+ * — and, where the write is paid for by something the account buys, what is left
+ * to pay with. Anything charges credits per revision, so "can I send this?" has
+ * two answers: is the key there, and are there credits to spend.
+ *
+ * Credits are deliberately *not* part of the version: a balance moves constantly,
+ * and a world that re-versioned every time one did would make the space rebuild
+ * for a number nobody was looking at.
+ */
+export interface WorldBridge {
+  id: "anything" | "vercel" | "github";
+  label: string;
+  /** Can the server read through this bridge? */
+  read: boolean;
+  /** The one write it can perform, named exactly. Null means it cannot write. */
+  write: string | null;
+  /** Anything credits left across the organizations the key can see. */
+  credits: number | null;
+  /** One sentence, in the same voice as a source note. */
+  note: string;
+}
+
 export interface WorldSnapshot {
   /** Changes only when the *content* changes — not every time it is polled. */
   version: string;
@@ -45,6 +71,8 @@ export interface WorldSnapshot {
   sources: WorldSource[];
   apps: AnythingApp[];
   deployments: WorldDeployment[];
+  /** The writes available to this deployment, and what pays for them. */
+  bridges: WorldBridge[];
   counts: { nodes: number; edges: number; districts: number; apps: number; deployments: number };
 }
 
@@ -120,6 +148,7 @@ export function readWorld(payload: unknown): WorldSnapshot | null {
           at: count(entry.at),
         }))
       : [],
+    bridges: readBridges(raw.bridges),
     counts: isRecord(raw.counts)
       ? {
           nodes: count(raw.counts.nodes),
@@ -151,6 +180,53 @@ export function readApps(value: unknown): AnythingApp[] {
     });
     return list;
   }, []);
+}
+
+const BRIDGE_IDS = ["anything", "vercel", "github"] as const;
+
+/**
+ * Bridges, read defensively.
+ *
+ * A deployment that predates this field simply reports none, which is the right
+ * answer: a world that cannot say what it can write is a world that cannot write.
+ */
+export function readBridges(value: unknown): WorldBridge[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).reduce<WorldBridge[]>((list, entry) => {
+    const id = text(entry.id, 20) as WorldBridge["id"];
+    if (!BRIDGE_IDS.includes(id) || list.some((existing) => existing.id === id)) return list;
+    list.push({
+      id,
+      label: text(entry.label, 40) || id,
+      read: entry.read === true,
+      write: text(entry.write, 120) || null,
+      credits: typeof entry.credits === "number" ? count(entry.credits) : null,
+      note: text(entry.note, 200),
+    });
+    return list;
+  }, []);
+}
+
+/** The credits the Anything key can spend, or null when nothing said. */
+export function creditsLeft(world: WorldSnapshot | null): number | null {
+  return world?.bridges.find((bridge) => bridge.id === "anything")?.credits ?? null;
+}
+
+/**
+ * The sentence for the HUD: what can be written, and what is left to pay for it.
+ *
+ * "Can send" is not "can send now": Anything refuses a revision with no credits,
+ * so the two facts are said together rather than discovered at the button.
+ */
+export function describeBridges(world: WorldSnapshot | null): string {
+  if (!world || !world.bridges.length) return "No bridges read: this deployment can neither read nor write through a third party.";
+  return world.bridges
+    .map((bridge) => {
+      const spend = bridge.credits === null ? "" : ` · ${bridge.credits.toLocaleString("en-GB")} credits`;
+      const verb = bridge.write ? `can ${bridge.write}` : "read only";
+      return `${bridge.label}: ${bridge.read ? verb : "no read"}${spend}`;
+    })
+    .join("\n");
 }
 
 /** Does this poll tell us anything new? */

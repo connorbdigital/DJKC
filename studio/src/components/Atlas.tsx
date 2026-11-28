@@ -14,6 +14,7 @@ import { loadPlate } from "../plateClient";
 import {
   WORLD_POLL_MS,
   chipLine,
+  describeBridges,
   describeSources,
   describeWorld,
   loadWorld,
@@ -935,7 +936,7 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
                 })
                 .finally(() => setSyncing(false));
             }}
-            title={`${describeWorld(world)}\n${describeSources(world)}${worldNote ? `\n${worldNote}` : ""}`}
+            title={`${describeWorld(world)}\n${describeSources(world)}\n${describeBridges(world)}${worldNote ? `\n${worldNote}` : ""}`}
           >
             {syncing ? "Syncing…" : chipLine(world)}
           </button>
