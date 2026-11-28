@@ -688,6 +688,193 @@ ${breadcrumbs([{ label: "Home", href: "../index.html" }, { label: title }])}
   <p class="notice">${escapeHtml(BRAND.notice)}</p>
 </div>`;
 
+  /* ---------------------------------------------------------------- legal */
+
+  /* Four pages the shop cannot legally run without, written from what this code
+     actually does rather than from a template: the basket is localStorage, there
+     is no account, no cookie is set by these pages, and the payment is Stripe's.
+
+     The temptation with legal copy is to say "we may share your data with trusted
+     partners" and mean nothing by it. Every sentence here names a real thing —
+     the key in the browser, the field on the payment page, the statutory right —
+     so that if the shop ever changes, the page it contradicts is obvious. */
+
+  const legalPages: { slug: string; title: string; description: string; lede: string; sections: { heading: string; body: string[] }[] }[] = [
+    {
+      slug: "privacy",
+      title: "Privacy notice",
+      description: `What ${BRAND.name} collects, why, how long it keeps it, and how to have it deleted.`,
+      lede: "This shop collects as little as it can and says exactly what that is. If a sentence here does not match what the site does, the sentence is wrong and the site is the truth.",
+      sections: [
+        {
+          heading: "What is collected, and where it lives",
+          body: [
+            `A basket is kept in your own browser under the key "hearth-grain-basket". It never reaches a server: close the tab and it is still there, clear your site data and it is gone. There is no account, no login and no profile.`,
+            "Your name, delivery address and email are typed on Stripe's payment page, not on this site. They go to Stripe, who process the payment, and to the shop only as part of the order when selling is switched on.",
+            `Email sent to ${BRAND.email} is kept in the inbox it arrives in for as long as the question takes to answer, and then as long as tax law requires on a sale.`,
+          ],
+        },
+        {
+          heading: "What is not collected",
+          body: [
+            "No analytics, no advertising pixels, no session recording, no heat maps, no fingerprinting. The pages set no cookie of their own and make no request to a third party except the fonts and images served from this domain.",
+            "No special-category data, no date of birth, no payment card details: card numbers are entered on Stripe's page and never touch this server, which is why the shop can say it has never seen one.",
+          ],
+        },
+        {
+          heading: "Your rights",
+          body: [
+            "Under the UK GDPR you can ask for a copy of what is held about you, ask for it to be corrected, or ask for it to be deleted. Write to " +
+              BRAND.email +
+              " and the answer will say what was found, or that nothing was.",
+            "If you are not satisfied with the answer you can complain to the Information Commissioner's Office — the ICO, at ico.org.uk. A complaint to them costs nothing and does not need a solicitor.",
+          ],
+        },
+        {
+          heading: "Who else is involved",
+          body: [
+            "Stripe processes payments and is the only processor this shop needs. Their privacy notice explains what they keep and for how long; the shop cannot see a card number and does not store one.",
+            "The site is hosted on Vercel, which keeps standard server logs (address, time, page) for security and to run the service. Those logs are the host's, not a marketing list, and are not used to build a profile of you.",
+          ],
+        },
+      ],
+    },
+    {
+      slug: "terms",
+      title: "Terms of sale",
+      description: `The terms that apply when you buy from ${BRAND.name}: price, delivery, cancellation, returns and liability.`,
+      lede: "Plain terms, in the order they matter: what you pay, when it arrives, what happens if you change your mind or something is wrong.",
+      sections: [
+        {
+          heading: "Price and payment",
+          body: [
+            `Every price on this site includes VAT at 20%. The price shown on the product page is the price in the basket, and the basket is the price at checkout — if those three ever disagree the shop has a fault and the lowest of them is what you pay.`,
+            `Standard delivery is ${format(money(BRAND.delivery.standard, "GBP"))} and free on orders over ${format(money(BRAND.delivery.freeOver, "GBP"))}; it is added in the basket before you pay, never afterwards.`,
+            "Payment is taken by Stripe at the moment the order is placed. The shop never sees or stores card details.",
+          ],
+        },
+        {
+          heading: "Delivery",
+          body: [
+            `Orders placed before ${BRAND.delivery.cutOff} on a working day are dispatched the same day; anything later goes the next working day. Standard delivery takes ${BRAND.delivery.standardDays[0]}–${BRAND.delivery.standardDays[1]} working days from dispatch.`,
+            "Dispatch times are the shop's promise; the carrier's transit time is theirs. If a parcel is late, write to " +
+              BRAND.email +
+              " and the shop will chase it rather than asking you to.",
+          ],
+        },
+        {
+          heading: "Changing your mind",
+          body: [
+            `You have 14 days from delivery to cancel for any reason, under the Consumer Contracts Regulations 2013. Tell the shop in writing — an email is enough — and send the item back within 14 days of telling them.`,
+            `Returns are free for ${BRAND.returns.days} days and the label is in the box. Refunds are paid within 14 days of the goods arriving back, to the card used.`,
+            "Two honest exceptions: perishable goods, and anything cut or personalised to your order, cannot be returned unless it is faulty. Nothing on this site is personalised today.",
+          ],
+        },
+        {
+          heading: "If something is wrong",
+          body: [
+            "Goods must be as described, of satisfactory quality and fit for purpose under the Consumer Rights Act 2015. If they are not, the shop will repair, replace or refund — your choice, and the law's.",
+            "Report a fault to " +
+              BRAND.email +
+              " with the order reference and a photograph. A fault reported within 30 days is treated as having been there from the start.",
+          ],
+        },
+        {
+          heading: "Liability, and what these terms do not change",
+          body: [
+            "Nothing here limits liability for death or personal injury caused by negligence, for fraud, or for anything else the law does not allow to be limited. Those rights exist whatever this page says.",
+            "Beyond that, liability is limited to the price of the goods in the order concerned. The shop is not liable for loss that was not foreseeable when the order was placed.",
+            "These terms are governed by the law of England and Wales, and the courts of England and Wales have jurisdiction.",
+          ],
+        },
+      ],
+    },
+    {
+      slug: "cookies",
+      title: "Cookies",
+      description: "Which cookies this shop sets (none of its own), what it keeps in your browser instead, and how to remove it.",
+      lede: "This shop sets no cookies of its own — not one. What it keeps instead is a basket in your browser's local storage, which is not a cookie and is not sent anywhere.",
+      sections: [
+        {
+          heading: "What is stored, and under what name",
+          body: [
+            `Local storage, key "hearth-grain-basket": the products in your basket and how many. Readable only by this site, never sent to a server, no expiry — it stays until you clear it.`,
+            "No preference cookies, no session cookie, no consent cookie, no analytics cookie, no advertising cookie. There is nothing here to consent to, which is why there is no banner asking for consent it would not use.",
+          ],
+        },
+        {
+          heading: "Third parties",
+          body: [
+            "When you press pay, you are on Stripe's page and Stripe's cookies apply — they use them to process the payment and to detect fraud. Their cookie notice explains them; this page cannot.",
+            "Embedded video, maps, chat widgets and social buttons all set cookies. This shop has none of them, deliberately: each one would be a reason to need a banner.",
+          ],
+        },
+        {
+          heading: "How to remove it",
+          body: [
+            "Clear the site's data in your browser (Settings → Privacy → Cookies and site data → this site). The basket disappears with it, which is the whole of what is stored.",
+            "Private or incognito windows keep the basket until the window closes and then drop it.",
+          ],
+        },
+      ],
+    },
+    {
+      slug: "accessibility",
+      title: "Accessibility",
+      description: `How ${BRAND.name} is built for keyboard, screen reader and zoom, what has been tested, and what has not.`,
+      lede: "An honest statement: what has been done, what has been checked, and what nobody has checked yet. The last list is the short one that matters.",
+      sections: [
+        {
+          heading: "What the pages do",
+          body: [
+            "Every page has one h1, labelled form fields, a skip link to the main content, a visible focus ring on every control, and touch targets of at least 44px on a phone.",
+            "Colour contrast is at least 4.5:1 for body text and 3:1 for large text and interface borders. Nothing on the shop depends on colour alone: a sold-out product says so in words as well as in grey.",
+            "The basket is a native <dialog>, so the keyboard, Escape and focus handling are the browser's rather than a script's. The site works with JavaScript disabled for reading — the basket is the one thing that needs it, and the basket says so.",
+            "Text reflows at 320px wide and to 200% zoom without horizontal scrolling, and the pages honour prefers-reduced-motion by turning off the transitions.",
+          ],
+        },
+        {
+          heading: "What has been checked",
+          body: [
+            "Automated checks run in the build: heading order, image alt text, form labels, and a link check that follows every internal link on the 404 page. The basket, the search and the keyboard path are covered by tests in this repository.",
+          ],
+        },
+        {
+          heading: "What has not been checked, yet",
+          body: [
+            "No screen reader has been used with this shop — not VoiceOver, not NVDA, not TalkBack. That is the largest gap and it is stated here rather than glossed over.",
+            "No manual audit against WCAG 2.2 AA has been done, and nothing has been run on a real iPhone or Android device, only in a desktop browser at phone widths.",
+            `If something is hard to use, write to ${BRAND.email} with the page and what happened. Accessibility faults are treated as bugs, not as feature requests.`,
+          ],
+        },
+        {
+          heading: "If the shop cannot be used",
+          body: [
+            `Order by email instead: ${BRAND.email}, with the product names and a delivery address. The same prices, the same returns, the same 14-day right to cancel — the page is a convenience, not a condition of buying.`,
+          ],
+        },
+      ],
+    },
+  ];
+
+  for (const page of legalPages) {
+    await writeFile(
+      path.join(OUT, "pages", `${page.slug}.html`),
+      renderPage({
+        depth: 1,
+        title: `${page.title} — ${BRAND.name}`,
+        description: page.description,
+        canonical: `${BRAND.url}/pages/${page.slug}.html`,
+        body: policyBody(page.title, page.lede, page.sections),
+        nav: navFor(groups),
+        jsonLd: [organisation()],
+        updated: UPDATED,
+      }),
+      "utf8"
+    );
+    pagesWritten.push({ url: abs(`pages/${page.slug}.html`), priority: "0.3" });
+  }
+
   /* Where Stripe sends the customer back to. It has to exist, it has to be a real
      page, and it must not claim to know the order: the function that could tell
      it does not exist yet, and a page that invents a confirmation is worse than

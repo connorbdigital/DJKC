@@ -531,6 +531,12 @@ ${options.body}
     </div>
     <div class="legal">
       <p style="margin:0">${escapeHtml(BRAND.notice)} Updated ${options.updated}.</p>
+      <nav aria-label="Legal">
+        <a href="${p}pages/privacy.html">Privacy</a> ·
+        <a href="${p}pages/terms.html">Terms of sale</a> ·
+        <a href="${p}pages/cookies.html">Cookies</a> ·
+        <a href="${p}pages/accessibility.html">Accessibility</a>
+      </nav>
       <div class="pay" aria-label="Payment methods we are building for">
         <span>Visa</span><span>Mastercard</span><span>Amex</span><span>Apple Pay</span><span>PayPal</span><span>Klarna</span>
       </div>
