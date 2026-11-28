@@ -67,11 +67,37 @@ const readJson = async (url: string, init?: RequestInit): Promise<unknown> => {
     const text = await response.text();
     if (text.length > MAX_BYTES) return null;
     const body = JSON.parse(text || "null") as unknown;
-    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim());
+    if (!response.ok) {
+      /* The status is carried, not just printed: a 401 and a 503 are the same
+         sentence to a log and opposite instructions to a person. */
+      const problem = new Error(`${response.status} ${response.statusText}`.trim()) as Error & { status?: number };
+      problem.status = response.status;
+      throw problem;
+    }
     return body;
   } finally {
     clearTimeout(timer);
   }
+};
+
+/**
+ * What a refused bridge means for the key.
+ *
+ * The world is the one place that sees the bridge's status without a person
+ * clicking anything, so it says which of the four things went wrong — the key is
+ * missing, the key is refused, the key is out of credits, or the bridge is not
+ * the thing that is broken — instead of repeating a status code at the HUD.
+ */
+const keySentence = (problem: unknown): string => {
+  const status = (problem as { status?: number } | null)?.status;
+  const detail = problem instanceof Error ? problem.message.slice(0, 120) : "did not answer";
+  if (status === 401 || status === 403) return `the anything key is set but refused (${status}) — rotate it in Anything → Settings → API keys`;
+  if (status === 402 || status === 429) return `the key works and is being held back (${status}) — out of credits or rate limited`;
+  if (status === 503) return "the Studio's own bridge answered 503 — no anything key on this deployment, or /api/anything is down (its probe says which)";
+  if (status && status >= 500) return `the bridge failed on its side (${status}) — not a key problem`;
+  if (problem instanceof DOMException && problem.name === "AbortError") return "the bridge took longer than 8 seconds and was abandoned";
+  if (problem instanceof Error && /abort/i.test(problem.message)) return "the bridge took longer than 8 seconds and was abandoned";
+  return detail;
 };
 
 /**
@@ -158,7 +184,7 @@ const readAnything = async (
         label,
         ok: false,
         at: 0,
-        note: problem instanceof Error ? problem.message.slice(0, 160) : "did not answer",
+        note: keySentence(problem),
       },
       apps: [],
       credits: null,
