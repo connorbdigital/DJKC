@@ -25,6 +25,29 @@ four missing functions plus one trust problem holding it back.
 
 ---
 
+## 0. Status after the first fix pass (20 Nov 2026)
+
+The audit was written on 20 Nov; the same day, the trust and booking gaps were
+closed in code and deployed to production (PR #54, `dab0fd2`/`ab0fd21`, Vercel
+`dpl_BUg5KY1wjFto3V8jhw5MhHWr4Zie`, READY/PROMOTED).
+
+| Finding | Status now |
+| --- | --- |
+| No terms, no privacy, no trader identity | **Closed.** `/terms.html` and `/privacy.html` are live, generated without JavaScript, in the sitemap at priority 0.3 and in `llms.txt`. The trader identity comes from one module (`src/trading.ts`) and prints in every footer, on both legal pages and beside the booking form. |
+| No page explaining how a booking works | **Closed.** `/book.html` — the four steps, what to have ready, what it costs before you ask, with `ContactPage` + `Service`/`AggregateOffer` schema. |
+| Duplicate FAQ question | **Closed.** One "how far in advance should we book?" with the two answers merged. |
+| Terms not incorporated before payment | **Closed.** The booking form links the published terms before the Stripe deposit, and the one-page contract still repeats them. |
+| Postal address not published | **Deliberately still open.** No address exists to publish; the pages say "ask by email and it is sent before you pay anything" rather than inventing one. **This is the one item only the owner can close.** |
+| No proof page, no work page, no journal, no NAP / Google Business Profile, unsourced stats | **Still open.** These are sections 2 and 4 below, unchanged. |
+
+Sitemap is now 19 URLs (16 + book + terms + privacy). Scores move as follows:
+trust & compliance **4 → 7** (a postal address and real proof would take it
+higher), conversion **8 → 9** (a real `/book.html` to land on), universal
+functions **9 done / 2 partial / 4 missing → 11 done / 0 partial / 4 missing**
+(work, proof, journal, search).
+
+---
+
 ## 1. What I actually tested — and what I could not
 
 Read in full: home, prices, cost guide, FAQ (4 of the 16 URLs in the sitemap),
@@ -142,21 +165,23 @@ can reach; "partial" means it exists but is weaker than the market expects.
 | Navigation | **Done** | Header nav on every page |
 | Home | **Done** | `/` — hero, occasions, demo deck, shows, booking |
 | Pricing | **Done** | `/prices.html` + cost guide; consistent £650 / £1,100 / quoted |
-| Booking | **Partial** | `#book` form with Stripe deposit claims; no `/book` page, no terms |
-| Questions | **Done** | `/faq.html` — answer-first, 17 questions (one duplicated) |
+| Booking | **Done** *(20 Nov)* | `/book.html` explains the steps; the `#book` form still takes the deposit, now linked to published terms |
+| Questions | **Done** | `/faq.html` — answer-first; the duplicated booking-notice question was merged on 20 Nov |
 | About | **Done** | `/about.html` |
 | Availability | **Done** | `/shows.html` + `/api/calendar` iCal feed — rare and good |
 | Work | **Missing** | No case studies, no gallery of real nights, no venue list with dates played |
 | Coverage | **Done** | `/coverage.html` + Manchester page |
 | Proof | **Missing** | No reviews page, no Google/Trustpilot link, no press quotes with sources |
-| Legal | **Missing** | No terms, privacy, cookies, company details |
+| Legal | **Done** *(20 Nov)* | `/terms.html`, `/privacy.html`, trader identity in every footer; cookies section states there are none to consent to |
 | Journal | **Missing** | One cost guide; no guide hub, no articles |
 | Account | **Not needed** | Single-artist bookings; contracts by email is fine |
 | Search | **Missing** | No site search (minor at 16 pages, matters at 30) |
 | Sitemap | **Done** | `sitemap.xml`, referenced from robots |
 
-**Score: 9 done, 2 partial, 4 missing** → 60% of the universal set, and the four
-missing ones are the four that carry trust and growth (work, proof, legal, journal).
+**Score at the time: 9 done, 2 partial, 4 missing** → 60% of the universal set, and
+the four missing ones were the four that carry trust and growth (work, proof,
+legal, journal). **After the 20 Nov fix pass: 11 done, 0 partial, 3 missing**
+(work, proof, journal) plus site search.
 
 ---
 
