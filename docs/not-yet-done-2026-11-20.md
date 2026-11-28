@@ -17,8 +17,8 @@ still is not true. Ordered by what it costs to leave undone.*
 
 | # | What | Where it stands | Effort |
 | --- | --- | --- | --- |
-| 40 | **The Anything scan has never been seen against the real account** | The key on Vercel is a *sensitive* variable, so it cannot be read out, and this sandbox cannot reach `api.anything.com`. The code scans 24 projects and 400 parts per app; it was checked on a 3-app / 60-part mock. The real names and count are unconfirmed. | S (the key) |
-| 45 | **The build-time scan is unverified against the real API** | It runs in `npm run build` and was proved against a local mock with `ANYTHING_BASE`; whether Vercel's build has the key in scope, and whether the real `files` array is what the spaces expect, is unconfirmed until a deploy with the key prints `scan:anything — N projects, M parts`. | S |
+| 40 | **The Anything scan, half confirmed** | The account read is now real: 89 projects, the top one *Digital Solutions Marketing Agency* (`digital-solutions-marketing-449`, published at sitebuildup.co.uk, 505 modules). What is still unconfirmed is the spaces' own scan — the `scan:anything — N projects, M parts` line — which has only ever been seen against a 3-app / 60-part mock. | S |
+| 45 | **The build-time scan is unverified against the real API** | Half answered: a build in the `studio` project **does** have the key in scope and **can** reach `api.anything.com` (it read `/me` and the project list, then sent the brief — see [anything-brief-sent](anything-brief-sent-2026-11-20.md)). Still unconfirmed: whether the real `files` array is what the spaces expect, until a deploy prints `scan:anything — N projects, M parts`. | S |
 | 41 | **The City has no memory** | No minimap, no "4 of 13 opened", no remembered position. The Atlas remembers its camera; the City always starts at the entrance. | S |
 | 42 | **The building is bare** | Rooms, walls, doors, plinths. No windows, no stairs, nothing on the walls, one storey. | M |
 | 43 | **A low-end phone is untested** | The City holds a laptop frame with unlit ceilings and emissive orbs, after 60+ point lights proved unusable. No measurement on real hardware. | S |
@@ -41,7 +41,7 @@ still is not true. Ordered by what it costs to leave undone.*
 
 | # | What | Where it stands | Effort |
 | --- | --- | --- | --- |
-| 14 | **Anything projects, verified live** | The pulse says the key is set and Anything still answers 401. Two variables are configured (`ANYTHING_API_KEY`, `Anything_Key`); `/api/anything?probe=1` now reports what each answers, so the fix is deleting or replacing the wrong one. | S |
+| 14 | **~~Anything projects, verified live~~ Done** | **Verified 20 Nov, from a build that could reach the API:** `ANYTHING_API_KEY` is the only key configured (production, preview and development), and it answers **200** — `/v0/api/me` names the account and two organizations, `/v0/api/projects` returns **89**. The 401 the pulse used to report came from the duplicate `Anything_Key`, which is no longer there. | Done |
 | 15 | **Rate-limit `/api/chat`** | An unauthenticated endpoint that spends money. The one item that can cost you overnight. | S |
 | 16 | **The Agent's key on previews** | `ANTHROPIC_API_KEY` is production-only, so the Agent refuses on a preview deployment. | S |
 | 17 | **Orrery and Constellation looks** | City, Blueprint, Observatory and Nebula ship; the other two directions from the earlier list do not. | M each |
@@ -66,6 +66,19 @@ still is not true. Ordered by what it costs to leave undone.*
 | 28 | **Supplier partnerships and an affiliate route for the shop** | Worked out on paper in `commerce/COMMISSION.md`; no application sent. |
 | 29 | **Multi-language / hreflang** | Not started, and not needed until there is a second language. |
 | 30 | **Newsletter capture and a list** | No form, no list, no provider. |
+
+## Changed since this list was written
+
+- **The apex audit has been sent** to the project that runs sitebuildup.co.uk —
+  revision `9b15569d`, 3,070 credits. Record:
+  [anything-brief-sent-2026-11-20.md](anything-brief-sent-2026-11-20.md). Item 3
+  (no prices) and item 4 (no proof) are what that revision is meant to fix; they
+  stay on this list until the live site shows them fixed.
+- **The Anything key works**, and the deployment can reach the API (items 14, 40,
+  45 above).
+- **The world snapshot says what it can do**: `/api/world` reports each bridge's
+  read, its one write and the credits left, and answers a matching `If-None-Match`
+  with a 304. See [atlas-world-2026-11-20.md](atlas-world-2026-11-20.md).
 
 ## How to read this list
 
