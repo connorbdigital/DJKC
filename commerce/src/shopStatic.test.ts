@@ -75,3 +75,64 @@ describe("the built shop", () => {
     }
   });
 });
+
+
+describe("the legal pages", () => {
+  const legal = ["privacy", "terms", "cookies", "accessibility"];
+
+  it("exists for each of the four, with one h1 and a title of its own", () => {
+    const titles = new Set<string>();
+    for (const slug of legal) {
+      const html = read(path.join("pages", `${slug}.html`));
+      expect((html.match(/<h1[\s>]/g) ?? []).length, `${slug} should have exactly one h1`).toBe(1);
+      const title = /<title>([^<]+)<\/title>/.exec(html)?.[1];
+      expect(title, `${slug} needs a title`).toBeTruthy();
+      titles.add(title!);
+      /* The demo notice belongs on every page, including these. */
+      expect(html).toContain("Demonstration catalogue");
+    }
+    expect(titles.size).toBe(legal.length);
+  });
+
+  it("is linked from every page's footer and listed in the sitemap", () => {
+    const footer = read("index.html");
+    for (const slug of legal) expect(footer).toContain(`pages/${slug}.html`);
+    /* And from a page one directory down, where the path needs its ../ */
+    const product = read(path.join("pages", "about.html"));
+    for (const slug of legal) expect(product).toContain(`pages/${slug}.html`);
+    const sitemap = read("sitemap.xml");
+    for (const slug of legal) expect(sitemap).toContain(`pages/${slug}.html`);
+  });
+
+  it("says what the code actually does, in the words the code uses", () => {
+    const cookies = read(path.join("pages", "cookies.html"));
+    /* The basket key is a fact, not a phrase: if the key changes, this breaks. */
+    expect(cookies).toContain("hearth-grain-basket");
+    expect(cookies).toContain("no cookies of its own");
+    expect(cookies).toContain("Stripe");
+
+    const terms = read(path.join("pages", "terms.html"));
+    for (const anchor of ["Consumer Contracts Regulations 2013", "Consumer Rights Act 2015", "14 days", "VAT", "England and Wales"]) {
+      expect(terms, `terms should mention ${anchor}`).toContain(anchor);
+    }
+
+    const privacy = read(path.join("pages", "privacy.html"));
+    expect(privacy).toContain("hearth-grain-basket");
+    expect(privacy).toContain("ICO");
+    expect(privacy).toContain("UK GDPR");
+
+    /* The accessibility statement is only worth having if it admits the gap. */
+    const accessibility = read(path.join("pages", "accessibility.html"));
+    expect(accessibility).toContain("No screen reader has been used");
+    expect(accessibility).toContain("WCAG 2.2 AA");
+  });
+
+  it("contains no placeholder text at all", () => {
+    for (const slug of legal) {
+      const html = read(path.join("pages", `${slug}.html`));
+      for (const placeholder of ["[Your", "yourcompany", "XXX", "Lorem ipsum", "TBC", "insert "]) {
+        expect(html.includes(placeholder), `${slug}.html still contains "${placeholder}"`).toBe(false);
+      }
+    }
+  });
+});

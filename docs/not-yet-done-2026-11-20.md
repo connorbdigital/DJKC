@@ -8,7 +8,7 @@ still is not true. Ordered by what it costs to leave undone.*
 | # | What | Where it stands | Effort |
 | --- | --- | --- | --- |
 | 1 | **Shop checkout** | Built and priced on the server (`api/checkout.js`); it answers 503 until `STRIPE_SECRET_KEY` is on the **ecommerce** project. With the key it is a real Stripe page — see [checkout-and-pitch](checkout-and-pitch-2026-11-20.md). | S (the key) |
-| 2 | **Privacy notice, terms of sale, cookies, accessibility statement** | None exist on either site, and both collect names and emails. | S |
+| 2 | **~~Privacy notice, terms of sale, cookies, accessibility statement~~ Shop done** | The shop now has all four at `/pages/privacy.html`, `terms.html`, `cookies.html`, `accessibility.html`, written from what the code does (the `hearth-grain-basket` key, Stripe, no cookie of its own) and linked from every footer. The artist site already had privacy and booking terms. Still open: **nothing has been read by a screen reader** — the accessibility page says so rather than claiming otherwise. | Done |
 | 3 | **SiteBuildup has no prices** | Competitors publish ranges; "contact for a quote" reads as expensive. Packages are drafted in [sitebuildup-clients](sitebuildup-clients-2026-11-20.md), not published. | S |
 | 4 | **No proof of work anywhere** | No case study, no testimonial, no number. Both sites describe; neither demonstrates. | M |
 | 5 | **Google Business Profile** | Not claimed, so a local search finds nothing. | S |
@@ -43,7 +43,7 @@ still is not true. Ordered by what it costs to leave undone.*
 | --- | --- | --- | --- |
 | 14 | **~~Anything projects, verified live~~ Done** | **Verified 20 Nov, from a build that could reach the API:** `ANYTHING_API_KEY` is the only key configured (production, preview and development), and it answers **200** — `/v0/api/me` names the account and two organizations, `/v0/api/projects` returns **89**. The 401 the pulse used to report came from the duplicate `Anything_Key`, which is no longer there. | Done |
 | 15 | **~~Rate-limit `/api/chat`~~ Done** | Twenty messages a minute per address, plus 240 a minute for everyone, both sliding windows; a refusal answers 429 with `Retry-After`. `src/rateLimit.ts`, ten tests, and the per-visitor case proved against the handler. Still true: the counters are per warm instance, so a cold start forgets. | Done |
-| 16 | **The Agent's key on previews** | `ANTHROPIC_API_KEY` is production-only, so the Agent refuses on a preview deployment. | S |
+| 16 | **~~The Agent's key on previews~~ Done** | The variable's targets were widened to production, preview and development without re-entering the value (a sensitive value cannot be read back, so this was the only path). Proved from a preview build: the key is present, 106 characters, `sk-ant-` prefix. | Done |
 | 17 | **Orrery and Constellation looks** | City, Blueprint, Observatory and Nebula ship; the other two directions from the earlier list do not. | M each |
 | 18 | **Real-device testing** | Everything is checked in headless Chromium at 390 and 1500 wide. No iPhone, no Android, no Safari. | S |
 | 19 | **WebXR with a headset** | "No headset" is the honest state of the VR button in this environment. | — |
@@ -77,6 +77,8 @@ still is not true. Ordered by what it costs to leave undone.*
   and a test runs the real build and follows every link on the 404.
 - **The pitch list can be backed up and restored** (item 22), as a named JSON
   file rather than a bare array.
+- **The shop has its four legal pages** (item 2) and the Agent has its key on
+  previews (item 16).
 
 - **The apex audit has been sent** to the project that runs sitebuildup.co.uk —
   revision `9b15569d`, 3,070 credits. Record:
