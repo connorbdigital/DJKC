@@ -15,8 +15,8 @@ nothing yet places an order with anybody.
 | 1 | Basket → Stripe Checkout Session | `commerce/api/checkout.js` | Built; returns 503 until `STRIPE_SECRET_KEY` is set on the `ecommerce` project |
 | 2 | Stripe says `checkout.session.completed` | Stripe → our webhook | **Built.** `api/stripe-webhook.ts`, signature checked in constant time before anything else (`src/stripeWebhook.ts`); without a secret it answers 503 rather than 200 |
 | 3 | Write the order down | KV, via `applyEvent(order, paid)` | **Built.** `src/orderStore.ts` (Upstash REST or a Map), order rebuilt from the session's cart metadata and re-priced from the catalogue; a total that disagrees is refused |
-| 4 | Ask the supplier to ship it | a `SupplierAdapter` | **BigBuy written** (`src/suppliers/bigbuy.ts`, 14 tests, no key needed). No account, no Prodigi adapter, nothing live |
-| 5 | Supplier accepts / refuses | their callback or a poll | **Half.** BigBuy's `ER003` stockout is mapped to a cancellation; tracking is polled, not pushed |
+| 4 | Ask the supplier to ship it | a `SupplierAdapter` | **Two written**: BigBuy (`bigbuy.ts`) and Prodigi (`prodigi.ts`), 29 tests between them, neither with an account behind it. `SUPPLIER_NAME` chooses; no key means the order waits for a human |
+| 5 | Supplier accepts / refuses | their callback or a poll | **Half.** Prodigi callbacks are read (CloudEvent or bare order); BigBuy has none, so tracking is polled. BigBuy's `ER003` stockout becomes a cancellation |
 | 6 | Tracking reaches the customer | email from stage 4's answer | **Missing.** No email at all today |
 | 7 | Refund when it cannot be fulfilled | Stripe refund + `applyEvent(…, refunded)` | **Half.** `charge.refunded` is recorded, as a delta, so a retry cannot refund twice. The Stripe refund itself is still done by hand |
 

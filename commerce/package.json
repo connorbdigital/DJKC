@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "serve:catalogue": "node catalogue/scripts/serve.mjs",
     "feed": "tsx scripts/fetch-feed.mts",
-    "site": "tsx catalogue/scripts/build-site.mts"
+    "site": "tsx catalogue/scripts/build-site.mts",
+    "smoke:prodigi": "tsx scripts/prodigi-sandbox.mts",
+    "readiness": "tsx scripts/readiness.mts"
   },
   "devDependencies": {
     "@types/node": "22.19.17",

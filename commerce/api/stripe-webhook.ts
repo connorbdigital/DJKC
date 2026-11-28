@@ -14,6 +14,7 @@ import { CATALOGUE } from "../lib/catalogue.js";
 import { handleStripeWebhook } from "../src/stripeWebhookHandler.js";
 import { storeFromEnv } from "../src/orderStore.js";
 import { bigbuyAdapter } from "../src/suppliers/bigbuy.js";
+import { prodigiAdapter, type ProdigiItem } from "../src/suppliers/prodigi.js";
 import type { SupplierAdapter } from "../src/orders.js";
 
 const rawBody = async (req: IncomingMessage): Promise<string> => {
@@ -25,14 +26,45 @@ const rawBody = async (req: IncomingMessage): Promise<string> => {
 /**
  * Which supplier, if any, can be reached without a human.
  *
- * BigBuy is wired but only used when its key is present; the currency question
- * is left to the adapter, which refuses to quote without a rate rather than
- * inventing one. With no key, orders land in the manual queue.
+ * `SUPPLIER_NAME` decides, and a missing key means "not reachable" rather than
+ * "fail the payment": the order is recorded either way and waits in the manual
+ * queue. Both adapters refuse rather than improvise — BigBuy without a currency
+ * rate, Prodigi without a product mapping or print-ready artwork.
+ *
+ * `PRODIGI_ITEMS` is JSON: `{ "HG-PRINT-01": { "sku": "GLOBAL-CAN-16X20",
+ * "asset": "https://…/art.png" } }`, keyed by the SKU the order line carries.
  */
+const prodigiItems = (): Record<string, ProdigiItem> => {
+  const raw = (process.env.PRODIGI_ITEMS ?? "").trim();
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, ProdigiItem>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
 const adapterFor = (): SupplierAdapter | null => {
+  const supplier = (process.env.SUPPLIER_NAME ?? "").trim().toLowerCase();
+
+  if (supplier === "prodigi") {
+    const key = (process.env.PRODIGI_API_KEY ?? "").trim();
+    if (!key) return null;
+    return prodigiAdapter({
+      apiKey: key,
+      items: prodigiItems(),
+      /* Sandbox by default when the key is a sandbox key; explicit override wins. */
+      baseUrl:
+        process.env.PRODIGI_API_BASE?.trim() ||
+        (key.startsWith("sandbox_") ? "https://api.sandbox.prodigi.com/v4.0" : "https://api.prodigi.com/v4.0"),
+      ...(process.env.PRODIGI_SHIPPING_METHOD ? { shippingMethod: process.env.PRODIGI_SHIPPING_METHOD as "Budget" | "Standard" | "Express" | "Overnight" } : {}),
+    });
+  }
+
+  if (supplier !== "bigbuy") return null;
   const key = (process.env.BIGBUY_API_KEY ?? "").trim();
   if (!key) return null;
-  if ((process.env.SUPPLIER_NAME ?? "").trim().toLowerCase() !== "bigbuy") return null;
   return bigbuyAdapter({
     apiKey: key,
     ...(process.env.BIGBUY_API_BASE ? { baseUrl: process.env.BIGBUY_API_BASE } : {}),
