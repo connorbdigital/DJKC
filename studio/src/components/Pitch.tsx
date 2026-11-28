@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { checkUrl, type SiteReport } from "../sitecheck";
 import { OFFERS, buildPitch, emailDraft, mailtoFor, nextToPitch, toProspect, type Prospect, type ProspectStatus } from "../pitch";
-import { loadProspects, removeProspect, saveProspect, setProspectStatus } from "../pitchStore";
+import { exportProspects, importProspects, loadProspects, removeProspect, saveProspect, setProspectStatus } from "../pitchStore";
 
 /**
  * The pitch sheet, as a tool rather than a page.
@@ -30,6 +30,8 @@ export function Pitch() {
   const [sheet, setSheet] = useState<Prospect | null>(null);
   const [prospects, setProspects] = useState<Prospect[]>(() => loadProspects());
   const [copied, setCopied] = useState<"text" | "email" | "link" | "">("");
+  const [backup, setBackup] = useState("");
+  const restoreInput = useRef<HTMLInputElement | null>(null);
 
   const next = useMemo(() => nextToPitch(prospects), [prospects]);
 
@@ -207,6 +209,54 @@ export function Pitch() {
               </li>
             ))}
           </ul>
+          {/*
+            The list lives in this browser and nowhere else: clearing the cache takes
+            it, and a second device starts from nothing. A file is the smallest honest
+            fix — it survives the browser, it can be mailed to yourself, and it does
+            not pretend to be a database.
+          */}
+          <div className="pitch-actions prospect-backup">
+            <button
+              className="btn ghost small"
+              type="button"
+              onClick={() => {
+                const name = `studio-pitch-${new Date().toISOString().slice(0, 10)}.json`;
+                const url = URL.createObjectURL(new Blob([exportProspects(prospects)], { type: "application/json" }));
+                const anchor = document.createElement("a");
+                anchor.href = url;
+                anchor.download = name;
+                anchor.click();
+                URL.revokeObjectURL(url);
+                setBackup(`Saved ${prospects.length} prospect${prospects.length === 1 ? "" : "s"} as ${name}.`);
+              }}
+            >
+              Back up the list
+            </button>
+            <button className="btn ghost small" type="button" onClick={() => restoreInput.current?.click()}>
+              Restore a backup
+            </button>
+            <input
+              ref={restoreInput}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                const result = importProspects(await file.text());
+                if (!result.ok) {
+                  setBackup(result.reason);
+                  return;
+                }
+                setProspects(result.prospects);
+                setBackup(
+                  `Restored: ${result.added} added, ${result.updated} already known. ${result.prospects.length} in the list.`
+                );
+              }}
+            />
+            {backup && <span className="muted small" role="status">{backup}</span>}
+          </div>
         </section>
       )}
 

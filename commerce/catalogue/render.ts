@@ -443,6 +443,8 @@ export function renderPage(options: PageOptions): string {
 <meta property="og:locale" content="en_GB">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#e8607f">
+<link rel="manifest" href="${p}manifest.webmanifest">
+<link rel="icon" href="${p}assets/icon.svg" type="image/svg+xml">
 <link rel="alternate" type="application/json" href="${p}products.json" title="Catalogue data">
 <link rel="alternate" type="text/plain" href="${p}llms.txt" title="Facts for answer engines">
 ${options.jsonLd.map((data) => `<script type="application/ld+json">${JSON.stringify(data)}</script>`).join("\n")}

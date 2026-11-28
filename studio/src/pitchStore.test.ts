@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildPitch, emailDraft, mailtoFor, nextToPitch, prospectId, toProspect } from "./pitch";
-import { clearProspects, loadProspects, removeProspect, saveProspect, setProspectStatus } from "./pitchStore";
+import { clearProspects, exportProspects, importProspects, loadProspects, removeProspect, saveProspect, setProspectStatus } from "./pitchStore";
 import { checkSite } from "./sitecheck";
 
 const page = (head: string, body: string) => `<!doctype html><html><head>${head}</head><body>${body}</body></html>`;
@@ -117,5 +117,62 @@ describe("the email", () => {
     expect(link.startsWith("mailto:hello%40example.co.uk?subject=")).toBe(true);
     expect(link).not.toContain("\n");
     expect(link).toContain(encodeURIComponent("£"));
+  });
+});
+
+
+describe("the backup", () => {
+  it("writes the list as a named file, not a bare array", () => {
+    saveProspect(sheetFor("https://one.example/"));
+    const text = exportProspects();
+    const parsed = JSON.parse(text) as { kind: string; version: number; exportedAt: string; prospects: unknown[] };
+    expect(parsed.kind).toBe("studio-pitch-backup");
+    expect(parsed.version).toBe(1);
+    expect(parsed.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(parsed.prospects).toHaveLength(1);
+  });
+
+  it("restores into an empty browser, and says how much it added", () => {
+    saveProspect(sheetFor("https://one.example/"));
+    saveProspect(sheetFor("https://two.example/"));
+    const text = exportProspects();
+    clearProspects();
+    expect(loadProspects()).toEqual([]);
+
+    const restored = importProspects(text);
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    expect(restored.added).toBe(2);
+    expect(restored.updated).toBe(0);
+    expect(loadProspects().map((p) => p.host)).toEqual(["two.example", "one.example"]);
+  });
+
+  it("merges rather than replaces, and never walks a status backwards", () => {
+    const one = sheetFor("https://one.example/");
+    saveProspect(one);
+    const text = exportProspects();
+    /* Since the backup: one has been written to, and a second has been found. */
+    setProspectStatus(one.id, "sent");
+    saveProspect(sheetFor("https://two.example/"));
+
+    const restored = importProspects(text);
+    expect(restored.ok).toBe(true);
+    if (!restored.ok) return;
+    expect(restored.added).toBe(0);
+    expect(restored.updated).toBe(1);
+    const kept = loadProspects();
+    expect(kept.map((p) => p.host)).toEqual(["two.example", "one.example"]);
+    expect(kept.find((p) => p.host === "one.example")?.status).toBe("sent");
+  });
+
+  it("refuses what is not one of its own files, in words a person can act on", () => {
+    expect(importProspects("")).toEqual({ ok: false, reason: "That file is empty." });
+    expect(importProspects("not json").ok).toBe(false);
+    expect(String((importProspects("{\"hello\":1}") as { reason: string }).reason)).toContain("studio-pitch-backup");
+    expect(String((importProspects('{"kind":"studio-pitch-backup","version":99,"prospects":[]}') as { reason: string }).reason)).toContain("newer Studio");
+    expect(String((importProspects('{"kind":"studio-pitch-backup","version":1,"prospects":[]}') as { reason: string }).reason)).toContain("no readable prospects");
+    /* A prospect missing its sheet is not a prospect. */
+    const junk = JSON.stringify({ kind: "studio-pitch-backup", version: 1, prospects: [{ id: "x" }] });
+    expect(importProspects(junk).ok).toBe(false);
   });
 });

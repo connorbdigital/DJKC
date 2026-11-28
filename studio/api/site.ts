@@ -3,6 +3,7 @@ import { checkSite, checkUrl, pagePreview } from "../src/sitecheck.js";
 import { internalLinks } from "../src/atlasSpace.js";
 import { pageFacts } from "../src/plate.js";
 import { PAGE_HEADERS, proxyPage } from "../src/pageProxy.js";
+import { clientKey, createLimiter, retryAfterSeconds } from "../src/rateLimit.js";
 
 /**
  * Fetches one public https page and returns a summary of it.
@@ -18,6 +19,18 @@ import { PAGE_HEADERS, proxyPage } from "../src/pageProxy.js";
  * Run this with restricted egress if that matters; do not treat it as a
  * security boundary.
  */
+
+/**
+ * An endpoint that will fetch any public URL on request is a free proxy until it
+ * has a limit, and the pitch sheet deliberately sends five at once — so the limit
+ * has to be above a real working session and far below a nuisance.
+ *
+ * Two buckets, because the two halves of this endpoint cost different things: an
+ * audit downloads a page, a thumbnail downloads a page and up to 2.5MB of image.
+ * Counting them separately means a wall of link cards cannot spend the audits.
+ */
+const auditsPerVisitor = createLimiter({ limit: 20, windowMs: 60_000 });
+const thumbsPerVisitor = createLimiter({ limit: 60, windowMs: 60_000 });
 
 const TIMEOUT_MS = 8_000;
 const MAX_BYTES = 1_500_000;
@@ -227,6 +240,15 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
 
     const asked = params.get("thumb") ?? "";
+    const cards = thumbsPerVisitor.check(clientKey(req.headers));
+    if (!cards.allowed) {
+      res.setHeader("Retry-After", retryAfterSeconds(cards));
+      json(res, 429, {
+        ok: false,
+        error: `That is ${cards.count} link cards in a minute from one address. Wait ${Math.ceil(cards.retryAfterMs / 1000)} seconds.`,
+      });
+      return;
+    }
     const verdict = checkUrl(asked);
     if (!verdict.ok || !verdict.url) {
       json(res, 400, { ok: false, error: verdict.reason ?? "That URL cannot be read." });
@@ -252,6 +274,17 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
   if (req.method !== "POST") {
     json(res, 405, { ok: false, error: "Use POST to audit a page, or GET ?thumb=<url> for its card." });
+    return;
+  }
+
+  const visitor = clientKey(req.headers);
+  const audit = auditsPerVisitor.check(visitor);
+  if (!audit.allowed) {
+    res.setHeader("Retry-After", retryAfterSeconds(audit));
+    json(res, 429, {
+      ok: false,
+      error: `That is ${audit.count} audits in a minute from one address. Wait ${Math.ceil(audit.retryAfterMs / 1000)} seconds.`,
+    });
     return;
   }
 
