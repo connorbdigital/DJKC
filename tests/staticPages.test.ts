@@ -91,3 +91,41 @@ it('targets the phrases buyers actually search for', () => {
   expect(footer).toContain('/wedding-dj.html');
   expect(footer).toContain('/dj-hire-manchester.html');
 });
+
+it('says who is taking the money and what happens to it, before anyone pays', () => {
+  const script = read('scripts/build-static-pages.mts');
+  const trading = read('src/trading.ts');
+
+  /* The three pages the audit said were missing: how a booking works, the
+     booking terms, and a privacy notice. All three are generated, so they exist
+     without JavaScript and carry the trader identity from one module. */
+  for (const page of ['book.html', 'terms.html', 'privacy.html']) {
+    expect(script).toContain(page);
+  }
+  expect(script).toContain('ContactPage');
+  expect(script).toContain('tradingLines()');
+  expect(script).toContain('ENQUIRY_RETENTION_MONTHS');
+  expect(script).toContain('BOOKING_RETENTION_YEARS');
+
+  expect(trading).toContain('export const TRADING');
+  expect(trading).toContain('BOOKING_EMAIL');
+  expect(read('src/data.ts')).toContain('booking@djkcmusic.com');
+  expect(trading).not.toMatch(/address: "[^"]/);
+  expect(trading).toContain('Postal address: ask by email');
+
+  /* Linked from the sitewide footer, not only the sitemap. */
+  const footer = read('src/components/Footer.tsx');
+  for (const href of ['/book.html', '/terms.html', '/privacy.html']) {
+    expect(footer).toContain(href);
+  }
+
+  /* And reachable from the crawlable pages themselves. */
+  expect(script).toContain('<a href="/terms.html">Booking terms</a>');
+  expect(script).toContain('<a href="/privacy.html">Privacy</a>');
+});
+
+it('keeps one answer per booking question', () => {
+  const data = read('src/data.ts');
+  const asked = data.match(/How far in advance should we book\?/g) ?? [];
+  expect(asked).toHaveLength(1);
+});

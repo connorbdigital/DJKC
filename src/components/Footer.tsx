@@ -1,6 +1,7 @@
 import { Icon } from "./Icons";
 import { Logo } from "./Logo";
 import { BOOKING_EMAIL, SOCIALS } from "../data";
+import { TRADING, tradingLines } from "../trading";
 
 export function Footer() {
   return (
@@ -108,6 +109,9 @@ export function Footer() {
             ["Club nights", "/club-night-dj.html"],
             ["Festivals", "/festival-dj.html"],
             ["Proms", "/prom-dj.html"],
+            ["How booking works", "/book.html"],
+            ["Booking terms", "/terms.html"],
+            ["Privacy", "/privacy.html"],
           ].map(([label, href]) => (
             <a key={href} href={href} className="transition-colors hover:text-magenta">
               {label}
@@ -119,9 +123,15 @@ export function Footer() {
         </nav>
 
         <div className="mt-8 flex flex-col items-center justify-between gap-5 sm:flex-row">
-          <p className="text-center font-mono text-[10px] uppercase tracking-[0.2em] text-faint sm:text-left">
-            © {new Date().getFullYear()} DJ KC · North West, UK · House that moves rooms
-          </p>
+          <div className="text-center sm:text-left">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-faint">
+              © {new Date().getFullYear()} {TRADING.name} · North West, UK · House that moves rooms
+            </p>
+            {/* Trader identity where the money is taken, not only on the terms page. */}
+            <p className="mt-2 font-mono text-[10px] leading-relaxed tracking-[0.14em] text-faint/80">
+              {tradingLines().join(" · ")}
+            </p>
+          </div>
           <a
             href="#top"
             aria-label="Back to top"

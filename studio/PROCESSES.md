@@ -191,8 +191,8 @@ _Being found and being quotable are now the same job. Static pages are read by c
 
 **What breaks without it.** The site is a single JavaScript page: crawlers index a shell, AI assistants have nothing to quote, and every price, date and FAQ is invisible to the thing people now ask first.
 
-- Version: 1.1.0 · source: `connorbdigital/DJKC`
-- Files: `scripts/build-static-pages.mts` (needs editing), `src/eventTypes.ts` (needs editing), `src/components/Occasions.tsx` (needs editing), `src/components/Reveal.tsx`, `index.html` (needs editing), `public/robots.txt` (needs editing)
+- Version: 1.2.0 · source: `connorbdigital/DJKC`
+- Files: `scripts/build-static-pages.mts` (needs editing), `src/eventTypes.ts` (needs editing), `src/components/Occasions.tsx` (needs editing), `src/components/Reveal.tsx`, `index.html` (needs editing), `public/robots.txt` (needs editing), `src/trading.ts` (needs editing)
 - Environment: `SITE_URL`
 - By hand: Add a postbuild script: node --experimental-strip-types scripts/build-static-pages.mts; Replace the page bodies with this project's facts; Give every kind of booking its own entry in src/eventTypes.ts — one page per buyer, not one page listing all of them
 

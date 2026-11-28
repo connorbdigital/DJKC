@@ -187,7 +187,7 @@ export const CAPABILITIES: Capability[] = [
   {
     id: "static-seo-pages",
     category: "search",
-    version: "1.1.0",
+    version: "1.2.0",
     name: "Crawlable static pages",
     summary:
       "Builds real HTML pages — prices, FAQs, dates, coverage — plus sitemap.xml and llms.txt from your data file, so search engines and answer bots can read the site without running JavaScript.",
@@ -203,6 +203,7 @@ export const CAPABILITIES: Capability[] = [
       { path: "src/components/Reveal.tsx", role: "The scroll-in wrapper that block uses" },
       { path: "index.html", role: "noscript facts, JSON-LD, meta — copy the shape, not the content", adapt: true },
       { path: "public/robots.txt", role: "Sitemap line and answer-engine access", adapt: true },
+      { path: "src/trading.ts", role: "The trader identity, retention periods and postal-address fallback the terms and privacy pages print", adapt: true },
     ],
     expects: [{ path: "src/data.ts", role: "the facts the generated pages are built from — your own content" }],
     env: ["SITE_URL"],
