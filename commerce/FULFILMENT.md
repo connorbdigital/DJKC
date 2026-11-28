@@ -13,12 +13,12 @@ nothing yet places an order with anybody.
 | # | Stage | Who does it | State today |
 | --- | --- | --- | --- |
 | 1 | Basket → Stripe Checkout Session | `commerce/api/checkout.js` | Built; returns 503 until `STRIPE_SECRET_KEY` is set on the `ecommerce` project |
-| 2 | Stripe says `checkout.session.completed` | Stripe → our webhook | **Missing.** No endpoint, so a paid order exists only in Stripe |
-| 3 | Write the order down | our database, via `applyEvent(order, paid)` | **Missing.** `src/orders.ts` has the rules; there is no store |
-| 4 | Ask the supplier to ship it | a `SupplierAdapter` | **Missing.** Interface defined, no implementation, no account |
-| 5 | Supplier accepts / refuses | their callback or a poll | **Missing** |
+| 2 | Stripe says `checkout.session.completed` | Stripe → our webhook | **Built.** `api/stripe-webhook.ts`, signature checked in constant time before anything else (`src/stripeWebhook.ts`); without a secret it answers 503 rather than 200 |
+| 3 | Write the order down | KV, via `applyEvent(order, paid)` | **Built.** `src/orderStore.ts` (Upstash REST or a Map), order rebuilt from the session's cart metadata and re-priced from the catalogue; a total that disagrees is refused |
+| 4 | Ask the supplier to ship it | a `SupplierAdapter` | **BigBuy written** (`src/suppliers/bigbuy.ts`, 14 tests, no key needed). No account, no Prodigi adapter, nothing live |
+| 5 | Supplier accepts / refuses | their callback or a poll | **Half.** BigBuy's `ER003` stockout is mapped to a cancellation; tracking is polled, not pushed |
 | 6 | Tracking reaches the customer | email from stage 4's answer | **Missing.** No email at all today |
-| 7 | Refund when it cannot be fulfilled | Stripe refund + `applyEvent(…, refunded)` | **Missing**, but the state machine already refuses to let it drift |
+| 7 | Refund when it cannot be fulfilled | Stripe refund + `applyEvent(…, refunded)` | **Half.** `charge.refunded` is recorded, as a delta, so a retry cannot refund twice. The Stripe refund itself is still done by hand |
 
 Stage 2 is the one that matters most, and it is the cheapest. Until it exists,
 every sale is a manual reconciliation in the Stripe dashboard.
@@ -108,6 +108,9 @@ Docs: <https://www.prodigi.com/print-api/docs/> · sandbox:
 
 ## The second: BigBuy, and what it costs
 
+**It is wired, in `src/suppliers/bigbuy.ts`.** What follows is why the code looks
+the way it does; `RESEARCH.md` has the cost arithmetic.
+
 The only supplier on our shortlist with a real, documented REST catalogue *and*
 order API:
 
@@ -154,16 +157,17 @@ just a status.
 
 ## What to build, in order
 
-1. **A webhook and a record.** `api/stripe-webhook.js`, signature verified,
-   `applyEvent(paid)`, order written down. Then an email. This alone turns a
-   payment into an order. Needs `STRIPE_WEBHOOK_SECRET` on the `ecommerce`
-   project. *(No supplier required.)*
+1. ~~A webhook and a record.~~ **Done** — `api/stripe-webhook.ts`. It needs
+   `STRIPE_WEBHOOK_SECRET`, a KV store and a key before it does anything, and the
+   confirmation email is still missing. *(No supplier required.)*
 2. **The manual adapter** and a queue page, so a human can fulfil the first real
    orders from a wholesaler's portal.
 3. **Prodigi**, end to end in the sandbox, then live: quote → place → callback →
-   tracking email. This is the first order the site places by itself.
-4. **BigBuy catalogue**, if and only if the Ecommerce package is paid for and the
-   £3.71 margin survives it.
+   tracking email. This is the first order the site places by itself, and the
+   adapter is the same shape as BigBuy's.
+4. ~~**BigBuy**~~ **Adapter written**, switchable with `BIGBUY_API_KEY` and
+   `SUPPLIER_NAME=bigbuy`. Still needs a paid Ecommerce pack, a decision on the
+   euro rate, and the Redis lock noted in `RESEARCH.md` before a live order.
 5. **Stock and price sync** for anyone shipping physical stock — last, because it
    is the most work and the least visible.
 
@@ -177,8 +181,11 @@ connected to anybody.
 | --- | --- | --- |
 | `STRIPE_SECRET_KEY` | project `ecommerce` | checkout returns 503 |
 | `STRIPE_WEBHOOK_SECRET` | project `ecommerce` | every webhook is rejected as unsigned, so no order exists |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | project `ecommerce` | the webhook has nowhere to record an order, so it answers 503 and Stripe retries |
 | `PRODIGI_API_KEY` | project `ecommerce` | print items cannot be ordered |
-| `BIGBUY_API_KEY` | project `ecommerce` | catalogue and orders stop |
+| `BIGBUY_API_KEY` | project `ecommerce` | catalogue and orders stop; with no key, paid orders wait in the manual queue |
+| `BIGBUY_API_BASE` | project `ecommerce` | set to `https://api.sandbox.bigbuy.eu` while testing; unset means production |
+| `SUPPLIER_NAME` | project `ecommerce` | which supplier the webhook reaches for; anything but `bigbuy` means "fulfil by hand" |
 | `RESEND_API_KEY` (or equivalent) | project `ecommerce` | no confirmation, no tracking email |
 
 Set as `sensitive` on production + preview, never in the repository, never in a

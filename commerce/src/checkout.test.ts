@@ -73,6 +73,42 @@ describe("pricing a basket on the server", () => {
     expect(body.get("line_items[0][price_data][currency]")).toBe("gbp");
   });
 
+  it("carries the basket in the session metadata, small enough for Stripe to keep", () => {
+    const priced = priceBasket(CATALOGUE, [{ id: shelf.id, qty: 2 }, { id: mug.id, qty: 1 }]);
+    const body = sessionBody({
+      lines: priced.lines,
+      shipping: priced.shipping,
+      baseUrl: "https://shop.example",
+      successPath: "/pages/order-complete.html",
+      cancelPath: "/shop.html?cancelled=1",
+    });
+    const cart = body.get("metadata[cart]")!;
+    expect(cart).toBe(`${shelf.id}x2,${mug.id}x1`);
+    expect(cart.length).toBeLessThanOrEqual(500);
+  });
+
+  it("leaves the basket off rather than truncating it", () => {
+    const lines = Array.from({ length: 60 }, (_, index) => ({
+      id: `HG-${1000 + index}`,
+      name: `Thing ${index}`,
+      image: "assets/x.svg",
+      unitMinor: 100,
+      qty: 1,
+      lineMinor: 100,
+    }));
+    const body = sessionBody({
+      lines,
+      shipping: 0,
+      baseUrl: "https://shop.example",
+      successPath: "/done",
+      cancelPath: "/shop",
+    });
+    /* 60 lines of ids is over Stripe's 500-character metadata limit, and a
+       half-written cart would be worse than none: the webhook refuses to build
+       an order it cannot read, so the sale is flagged instead of mis-shipped. */
+    expect(body.get("metadata[cart]")).toBeNull();
+  });
+
   it("keeps the shop and the checkout reading the same prices", () => {
     /* The generated catalogue is the CSV through another door: every product has
        a price, a stock answer and an image, and none of them is zero. */

@@ -120,9 +120,10 @@ month or more).
 
 ## The five to build next, in order
 
-1. **Payment + order record + confirmation email.** `FULFILMENT.md` is the design
-   for this and `src/orders.ts` is the state machine and supplier contract;
-   `src/orders.test.ts` is the proof of the rules. Nothing else matters until a
+1. **Payment + order record + confirmation email.** Two thirds done: the webhook
+   (`api/stripe-webhook.ts`) and the order record (`src/orderStore.ts`) exist and
+   are tested; the confirmation email does not. `FULFILMENT.md` is the design and
+   `src/orders.ts` is the state machine and supplier contract. Nothing else matters until a
    shopper can pay and you can prove what they bought. Stripe Checkout, a webhook,
    an order hash in KV, and one email. The DJ site already has the pattern.
 2. **Delivery promise before payment.** Choose the carrier rule, show the date and

@@ -314,7 +314,7 @@ export interface SupplierAdapter {
     lines: { supplierSku: string; quantity: number }[];
     address: Pick<OrderAddress, "postcode" | "country">;
   }): Promise<
-    | { ok: true; shippingMinor: number; etaDays: [number, number] | null }
+    | { ok: true; shippingMinor: number; currency: string; etaDays: [number, number] | null }
     | { ok: false; reason: string }
   >;
   /** Place it. `retryable` decides whether a failure is ours to retry or a wall. */
@@ -323,7 +323,12 @@ export interface SupplierAdapter {
     lines: { supplierSku: string; quantity: number }[];
     address: OrderAddress;
   }): Promise<
-    | { ok: true; supplierReference: string }
+    | {
+        ok: true;
+        supplierReference: string;
+        /** One basket can become several orders: one per warehouse. */
+        additionalReferences?: string[];
+      }
     | { ok: false; reason: string; retryable: boolean }
   >;
   /** Their callback, in their shape, read into ours. Null when it is not one. */
