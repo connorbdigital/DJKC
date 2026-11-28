@@ -580,3 +580,33 @@ describe("the pages a project opens", () => {
     }
   });
 });
+
+describe("a site opened in the space", () => {
+  const sites = buildAtlas().nodes.filter((node) => node.kind === "site");
+
+  it("has its landing page first, so the inside view has something to show", () => {
+    for (const site of sites) {
+      expect(site.pages?.length ?? 0).toBeGreaterThan(0);
+      expect(site.pages?.[0]?.href).toBe(site.href);
+      expect(site.pages?.[0]?.label).toBe("The landing page");
+    }
+  });
+
+  it("gives every funnel step a page of its own, on the site's own host", () => {
+    const withFunnel = sites.filter((site) => (site.funnel?.length ?? 0) > 0);
+    expect(withFunnel.length).toBeGreaterThan(0);
+    for (const site of withFunnel) {
+      for (const step of site.funnel ?? []) {
+        expect(site.pages?.some((entry) => entry.href === step.url), `${site.label} has no page for ${step.label}`).toBe(true);
+        expect(new URL(step.url).host).toBe(new URL(site.href ?? "https://example.com").host);
+      }
+    }
+  });
+
+  it("never lists the same page twice", () => {
+    for (const site of sites) {
+      const hrefs = (site.pages ?? []).map((page) => page.href);
+      expect(new Set(hrefs).size).toBe(hrefs.length);
+    }
+  });
+});

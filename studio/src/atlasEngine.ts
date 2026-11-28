@@ -26,6 +26,8 @@ export interface EngineHandlers {
   onBoost?: (on: boolean) => void;
   onTick: (info: { position: [number, number, number]; district: District; heading: string; near: string | null }) => void;
   onStatus: (message: string) => void;
+  /** A node's insides opened in the space, or closed again. */
+  onInside?: (node: AtlasNode | null) => void;
 }
 
 interface Pickable {
@@ -50,6 +52,37 @@ function nebulaTexture(): THREE.Texture {
     gradient.addColorStop(0, "rgba(255,255,255,0.9)");
     gradient.addColorStop(0.35, "rgba(255,255,255,0.28)");
     gradient.addColorStop(0.7, "rgba(255,255,255,0.06)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, size, size);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
+/**
+ * A corona: light *around* a star, with the middle left clear.
+ *
+ * The soft nebula blob has a hot centre, which is right for haze and wrong for a
+ * star — drawn over the sphere it wipes the surface out, and drawn at the same
+ * depth as the sphere it disappears behind it, because half a sprite sitting
+ * inside an opaque ball is half a sprite you never see. So the corona is a ring
+ * of light with a hole in it, drawn without a depth test: the star keeps its
+ * surface, and the light spills past its edge the way light does.
+ */
+function haloTexture(): THREE.Texture {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const gradient = context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    gradient.addColorStop(0, "rgba(255,255,255,0)");
+    gradient.addColorStop(0.3, "rgba(255,255,255,0.55)");
+    gradient.addColorStop(0.48, "rgba(255,255,255,0.4)");
+    gradient.addColorStop(0.68, "rgba(255,255,255,0.12)");
     gradient.addColorStop(1, "rgba(255,255,255,0)");
     context.fillStyle = gradient;
     context.fillRect(0, 0, size, size);
@@ -349,8 +382,12 @@ function labelSprite(text: string, options: { size?: number; colour?: string; we
     context.font = `${weight} ${size}px Manrope, system-ui, sans-serif`;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillStyle = "rgba(10,5,18,0.55)";
-    context.fillRect(0, 0, width, height);
+    /* No plate behind the words. A filled rectangle was a dark block hanging in
+       the sky at every distance — the third thing in this space that read as a
+       card when it was meant to be a name. A shadow does the same job as the
+       plate: the letters stay legible over a sun, and the shape disappears. */
+    context.shadowColor = "rgba(6,3,12,0.6)";
+    context.shadowBlur = Math.max(4, size * 0.22);
     context.fillStyle = colour;
     lines.forEach((entry, index) => {
       context.fillText(entry, width / 2, size * 0.9 + index * lineHeight);
@@ -525,6 +562,22 @@ export class AtlasEngine {
   private boardObject: CSS3DObject | null = null;
   private boardPending = false;
   private pageCurves: THREE.QuadraticBezierCurve3[] = [];
+  /* A node opened *in the space*: its pages as planets round it, its landing page
+     hanging above them as the real page, and every link it was read to have drawn
+     as a stream. This is the in-Atlas version of a project's room. */
+  private inside: {
+    id: string;
+    group: THREE.Group;
+    targets: { mesh: THREE.Mesh; href: string }[];
+    curves: THREE.QuadraticBezierCurve3[];
+    stream: { points: THREE.Points; at: number[]; curves: THREE.QuadraticBezierCurve3[] } | null;
+    panel: CSS3DObject | null;
+    links: number;
+    /** Links already drawn, so four pages linking to the same one is one stream. */
+    drawn: Set<string>;
+    /** Crisp labels under the ring: DOM, so a page name is readable at distance. */
+    labels: CSS3DObject[];
+  } | null = null;
   private stream: { points: THREE.Points; curves: THREE.QuadraticBezierCurve3[]; at: number[] } | null = null;
   private readonly stars: {
     points: THREE.Points;
@@ -870,7 +923,7 @@ export class AtlasEngine {
     this.focusId = node?.id ?? null;
     this.clearFocus();
 
-    if (node?.pages?.length) {
+    if (node?.pages?.length && !this.inside) {
       const source = new THREE.Vector3(...node.position);
       const radius = clamp(22 + node.pages.length * 3.6, 28, 56);
       const pages = node.pages;
@@ -1013,13 +1066,13 @@ export class AtlasEngine {
     this.pageCurves = [];
   }
 
-  /** Edges follow their endpoints: hide a district and its wiring goes with it. */
+  /** Edges follow their endpoints: hide a district and its wiring goes with it.
+   *  Nothing else hides them: a wire that only appears once you press something
+   *  is a space with no shape until it is asked. */
   private updateEdges() {
     const shown = new Set(this.pickables.filter((entry) => entry.mesh.visible).map((entry) => entry.node.id));
-    const selectedIsBrief = this.atlas.nodes.find((node) => node.id === this.selected)?.kind === "brief";
     for (const edge of this.edgeLines) {
-      edge.line.visible =
-        (edge.kind !== "proves" || selectedIsBrief) && shown.has(edge.from) && shown.has(edge.to);
+      edge.line.visible = shown.has(edge.from) && shown.has(edge.to);
     }
   }
 
@@ -1127,26 +1180,29 @@ export class AtlasEngine {
         continue;
       }
 
-      const geometry = isSite
-        ? new THREE.BoxGeometry(node.size * 1.7, node.size * 1.1, 0.14)
-        : sphereFor(
-            node.size * 1.18,
-            node.kind === "project" || node.kind === "pack" ? 64 : 40,
-            node.kind === "project" || node.kind === "pack" ? 48 : 28
-          );
-      const material = isSite
-        ? new THREE.MeshStandardMaterial({
-            color: colour,
-            emissive: colour,
-            emissiveIntensity: 1.1,
-            roughness: 0.35,
-            metalness: 0.15,
-            transparent: true,
-            opacity: 0.95,
-          })
-        : sunMaterial(colour, node.id.length * 0.37 + node.position[0] * 0.11);
+      /* Nothing in this space is a rectangle. A site used to be a framed box —
+         a screen — which at any distance read as a block stuck in the sky. It is
+         a ringed planet now: a sphere with a ring, which is what "somewhere you
+         can go" looks like when everything around it is a star. */
+      const geometry = sphereFor(
+        node.size * (isSite ? 1.05 : 1.18),
+        node.kind === "project" || node.kind === "pack" ? 64 : 40,
+        node.kind === "project" || node.kind === "pack" ? 48 : 28
+      );
+      /* Sites glow like everything else: a matte ball next to a sky of suns
+         reads as a lump of rock, not a place. The ring is what says "site". */
+      const material = sunMaterial(colour, node.id.length * 0.37 + node.position[0] * 0.11);
       const mesh = new THREE.Mesh(geometry, material);
       group.add(mesh);
+      if (isSite) {
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(node.size * 1.75, node.size * 0.055, 8, 64),
+          new THREE.MeshBasicMaterial({ color: colour.clone().lerp(new THREE.Color(0xffffff), 0.45), transparent: true, opacity: 0.8 })
+        );
+        ring.rotation.x = Math.PI / 2.35;
+        ring.rotation.z = 0.4;
+        group.add(ring);
+      }
       if (!isSite) {
         this.suns.push({
           id: node.id,
@@ -1164,33 +1220,37 @@ export class AtlasEngine {
       const coronaColour = colour.clone().lerp(new THREE.Color(0xffffff), 0.5);
       const corona = new THREE.Sprite(
         new THREE.SpriteMaterial({
-          map: nebulaTexture(),
+          map: haloTexture(),
           color: coronaColour,
           transparent: true,
-          opacity: isSite ? 0.16 : 0.34,
+          opacity: 0.6,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
+          depthTest: false,
           fog: false,
         })
       );
+      corona.renderOrder = 3;
       /* Small, numerous nodes carry a tighter corona: a nine-unit halo on a
          two-unit sun turns a shelf of forty into a smear at ten paces. */
       const haloScale = node.kind === "link" ? 2.1 : node.kind === "todo" ? 2.5 : node.kind === "built" ? 2.8 : 3.1;
-      corona.scale.setScalar(node.size * (isSite ? 3.6 : haloScale));
+      corona.scale.setScalar(node.size * (isSite ? 4.8 : haloScale * 1.2));
       group.add(corona);
 
       const glow = new THREE.Sprite(
         new THREE.SpriteMaterial({
-          map: nebulaTexture(),
+          map: haloTexture(),
           color: colour,
           transparent: true,
-          opacity: isSite ? 0.2 : 0.14,
+          opacity: isSite ? 0.42 : 0.24,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
+          depthTest: false,
           fog: false,
         })
       );
-      glow.scale.setScalar(node.size * (isSite ? 5.4 : haloScale * 2.1));
+      glow.renderOrder = 2;
+      glow.scale.setScalar(node.size * (isSite ? 7.4 : haloScale * 2.4));
       group.add(glow);
 
       const halo = new THREE.Mesh(
@@ -1520,6 +1580,11 @@ export class AtlasEngine {
     const wasDragging = this.dragging;
     this.dragging = false;
     if (!wasDragging || this.dragDistance > 6) return;
+    const inner = this.insideAt(event.clientX, event.clientY);
+    if (inner) {
+      window.open(inner, "_blank", "noopener,noreferrer");
+      return;
+    }
     const page = this.pageAt(event.clientX, event.clientY);
     if (page) {
       window.open(page, "_blank", "noopener,noreferrer");
@@ -1542,7 +1607,10 @@ export class AtlasEngine {
     this.keys.add(event.key.toLowerCase());
     if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(event.key.toLowerCase())) event.preventDefault();
     if (event.key === "f" && this.selected) this.flyToId(this.selected);
-    if (event.key === "Escape") this.select(null);
+    if (event.key === "Escape") {
+      if (this.inside) this.closeInside();
+      else this.select(null);
+    }
   };
 
   private onKeyUp = (event: KeyboardEvent) => {
@@ -1730,6 +1798,362 @@ export class AtlasEngine {
 
   /** Put a live page inside its gallery panel. The click has to come from real
    * DOM outside the 3D layer: Chromium does not hit-test CSS3D content. */
+  /**
+   * Open a node's insides **in the space** — the Atlas version, not the overlay.
+   *
+   * The page you land on hangs in the middle as the real page (fetched through
+   * `/api/site?page=`, so a site that refuses framing still shows up); its other
+   * pages are planets on a ring around it, each with its name under it; and every
+   * link read off the landing page is drawn as a stream running from the page it
+   * is on to the page it points at. That is the site at work: what it is, what it
+   * leads to, and which way the traffic goes.
+   */
+  openInside(id: string) {
+    const node = this.atlas.nodes.find((entry) => entry.id === id);
+    if (!node) return;
+    const pages = node.pages ?? [];
+    if (!pages.length) {
+      this.handlers.onStatus(`${node.label} has nothing recorded inside it.`);
+      return;
+    }
+    this.closeInside(false);
+    /* The pills the selection draws are the same pages at a smaller scale: two
+       rings of the same thing at once is a mess, so the inside view replaces
+       them while it is open. */
+    this.focusId = null;
+    this.clearFocus();
+    /* The other stars' plate panels belong to the room outside; standing inside
+       one node with six strangers' panels across the view is not a room. */
+    this.scene.traverse((object) => {
+      const element = (object as CSS3DObject).element as HTMLElement | undefined;
+      if (element?.classList?.contains("atlas-panel")) object.visible = false;
+    });
+
+    const origin = new THREE.Vector3(...node.position);
+    const group = new THREE.Group();
+    const targets: { mesh: THREE.Mesh; href: string }[] = [];
+    const curves: THREE.QuadraticBezierCurve3[] = [];
+    const radius = clamp(20 + pages.length * 2.4, 26, 40);
+    const label = (text: string, position: THREE.Vector3, accent: boolean) => {
+      const element = document.createElement("div");
+      element.className = accent ? "atlas-inside-label is-accent" : "atlas-inside-label";
+      element.textContent = text;
+      const object = new CSS3DObject(element);
+      object.position.copy(position);
+      object.scale.setScalar(0.03);
+      this.scene.add(object);
+      this.inside?.labels.push(object);
+      return object;
+    };
+    const at = new Map<string, THREE.Vector3>();
+
+    /* The landing page is the middle: it is what the star *is*. */
+    const landing = pages[0]!;
+    const landingColour = new THREE.Color(kindColour[node.kind]);
+    const heart = new THREE.Mesh(sphereFor(node.size * 1.5, 48, 34), sunMaterial(landingColour, 3.7));
+    heart.position.copy(origin);
+    group.add(heart);
+    const heartCrown = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: haloTexture(),
+        color: landingColour.clone().lerp(new THREE.Color(0xffffff), 0.4),
+        transparent: true,
+        opacity: 0.7,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: false,
+        fog: false,
+      })
+    );
+    heartCrown.renderOrder = 3;
+    heartCrown.scale.setScalar(node.size * 7);
+    heartCrown.position.copy(origin);
+    group.add(heartCrown);
+    /* The middle star carries the landing page's own name, in the same orange
+       the HUD uses for "this is the page you would see first". */
+    at.set(landing.href, origin);
+    const landingPlane = new THREE.Mesh(new THREE.PlaneGeometry(node.size * 3.4, node.size * 3.4), new THREE.MeshBasicMaterial({ visible: false }));
+    landingPlane.position.copy(origin);
+    group.add(landingPlane);
+    targets.push({ mesh: landingPlane, href: landing.href });
+
+    pages.slice(1).forEach((page, index) => {
+      const total = Math.max(pages.length - 1, 1);
+      /* The ring stands up, facing the way you arrive: a halo of pages around
+         the landing page, not a flat orbit that would sit in the gallery row
+         and be mistaken for the neighbouring sites. */
+      const angle = (index / total) * Math.PI * 2 - Math.PI / 2;
+      const position = new THREE.Vector3(
+        origin.x + Math.cos(angle) * radius,
+        origin.y + Math.sin(angle) * radius + 2,
+        origin.z + 14 + Math.sin(angle * 2) * 3
+      );
+      at.set(page.href, position);
+      const planet = new THREE.Mesh(sphereFor(1.9, 32, 22), sunMaterial(new THREE.Color(kindColour[node.kind]), index * 1.7));
+      planet.position.copy(position);
+      group.add(planet);
+      const planetaryGlow = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: haloTexture(),
+          color: new THREE.Color(kindColour[node.kind]).lerp(new THREE.Color(0xffffff), 0.5),
+          transparent: true,
+          opacity: 0.7,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: false,
+          fog: false,
+        })
+      );
+      planetaryGlow.renderOrder = 3;
+      planetaryGlow.position.copy(position);
+      planetaryGlow.scale.setScalar(9);
+      group.add(planetaryGlow);
+      label(page.label, position.clone().add(new THREE.Vector3(0, -3.6, 0)), false);
+      const reach = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshBasicMaterial({ visible: false }));
+      reach.position.copy(position);
+      group.add(reach);
+      targets.push({ mesh: reach, href: page.href });
+
+      /* The record says these pages belong together; the stream between the
+         middle and each of them is that claim, drawn. */
+      const curve = new THREE.QuadraticBezierCurve3(
+        origin.clone(),
+        new THREE.Vector3().lerpVectors(origin, position, 0.5).add(new THREE.Vector3(0, 0, 14)),
+        position.clone()
+      );
+      curves.push(curve);
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(curve.getPoints(28)),
+        new THREE.LineBasicMaterial({ color: 0x9fd7ff, transparent: true, opacity: 0.4, depthWrite: false })
+      );
+      group.add(line);
+    });
+
+    /* And what the star is wired to in the Atlas itself: its neighbours on an
+       outer ring, each joined by the pathway that already exists between them.
+       A site is not only its pages; it is the project it was built for, the
+       modules it runs on, the work it belongs to. Those are the connections. */
+    const neighbours = [
+      ...new Set(
+        this.edgeLines
+          .filter((edge) => edge.from === id || edge.to === id)
+          .map((edge) => (edge.from === id ? edge.to : edge.from))
+      ),
+    ]
+      .map((other) => this.atlas.nodes.find((entry) => entry.id === other))
+      .filter((other): other is AtlasNode => Boolean(other))
+      .slice(0, 7);
+    neighbours.forEach((other, index) => {
+      const angle = (index / Math.max(neighbours.length, 1)) * Math.PI * 2 - Math.PI / 2 + 0.3;
+      const far = radius * 1.5;
+      const position = new THREE.Vector3(
+        origin.x + Math.cos(angle) * far,
+        origin.y - 14 + Math.sin(index * 1.9) * 3,
+        origin.z + Math.sin(angle) * far
+      );
+      const star = new THREE.Mesh(
+        sphereFor(1.5, 26, 18),
+        sunMaterial(new THREE.Color(kindColour[other.kind]), index * 0.9)
+      );
+      star.position.copy(position);
+      group.add(star);
+      const neighbourGlow = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: haloTexture(),
+          color: new THREE.Color(kindColour[other.kind]),
+          transparent: true,
+          opacity: 0.5,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          depthTest: false,
+          fog: false,
+        })
+      );
+      neighbourGlow.renderOrder = 3;
+      neighbourGlow.position.copy(position);
+      neighbourGlow.scale.setScalar(8);
+      group.add(neighbourGlow);
+      const caption = labelSprite(other.label, { size: 30, max: 26, colour: "#cfd9ff", weight: 700 });
+      caption.position.copy(position).add(new THREE.Vector3(0, -3.2, 0));
+      group.add(caption);
+      const curve = new THREE.QuadraticBezierCurve3(
+        origin.clone(),
+        new THREE.Vector3().lerpVectors(origin, position, 0.5).setY(Math.max(origin.y, position.y) + 5),
+        position.clone()
+      );
+      curves.push(curve);
+      const line = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(curve.getPoints(24)),
+        new THREE.LineBasicMaterial({ color: 0x8c5bff, transparent: true, opacity: 0.35, depthWrite: false })
+      );
+      group.add(line);
+    });
+
+    this.scene.add(group);
+    this.inside = { id, group, targets, curves, stream: null, panel: null, links: 0, drawn: new Set(), labels: [] };
+    label(landing.label, origin.clone().add(new THREE.Vector3(0, -node.size * 2.8, 0)), true);
+
+    /* The landing page itself, hanging above the middle. */
+    const frame = document.createElement("div");
+    frame.className = "atlas-inside-page";
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("sandbox", "");
+    iframe.setAttribute("referrerpolicy", "no-referrer");
+    iframe.setAttribute("title", `${node.label}, the page itself`);
+    frame.appendChild(iframe);
+    const object = new CSS3DObject(frame);
+    object.position.copy(origin).add(new THREE.Vector3(0, radius + node.size * 2.2, 26));
+    object.scale.setScalar(0.038);
+    this.scene.add(object);
+    this.inside.panel = object;
+    void fetch(`/api/site?page=${encodeURIComponent(landing.href)}`)
+      .then((response) => (response.ok ? response.text() : null))
+      .then((html) => {
+        if (!html || !this.inside || this.inside.id !== id) return;
+        iframe.srcdoc = html;
+        frame.dataset.ready = "1";
+      })
+      .catch(() => {
+        /* A page that will not be read leaves the frame empty rather than lying
+           about it: the label under the middle star already names the page. */
+      });
+
+    this.rebuildInsideStream();
+
+    /* Now the links, read off the pages themselves. */
+    void this.readInsideLinks(id, pages.slice(0, 5).map((page) => page.href), at);
+
+    /* The camera: stand back far enough to hold the ring and the panel above it. */
+    const stop = origin.clone().add(new THREE.Vector3(0, radius * 0.7, radius * 3.05 + 42));
+    this.flight = { from: this.rig.position.clone(), to: stop, look: origin.clone().add(new THREE.Vector3(0, radius * 0.5, 12)), t: 0 };
+    this.handlers.onInside?.(node);
+    this.handlers.onStatus(`${node.label}: open in the space — ${pages.length} pages, its landing page hanging above them.`);
+  }
+
+  /** Read each page's links and draw the ones that end on a page we have. */
+  private async readInsideLinks(id: string, hrefs: string[], at: Map<string, THREE.Vector3>) {
+    for (const href of hrefs) {
+      let links: { label: string; href: string }[] = [];
+      try {
+        const response = await fetch("/api/site", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ url: href, links: true }),
+        });
+        const body = (await response.json()) as { ok?: boolean; links?: { label: string; href: string }[] };
+        if (body.ok && Array.isArray(body.links)) links = body.links;
+      } catch {
+        links = [];
+      }
+      if (!this.inside || this.inside.id !== id) return;
+      const from = at.get(href);
+      if (!from) continue;
+      for (const link of links) {
+        const to = at.get(link.href);
+        if (!to || to === from) continue;
+        if (this.inside.drawn.has(`${href}>${link.href}`)) continue;
+        this.inside.drawn.add(`${href}>${link.href}`);
+        const curve = new THREE.QuadraticBezierCurve3(
+          from.clone(),
+          new THREE.Vector3().lerpVectors(from, to, 0.5).setY(Math.max(from.y, to.y) + 10),
+          to.clone()
+        );
+        this.inside.curves.push(curve);
+        const line = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(curve.getPoints(26)),
+          new THREE.LineBasicMaterial({ color: 0xff2bd6, transparent: true, opacity: 0.6, depthWrite: false })
+        );
+        this.inside.group.add(line);
+        this.inside.links += 1;
+      }
+      this.rebuildInsideStream();
+    }
+    if (this.inside) {
+      this.handlers.onStatus(
+        this.inside.links
+          ? `${this.inside.links} links read off the pages, running as streams.`
+          : "None of those pages linked to another page in this ring."
+      );
+    }
+  }
+
+  private rebuildInsideStream() {
+    if (!this.inside) return;
+    if (this.inside.stream) {
+      this.scene.remove(this.inside.stream.points);
+      this.inside.stream.points.geometry.dispose();
+      (this.inside.stream.points.material as THREE.Material).dispose();
+      this.inside.stream = null;
+    }
+    const curves = this.inside.curves;
+    if (!curves.length) return;
+    const perCurve = 4;
+    const count = curves.length * perCurve;
+    const positions = new Float32Array(count * 3);
+    const ata: number[] = [];
+    for (let index = 0; index < count; index += 1) ata.push((index % perCurve) / perCurve + Math.random() * 0.05);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const points = new THREE.Points(
+      geometry,
+      new THREE.PointsMaterial({
+        map: speckTexture(),
+        color: 0xd8f6ff,
+        alphaTest: 0.05,
+        size: 1.7,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+      })
+    );
+    this.scene.add(points);
+    this.inside.stream = { points, at: ata, curves };
+  }
+
+  closeInside(notify = true) {
+    if (!this.inside) return;
+    this.scene.remove(this.inside.group);
+    this.inside.group.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      mesh.geometry?.dispose?.();
+      const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+      if (Array.isArray(material)) material.forEach((entry) => entry.dispose());
+      else material?.dispose?.();
+    });
+    for (const entry of this.inside.labels) {
+      entry.element.remove();
+      this.scene.remove(entry);
+    }
+    if (this.inside.panel) {
+      this.inside.panel.element.remove();
+      this.scene.remove(this.inside.panel);
+    }
+    if (this.inside.stream) {
+      this.scene.remove(this.inside.stream.points);
+      this.inside.stream.points.geometry.dispose();
+      (this.inside.stream.points.material as THREE.Material).dispose();
+    }
+    this.inside = null;
+    this.scene.traverse((object) => {
+      const element = (object as CSS3DObject).element as HTMLElement | undefined;
+      if (element?.classList?.contains("atlas-panel")) object.visible = true;
+    });
+    if (notify) this.handlers.onInside?.(null);
+  }
+
+  /** The page under the pointer, in a node that is open in the space. */
+  private insideAt(clientX: number, clientY: number): string | null {
+    if (!this.inside?.targets.length) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(this.pointer, this.camera);
+    const hit = this.raycaster.intersectObjects(this.inside.targets.map((entry) => entry.mesh), false)[0];
+    if (!hit) return null;
+    return this.inside.targets.find((entry) => entry.mesh === hit.object)?.href ?? null;
+  }
+
   loadSite(id: string): boolean {
     const panel = this.panels.get(id);
     const node = this.atlas.nodes.find((entry) => entry.id === id);
@@ -1966,6 +2390,10 @@ export class AtlasEngine {
       /* Thirteen process names inside one sphere become a wall of text from
          across the room; they appear when you are close enough to read them. */
       if (label.kind === "capability" || label.kind === "step") label.sprite.visible = away < 62;
+      /* Far names fade instead of shrinking into a dark smear: past the point
+         where a name could be read it is texture, and texture is not a label. */
+      (label.sprite.material as THREE.SpriteMaterial).opacity = clamp(1 - (away - 70) / 110, 0, 1);
+      if (away > 180) label.sprite.visible = false;
     }
     for (const card of this.cards) {
       const world = card.sprite.getWorldPosition(new THREE.Vector3());
@@ -2011,6 +2439,29 @@ export class AtlasEngine {
         (focused
           ? clamp(1 - away / 700, 0.45, 1)
           : clamp(0.72 - away / 700, 0.2, 0.72) * (edge.kind === "proves" ? 0.55 : 1)) * this.edgeScale;
+    }
+
+    /* The insides of an open node: its landing page turns to face you and its
+       streams keep running. */
+    if (this.inside) {
+      if (this.inside.panel) this.inside.panel.quaternion.copy(this.camera.quaternion);
+      for (const entry of this.inside.labels) entry.quaternion.copy(this.camera.quaternion);
+      const running = this.inside.stream;
+      if (running) {
+        const attribute = running.points.geometry.getAttribute("position") as THREE.BufferAttribute;
+        const perCurve = 4;
+        const point = new THREE.Vector3();
+        running.curves.forEach((curve, curveIndex) => {
+          for (let index = 0; index < perCurve; index += 1) {
+            const slot = curveIndex * perCurve + index;
+            const progress = running.at[slot] ?? 0;
+            curve.getPoint(progress % 1, point);
+            attribute.setXYZ(slot, point.x, point.y, point.z);
+            running.at[slot] = (progress + delta * 0.24) % 1;
+          }
+        });
+        attribute.needsUpdate = true;
+      }
     }
 
     /* The streams: particles walking the selected node's wires. */
@@ -2102,6 +2553,7 @@ export class AtlasEngine {
   }
 
   dispose() {
+    this.closeInside(false);
     this.disposed = true;
     this.renderer.setAnimationLoop(null);
     this.stage.removeEventListener("pointerdown", this.onPointerDown);

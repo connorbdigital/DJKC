@@ -220,6 +220,8 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
   const [selected, setSelected] = useState<AtlasNode | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
+  /* The node whose insides are open *in the space*, if any. */
+  const [insideNode, setInsideNode] = useState<AtlasNode | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState("");
   const [filter, setFilter] = useState<NodeKind | "all">("all");
@@ -373,6 +375,8 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
             /* A project is a star with an inside: clicking one opens its own
                space instead of only describing it in the panel. */
             if (node?.kind === "project" || node?.kind === "app") setSpace(node);
+            /* Anything else that has pages can still be opened inside the Atlas
+               with the button in the actions row. */
             /* A site opens on its plate, not on an iframe: the picture of the
                page is the point, and the live page is a button away. Loading it
                on selection meant the plate was never seen at all. */
@@ -398,6 +402,9 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           },
           onBoost: (on) => setBoosting(on),
           onStatus: (message) => setStatus(message),
+          /* A node opened *in the space*: the HUD shows which one, and how to
+             get back out of it. */
+          onInside: (node) => setInsideNode(node),
         },
         fromHash ? null : readPose()
       );
@@ -856,6 +863,16 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
         </form>
 
         <div className="atlas-actions">
+          {selected?.pages?.length ? (
+            <button
+              className="btn inside-open"
+              type="button"
+              onClick={() => engine.current?.openInside(selected.id)}
+              title="Open it here, in the space: its landing page, its other pages, and its links running as streams"
+            >
+              ◎ Open in the space
+            </button>
+          ) : null}
           <button
             className="btn stars-open"
             type="button"
@@ -931,6 +948,21 @@ export function Atlas({ onClose }: { onClose?: () => void }) {
           )}
         </div>
       </div>
+
+      {insideNode && (
+        <div className="atlas-hud atlas-inside-bar" role="status">
+          <span className="atlas-inside-where">Inside</span>
+          <strong>{insideNode.label}</strong>
+          <span className="atlas-inside-what">its landing page, its other pages, and every link running between them</span>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={() => engine.current?.closeInside()}
+          >
+            ← Back to the space
+          </button>
+        </div>
+      )}
 
       <div className="atlas-hud atlas-filters" role="group" aria-label="Show only">
         {FILTERS.map((entry) => (
