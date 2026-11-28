@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { buildAtlas } from "../src/atlas.js";
-import { readApps, worldVersion, type WorldDeployment, type WorldSource } from "../src/world.js";
+import { readApps, worldVersion, type WorldBridge, type WorldDeployment, type WorldSource } from "../src/world.js";
 
 /**
  * The world: one snapshot of everything the space is made of.
@@ -17,7 +17,12 @@ import { readApps, worldVersion, type WorldDeployment, type WorldSource } from "
  *  - **A source that did not answer is named.** An empty answer and a refused
  *    one are different sentences, and the HUD shows which is which.
  *  - **Polling is cheap.** Sixty seconds of cache, and an ETag that is the
- *    content's own version, so a refresh that finds nothing new costs a 304.
+ *    content's own version, honoured on `If-None-Match` so a refresh that finds
+ *    nothing new costs a 304 and no bytes.
+ *  - **What it can do is part of the world.** Each bridge reports whether it can
+ *    read, the one write it can perform, and — for Anything, where a revision is
+ *    paid for in credits — how many are left. "Can I send this?" is two facts,
+ *    and the space should hold both before it offers a button.
  */
 
 const CACHE_MS = 60_000;
@@ -39,6 +44,7 @@ interface WorldSnapshot {
   sources: WorldSource[];
   apps: ReturnType<typeof readApps>;
   deployments: WorldDeployment[];
+  bridges: WorldBridge[];
   counts: { nodes: number; edges: number; districts: number; apps: number; deployments: number };
 }
 
@@ -77,19 +83,32 @@ const readJson = async (url: string, init?: RequestInit): Promise<unknown> => {
  * the space can show an app as a sun without opening all of its screens, and
  * eight of them is eight round trips on every cold start.
  */
-const readAnything = async (req: IncomingMessage): Promise<{ source: WorldSource; apps: WorldSnapshot["apps"] }> => {
+const readAnything = async (
+  req: IncomingMessage
+): Promise<{ source: WorldSource; apps: WorldSnapshot["apps"]; credits: number | null; plan: string }> => {
   const at = Date.now();
   const base = origin(req);
   const label = "Anything";
   if (!base) {
-    return { source: { id: "anything", label, ok: false, at: 0, note: "no origin to call the bridge on" }, apps: [] };
+    return {
+      source: { id: "anything", label, ok: false, at: 0, note: "no origin to call the bridge on" },
+      apps: [],
+      credits: null,
+      plan: "",
+    };
   }
   try {
-    const body = await readJson(`${base}/api/anything`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path: "/v0/api/projects?limit=100" }),
-    });
+    const ask = (path: string) =>
+      readJson(`${base}/api/anything`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path }),
+      });
+    /* Who the key is and what it can spend, beside what it can list. The balance
+       is the difference between "the brief can be sent" and "it will be refused
+       for want of credits", and the space is not allowed to guess at that. */
+    const mePromise = ask("/v0/api/me").catch(() => null);
+    const body = await ask("/v0/api/projects?limit=100");
     const projects = Array.isArray((body as { projects?: unknown })?.projects)
       ? ((body as { projects: unknown[] }).projects as Record<string, unknown>[])
       : Array.isArray(body)
@@ -106,16 +125,31 @@ const readAnything = async (req: IncomingMessage): Promise<{ source: WorldSource
         updatedAt: project.updatedAt,
       }))
     );
+    const me = (await mePromise) as { organizations?: { creditsBalance?: unknown; planDisplayName?: unknown }[] } | null;
+    const organizations = Array.isArray(me?.organizations) ? me!.organizations! : [];
+    const credits = organizations.length
+      ? organizations.reduce((total, org) => total + (typeof org?.creditsBalance === "number" ? org.creditsBalance : 0), 0)
+      : null;
+    const plan = organizations
+      .map((org) => (typeof org?.planDisplayName === "string" ? org.planDisplayName : ""))
+      .filter(Boolean)
+      .join(", ");
+
     return {
       source: {
         id: "anything",
         label,
         ok: true,
         at,
-        note: apps.length ? `${apps.length} project${apps.length === 1 ? "" : "s"}` : "answered, no projects",
+        note: [
+          apps.length ? `${apps.length} project${apps.length === 1 ? "" : "s"}` : "answered, no projects",
+          credits === null ? "credits not read" : `${credits.toLocaleString("en-GB")} credits`,
+        ].join(" · "),
         count: apps.length,
       },
       apps,
+      credits,
+      plan,
     };
   } catch (problem) {
     return {
@@ -127,6 +161,8 @@ const readAnything = async (req: IncomingMessage): Promise<{ source: WorldSource
         note: problem instanceof Error ? problem.message.slice(0, 160) : "did not answer",
       },
       apps: [],
+      credits: null,
+      plan: "",
     };
   }
 };
@@ -228,12 +264,49 @@ const build = async (req: IncomingMessage): Promise<WorldSnapshot> => {
   const atlas = buildAtlas([], anything.apps);
   const version = worldVersion({ nodes: atlas.nodes, apps: anything.apps, deployments: vercel.deployments });
 
+  /* The write surface, named exactly. Anything's one write is a generate; the
+     GitHub bridge writes only with a token the person at the gate supplies, so it
+     reports no server-side write rather than borrowing a capability it lacks. */
+  const bridges: WorldBridge[] = [
+    {
+      id: "anything",
+      label: "Anything",
+      read: anything.source.ok,
+      write: anything.source.ok ? "/v0/api/projects/{id}/generate" : null,
+      credits: anything.credits,
+      note: anything.source.ok
+        ? anything.credits === null
+          ? "the key reads projects; credits could not be read, so a send may be refused for want of them"
+          : `${anything.credits.toLocaleString("en-GB")} credits${anything.plan ? ` on ${anything.plan}` : ""} — one brief is one revision and spends from this`
+        : `no write: the read is refused (${anything.source.note})`,
+    },
+    {
+      id: "vercel",
+      label: "Vercel",
+      read: Boolean(process.env.VERCEL_TOKEN),
+      write: null,
+      credits: null,
+      note: process.env.VERCEL_TOKEN ? "deployments are read; deploys are made by git" : "no VERCEL_TOKEN — nothing is read",
+    },
+    {
+      id: "github",
+      label: "GitHub",
+      read: Boolean(process.env.GITHUB_TOKEN),
+      write: null,
+      credits: null,
+      note: process.env.GITHUB_TOKEN
+        ? "reads through the proxy; writes still ask for a token at the gate"
+        : "no GITHUB_TOKEN — the gate asks for one",
+    },
+  ];
+
   return {
     version,
     builtAt,
     sources,
     apps: anything.apps,
     deployments: vercel.deployments,
+    bridges,
     counts: {
       nodes: atlas.nodes.length,
       edges: atlas.edges.length,
@@ -256,16 +329,57 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       return;
     }
     const fresh = (req.url ?? "").includes("fresh=1");
+    const head = req.method === "HEAD";
+    const tag = (version: string) => `"${version}"`;
+
+    /* A poll that already holds this version gets nothing back but the news that
+       nothing changed. The ETag was being advertised and never honoured, which
+       made every refresh a full snapshot — the one thing the cache was for. */
+    const revalidated = (version: string): boolean => {
+      const asked = (req.headers["if-none-match"] as string | undefined)?.trim();
+      if (!asked) return false;
+      const wanted = asked
+        .split(",")
+        .map((entry) => entry.trim().replace(/^W\//, ""))
+        .filter(Boolean);
+      return wanted.includes(tag(version)) || wanted.includes("*");
+    };
+
     if (cache && !fresh && Date.now() - cache.at < CACHE_MS) {
-      res.setHeader("ETag", `"${cache.world.version}"`);
+      res.setHeader("ETag", tag(cache.world.version));
       res.setHeader("X-World-Cache", "hit");
+      if (!head && revalidated(cache.world.version)) {
+        res.statusCode = 304;
+        res.removeHeader?.("Content-Type");
+        res.setHeader("Cache-Control", "no-cache");
+        res.end("");
+        return;
+      }
+      if (head) {
+        res.statusCode = 200;
+        res.end("");
+        return;
+      }
       json(res, 200, { ok: true, world: cache.world });
       return;
     }
     const world = await build(req);
     cache = { at: Date.now(), world };
-    res.setHeader("ETag", `"${world.version}"`);
+    res.setHeader("ETag", tag(world.version));
     res.setHeader("X-World-Cache", "miss");
+    if (revalidated(world.version)) {
+      /* Rebuilt, and it is the same world: the 304 is still the honest answer,
+         and the HUD learns the snapshot was checked rather than assumed. */
+      res.statusCode = 304;
+      res.setHeader("Cache-Control", "no-cache");
+      res.end("");
+      return;
+    }
+    if (head) {
+      res.statusCode = 200;
+      res.end("");
+      return;
+    }
     json(res, 200, { ok: true, world });
   } catch (problem) {
     if (res.headersSent) return;

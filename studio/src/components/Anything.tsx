@@ -60,7 +60,7 @@ function ShelfReading() {
  * it is sent — and what comes back is a revision id, so the change can be watched
  * where it happens rather than guessed at from here.
  */
-function SendBrief({ project }: { project: AnythingProject }) {
+function SendBrief({ project, credits }: { project: AnythingProject; credits: number | null }) {
   const [draft, setDraft] = useState(APEX_AUDIT_BRIEF.prompt);
   const [step, setStep] = useState<"idle" | "confirm" | "sending">("idle");
   const [result, setResult] = useState<{ kind: "sent"; revisionId: string } | { kind: "failed"; reason: string } | null>(null);
@@ -99,7 +99,10 @@ function SendBrief({ project }: { project: AnythingProject }) {
       )}
       {step === "confirm" && (
         <span className="anything-brief-confirm">
-          <span className="muted small">This starts a revision in the project. Anything will build it; you can stop it there.</span>
+          <span className="muted small">
+            This starts a revision in the project and spends credits — {credits === null ? "your balance could not be read" : `${credits.toLocaleString("en-GB")} left`}.
+            Anything builds it from there; you can stop it in the builder.
+          </span>
           <button className="btn ghost small-btn" type="button" onClick={send}>
             Send it
           </button>
@@ -355,7 +358,7 @@ export function Anything() {
                         ) : (
                           <p className="muted small">The API lists no files for this project yet.</p>
                         )}
-                        <SendBrief project={project} />
+                        <SendBrief project={project} credits={credits} />
                       </>
                     )}
                   </div>
